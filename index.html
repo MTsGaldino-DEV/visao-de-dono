@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Visão de Dono</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:14px;background:#f5f5f5;color:#222}
+#app{min-height:100vh}
+.screen{display:none}.screen.active{display:block}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e0e0e0}
+.topbar-title{font-size:15px;font-weight:600;color:#1a1a1a}
+.topbar-right{display:flex;align-items:center;gap:8px;font-size:13px;color:#666}
+.btn-sm{font-size:12px;padding:5px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#333;cursor:pointer}
+.btn-sm:hover{background:#f0f0f0}
+.wrap{padding:16px;max-width:1100px;margin:0 auto}
+.tabs{display:flex;gap:2px;border-bottom:2px solid #e0e0e0;margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;border:none;background:none;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab.active{color:#1a1a1a;font-weight:600;border-bottom:2px solid #1a1a1a}
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.stat{background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #e0e0e0}
+.stat .lbl{font-size:11px;color:#888;margin-bottom:4px}
+.stat .val{font-size:22px;font-weight:600}
+.val.blue{color:#1565C0}.val.amber{color:#E65100}.val.green{color:#2E7D32}.val.muted{color:#555}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;align-items:end}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:11px;color:#888}
+.fld input,.fld select,.fld textarea{width:100%;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:13px;background:#fff;color:#222}
+.fld textarea{resize:vertical}
+.tbl-wrap{overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{text-align:left;font-size:11px;color:#888;font-weight:600;padding:8px 10px;border-bottom:1px solid #e0e0e0;white-space:nowrap;cursor:pointer;background:#fafafa}
+th:hover{color:#333}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.badge{display:inline-block;font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600;white-space:nowrap}
+.badge.cadastrado{background:#E3F2FD;color:#1565C0}
+.badge.enviado{background:#F3E5F5;color:#6A1B9A}
+.badge.pendente{background:#FFF3E0;color:#E65100}
+.badge.concluido{background:#E8F5E9;color:#2E7D32}
+.row-acts{display:flex;gap:4px;flex-wrap:wrap}
+.act-btn{font-size:10px;padding:4px 8px;border:1px solid #ccc;border-radius:5px;background:#fff;color:#333;cursor:pointer;white-space:nowrap}
+.act-btn:hover{background:#f0f0f0}
+.act-btn.warn{border-color:#E65100;color:#E65100}
+.act-btn.suc{border-color:#2E7D32;color:#2E7D32}
+.act-btn.info{border-color:#1565C0;color:#1565C0}
+.empty{text-align:center;padding:40px;color:#aaa;font-size:13px}
+.form-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px}
+.form-card h3{font-size:14px;font-weight:600;margin-bottom:14px;color:#333}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrid .full{grid-column:1/-1}
+.btn-prim{padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid #333;background:#fff;color:#333;font-weight:600}
+.btn-prim:hover{background:#f0f0f0}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;background:#f5f5f5}
+.login-card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:32px 28px;width:100%;max-width:360px}
+.login-card h2{font-size:20px;font-weight:700;margin-bottom:4px}
+.login-card p{font-size:13px;color:#888;margin-bottom:24px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:24px;width:420px;max-width:95%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.hist-item{padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
+.hist-item:last-child{border-bottom:none}
+.hist-who{font-weight:600;color:#333}
+.hist-when{color:#aaa;margin-left:6px;font-size:11px}
+.hist-what{color:#666;margin-top:3px}
+.tipo-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tipo-tab{padding:4px 12px;font-size:12px;border:1px solid #ccc;border-radius:20px;cursor:pointer;background:#fff;color:#888}
+.tipo-tab.active{background:#333;color:#fff;border-color:#333}
+.chart-wrap{position:relative;width:100%;height:200px;margin-top:8px}
+.section-title{font-size:11px;font-weight:600;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em}
+.loading{text-align:center;padding:60px;color:#aaa;font-size:14px}
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:999;display:none;max-width:320px}
+.toast.show{display:block}
+.user-info{background:#f5f5f5;border-radius:6px;padding:8px 12px;font-size:12px;color:#666;margin-bottom:16px}
+.user-info strong{color:#333}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Visão de Dono</h2>
+      <p>Controle de serviços de campo</p>
+      <div class="fld" style="margin-bottom:12px">
+        <label>Matrícula</label>
+        <input type="text" id="lu" placeholder="Digite sua matrícula" onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()"/>
+      </div>
+      <div class="fld" style="margin-bottom:18px">
+        <label>Senha</label>
+        <input type="password" id="lp" placeholder="Digite sua senha" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn-prim" style="width:100%" onclick="doLogin()">Entrar</button>
+      <p id="lerr" style="color:#c62828;font-size:12px;margin-top:10px;display:none">Matrícula ou senha incorretos.</p>
+    </div>
+  </div>
+</div>
+
+<div id="screen-aprendiz" class="screen">
+  <div class="topbar">
+    <span class="topbar-title">Visão de Dono</span>
+    <div class="topbar-right"><span id="ulabel-a"></span><button class="btn-sm" onclick="doLogout()">Sair</button></div>
+  </div>
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('cad',this)">Cadastrar</button>
+      <button class="tab" onclick="switchTab('lista',this)">Serviços</button>
+    </div>
+    <div id="tab-cad">
+      <div class="form-card">
+        <h3>Novo serviço levantado</h3>
+        <div class="fgrid">
+          <div class="fld"><label>Data do levantamento</label><input type="datetime-local" id="f-data"/></div>
+          <div class="fld"><label>Localidade</label><input type="text" id="f-local" placeholder="Ex: Frei Inocêncio"/></div>
+          <div class="fld full"><label>Descrição da solicitação</label><textarea id="f-desc" rows="3" placeholder="Descreva o serviço levantado pelo técnico..."></textarea></div>
+          <div class="fld"><label>Tipo de serviço</label><select id="f-tipo"><option value="">Selecione...</option><option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option></select></div>
+          <div class="fld"><label>Equipamento</label><input type="text" id="f-equip" placeholder="Ex: Chave 13867"/></div>
+          <div class="fld"><label>Coordenada</label><input type="text" id="f-coord" placeholder="-18.517, -41.936"/></div>
+          <div class="fld"><label>Link da foto</label><input type="text" id="f-foto" placeholder="https://..."/></div>
+          <div class="fld"><label>Técnico de origem</label><input type="text" id="f-orig" placeholder="Nome do técnico"/></div>
+          <div class="fld full"><label>Observações</label><input type="text" id="f-obs" placeholder="Observações adicionais"/></div>
+        </div>
+        <div style="margin-top:14px"><button class="btn-prim" onclick="cadastrar()">Cadastrar serviço</button></div>
+      </div>
+    </div>
+    <div id="tab-lista" style="display:none">
+      <div class="filters">
+        <div class="fld"><label>Busca (ID ou Nº serviço)</label><input type="text" id="f-busca" placeholder="VD0001 ou 207809115" oninput="renderLista()"/></div>
+        <div class="fld"><label>Status</label><select id="f-status" onchange="renderLista()"><option value="">Todos</option><option value="cadastrado">Cadastrado</option><option value="enviado">Enviado CEMIG</option><option value="pendente">Pendente</option><option value="concluido">Concluído</option></select></div>
+        <div class="fld"><label>Tipo</label><select id="f-ftipo" onchange="renderLista()"><option value="">Todos</option><option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option></select></div>
+        <div class="fld"><label>De</label><input type="date" id="f-de" onchange="renderLista()"/></div>
+        <div class="fld"><label>Até</label><input type="date" id="f-ate" onchange="renderLista()"/></div>
+      </div>
+      <div class="tipo-tabs">
+        <button class="tipo-tab active" onclick="setTipoFilter('',this)">Todos</button>
+        <button class="tipo-tab" onclick="setTipoFilter('NSIS',this)">NSIS</button>
+        <button class="tipo-tab" onclick="setTipoFilter('NSMP',this)">NSMP</button>
+        <button class="tipo-tab" onclick="setTipoFilter('RC02',this)">RC02</button>
+        <button class="tipo-tab" onclick="setTipoFilter('INBE',this)">INBE</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <colgroup><col style="width:80px"><col style="width:120px"><col style="width:110px"><col><col style="width:65px"><col style="width:95px"><col style="width:100px"><col style="width:100px"><col style="width:130px"></colgroup>
+          <thead><tr>
+            <th onclick="sortBy('id')">ID <span id="sort-id"></span></th>
+            <th onclick="sortBy('data')">Data <span id="sort-data"></span></th>
+            <th onclick="sortBy('local')">Localidade <span id="sort-local"></span></th>
+            <th onclick="sortBy('desc')">Descrição <span id="sort-desc"></span></th>
+            <th onclick="sortBy('tipo')">Tipo <span id="sort-tipo"></span></th>
+            <th onclick="sortBy('status')">Status <span id="sort-status"></span></th>
+            <th onclick="sortBy('numServ')">Nº serviço <span id="sort-numServ"></span></th>
+            <th onclick="sortBy('equip')">Equipamento <span id="sort-equip"></span></th>
+            <th>Ações</th>
+          </tr></thead>
+          <tbody id="tbody-a"></tbody>
+        </table>
+        <div id="empty-a" class="empty" style="display:none">Nenhum serviço encontrado.</div>
+        <div id="loading-a" class="loading">Carregando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-dono" class="screen">
+  <div class="topbar">
+    <span class="topbar-title">Visão de Dono — Painel gerencial</span>
+    <div class="topbar-right"><span id="ulabel-d"></span><button class="btn-sm" onclick="doLogout()">Sair</button></div>
+  </div>
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('dash',this)">Painel</button>
+      <button class="tab" onclick="switchTab('todos',this)">Todos os serviços</button>
+    </div>
+    <div id="tab-dash">
+      <div class="stats-grid">
+        <div class="stat"><div class="lbl">Total cadastrado</div><div class="val muted" id="d-total">—</div></div>
+        <div class="stat"><div class="lbl">Enviados CEMIG</div><div class="val blue" id="d-env">—</div></div>
+        <div class="stat"><div class="lbl">Pendentes</div><div class="val amber" id="d-pend">—</div></div>
+        <div class="stat"><div class="lbl">Concluídos</div><div class="val green" id="d-conc">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-card" style="margin-bottom:0">
+          <div class="section-title">Produtividade por aprendiz</div>
+          <div class="chart-wrap"><canvas id="chart-prod" role="img" aria-label="Cadastros por aprendiz">Cadastros por aprendiz.</canvas></div>
+        </div>
+        <div class="form-card" style="margin-bottom:0">
+          <div class="section-title">Serviços por tipo</div>
+          <div class="chart-wrap"><canvas id="chart-tipo" role="img" aria-label="Distribuição por tipo">Distribuição por tipo de serviço.</canvas></div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div class="section-title">Tempo médio (cadastro → retorno CEMIG)</div>
+        <div id="tempo-medio" style="font-size:26px;font-weight:700;margin-top:4px">—</div>
+        <div style="font-size:12px;color:#aaa;margin-top:4px">dias em média até receber o número da CEMIG</div>
+      </div>
+    </div>
+    <div id="tab-todos" style="display:none">
+      <div class="filters" style="margin-bottom:10px">
+        <div class="fld"><label>Busca (ID ou Nº serviço)</label><input type="text" id="d-busca" placeholder="VD0001 ou 207809115" oninput="renderDono()"/></div>
+        <div class="fld"><label>Status</label><select id="d-status" onchange="renderDono()"><option value="">Todos</option><option value="cadastrado">Cadastrado</option><option value="enviado">Enviado CEMIG</option><option value="pendente">Pendente</option><option value="concluido">Concluído</option></select></div>
+        <div class="fld"><label>Tipo</label><select id="d-ftipo" onchange="renderDono()"><option value="">Todos</option><option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option></select></div>
+        <div class="fld"><label>De</label><input type="date" id="d-de" onchange="renderDono()"/></div>
+        <div class="fld"><label>Até</label><input type="date" id="d-ate" onchange="renderDono()"/></div>
+      </div>
+      <div style="margin-bottom:10px;text-align:right"><button class="btn-sm" onclick="exportarExcel()">Exportar Excel (filtrado)</button></div>
+      <div class="tbl-wrap">
+        <table>
+          <colgroup><col style="width:80px"><col style="width:120px"><col style="width:110px"><col><col style="width:65px"><col style="width:95px"><col style="width:100px"><col style="width:100px"><col style="width:90px"></colgroup>
+          <thead><tr>
+            <th onclick="sortByD('id')">ID <span id="ds-id"></span></th>
+            <th onclick="sortByD('data')">Data <span id="ds-data"></span></th>
+            <th onclick="sortByD('local')">Localidade <span id="ds-local"></span></th>
+            <th onclick="sortByD('desc')">Descrição <span id="ds-desc"></span></th>
+            <th onclick="sortByD('tipo')">Tipo <span id="ds-tipo"></span></th>
+            <th onclick="sortByD('status')">Status <span id="ds-status"></span></th>
+            <th onclick="sortByD('numServ')">Nº serviço <span id="ds-numServ"></span></th>
+            <th onclick="sortByD('equip')">Equipamento <span id="ds-equip"></span></th>
+            <th onclick="sortByD('autor')">Usuário <span id="ds-autor"></span></th>
+          </tr></thead>
+          <tbody id="tbody-d"></tbody>
+        </table>
+        <div id="empty-d" class="empty" style="display:none">Nenhum serviço encontrado.</div>
+        <div id="loading-d" class="loading">Carregando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="modal-overlay" id="modal-env">
+  <div class="modal">
+    <h3>Confirmar envio à CEMIG</h3>
+    <p style="font-size:13px;color:#666">O serviço <strong id="menv-id"></strong> será marcado como "Enviado à CEMIG". Confirma?</p>
+    <div class="modal-acts">
+      <button class="btn-sm" onclick="closeModal('modal-env')">Cancelar</button>
+      <button class="btn-sm" style="border-color:#1565C0;color:#1565C0" onclick="confirmarEnvio()">Confirmar envio</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-num">
+  <div class="modal">
+    <h3>Número retornado pela CEMIG</h3>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">Serviço: <strong id="mnum-id"></strong></p>
+    <div class="fld"><label>Número do serviço</label><input type="text" id="input-num" placeholder="Ex: 207809115"/></div>
+    <div class="modal-acts">
+      <button class="btn-sm" onclick="closeModal('modal-num')">Cancelar</button>
+      <button class="btn-sm" style="border-color:#E65100;color:#E65100" onclick="confirmarNum()">Salvar e marcar pendente</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-hist">
+  <div class="modal" style="width:480px">
+    <h3>Histórico — <span id="mhist-id"></span></h3>
+    <div id="mhist-body" style="margin-top:10px"></div>
+    <div class="modal-acts"><button class="btn-sm" onclick="closeModal('modal-hist')">Fechar</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD_qvbe6h42ch_ZT0rEsHtQzE_dNFu2CwI",
+  authDomain: "visao-de-dono-2c18b.firebaseapp.com",
+  projectId: "visao-de-dono-2c18b",
+  storageBucket: "visao-de-dono-2c18b.firebasestorage.app",
+  messagingSenderId: "1045776876294",
+  appId: "1:1045776876294:web:6e587be27a552e0450d487"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// =============================================
+// CADASTRO DE USUÁRIOS
+// Para adicionar novo funcionário, copie um bloco
+// abaixo e preencha: matricula, pass, role, label
+// role: 'aprendiz' = cadastra serviços
+// role: 'dono'     = só visualiza + painel
+// =============================================
+const USERS = {
+  '27630': { pass:'0000', role:'dono',     label:'Matheus' },
+  '33783': { pass:'0000', role:'dono',     label:'Rafaela' },
+  '34649': { pass:'1234', role:'aprendiz', label:'Ana'     },
+};
+
+let cu = null;
+let services = [];
+let nextIdNum = 1;
+let sortKey='id', sortDir=1, sortKeyD='id', sortDirD=1;
+let chartProd=null, chartTipo=null;
+let actionTarget=null;
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function now(){return new Date().toISOString();}
+function fmtDt(iso){
+  if(!iso)return'—';
+  const d=new Date(iso);
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function labelStatus(s){return{cadastrado:'Cadastrado',enviado:'Enviado CEMIG',pendente:'Pendente',concluido:'Concluído'}[s]||s;}
+function calcNextId(){
+  if(!services.length){nextIdNum=1;return;}
+  const nums=services.map(s=>parseInt(s.id.replace('VD',''))||0);
+  nextIdNum=Math.max(...nums)+1;
+}
+
+onSnapshot(query(collection(db,'servicos'),orderBy('dtCadastro','asc')), snap=>{
+  services=snap.docs.map(d=>({...d.data(),_docId:d.id}));
+  calcNextId();
+  document.getElementById('loading-a').style.display='none';
+  document.getElementById('loading-d').style.display='none';
+  if(cu){
+    if(cu.role==='aprendiz') renderLista();
+    else {renderDash();renderDono();}
+  }
+});
+
+window.doLogin=function(){
+  const matricula=document.getElementById('lu').value.trim();
+  const pass=document.getElementById('lp').value;
+  const err=document.getElementById('lerr');
+  const user=USERS[matricula];
+  if(!user||user.pass!==pass){err.style.display='block';return;}
+  err.style.display='none';
+  cu={matricula,...user};
+  show(cu.role==='aprendiz'?'screen-aprendiz':'screen-dono');
+  if(cu.role==='aprendiz'){
+    document.getElementById('ulabel-a').textContent=cu.label+' ('+cu.matricula+')';
+    renderLista();
+  } else {
+    document.getElementById('ulabel-d').textContent=cu.label+' ('+cu.matricula+')';
+    renderDash();renderDono();
+  }
+};
+
+window.doLogout=function(){
+  cu=null;show('screen-login');
+  document.getElementById('lu').value='';
+  document.getElementById('lp').value='';
+};
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+window.switchTab=function(tab,btn){
+  const tabs=btn.closest('.tabs').querySelectorAll('.tab');
+  tabs.forEach(t=>t.classList.remove('active'));btn.classList.add('active');
+  const wrap=btn.closest('.wrap');
+  wrap.querySelectorAll('[id^="tab-"]').forEach(d=>d.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  if(tab==='lista')renderLista();
+  if(tab==='dash')renderDash();
+  if(tab==='todos')renderDono();
+};
+
+window.setTipoFilter=function(val,btn){
+  document.querySelectorAll('.tipo-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('f-ftipo').value=val;
+  renderLista();
+};
+
+window.cadastrar=async function(){
+  const local=document.getElementById('f-local').value.trim();
+  const desc=document.getElementById('f-desc').value.trim();
+  const tipo=document.getElementById('f-tipo').value;
+  if(!local||!desc||!tipo){alert('Preencha: localidade, descrição e tipo.');return;}
+  const id='VD'+String(nextIdNum).padStart(4,'0');
+  const s={
+    id, data:document.getElementById('f-data').value,
+    local, desc, tipo,
+    equip:document.getElementById('f-equip').value.trim(),
+    coord:document.getElementById('f-coord').value.trim(),
+    foto:document.getElementById('f-foto').value.trim(),
+    orig:document.getElementById('f-orig').value.trim(),
+    obs:document.getElementById('f-obs').value.trim(),
+    status:'cadastrado', numServ:'',
+    autor:cu.label, matriculaAutor:cu.matricula,
+    dtCadastro:now(), dtNumero:null,
+    hist:[{who:cu.label,matricula:cu.matricula,when:now(),msg:'Serviço cadastrado.'}]
+  };
+  await addDoc(collection(db,'servicos'),s);
+  ['f-data','f-local','f-desc','f-tipo','f-equip','f-coord','f-foto','f-orig','f-obs'].forEach(f=>{
+    document.getElementById(f).value='';
+  });
+  toast(id+' cadastrado com sucesso!');
+};
+
+function filtrar(src){
+  let r=[...services];
+  const buscaEl=src==='f'?document.getElementById('f-busca'):document.getElementById('d-busca');
+  const stEl=src==='f'?document.getElementById('f-status'):document.getElementById('d-status');
+  const tipoEl=src==='f'?document.getElementById('f-ftipo'):document.getElementById('d-ftipo');
+  const deEl=src==='f'?document.getElementById('f-de'):document.getElementById('d-de');
+  const ateEl=src==='f'?document.getElementById('f-ate'):document.getElementById('d-ate');
+  const b=(buscaEl?.value||'').toLowerCase();
+  const st=stEl?.value||'';
+  const t=tipoEl?.value||'';
+  const de=deEl?.value||'';
+  const ate=ateEl?.value||'';
+  if(b)r=r.filter(x=>x.id.toLowerCase().includes(b)||(x.numServ||'').toLowerCase().includes(b));
+  if(st)r=r.filter(x=>x.status===st);
+  if(t)r=r.filter(x=>x.tipo===t);
+  if(de)r=r.filter(x=>x.data&&x.data>=de);
+  if(ate)r=r.filter(x=>x.data&&x.data<=ate+'T23:59');
+  return r;
+}
+
+function sortArr(arr,key,dir){
+  return [...arr].sort((a,b)=>{
+    let va=a[key]||'',vb=b[key]||'';
+    if(typeof va==='string')va=va.toLowerCase();
+    if(typeof vb==='string')vb=vb.toLowerCase();
+    return va<vb?-dir:va>vb?dir:0;
+  });
+}
+
+window.sortBy=function(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1;}updateSortIcons('sort-',sortKey,sortDir);renderLista();};
+window.sortByD=function(k){if(sortKeyD===k)sortDirD*=-1;else{sortKeyD=k;sortDirD=1;}updateSortIcons('ds-',sortKeyD,sortDirD);renderDono();};
+function updateSortIcons(prefix,key,dir){
+  ['id','data','local','desc','tipo','status','numServ','equip','autor'].forEach(k=>{
+    const el=document.getElementById(prefix+k);
+    if(el)el.textContent=k===key?(dir===1?' ↑':' ↓'):'';
+  });
+}
+
+function renderLista(){
+  const data=sortArr(filtrar('f'),sortKey,sortDir);
+  const tbody=document.getElementById('tbody-a');
+  const empty=document.getElementById('empty-a');
+  document.getElementById('loading-a').style.display='none';
+  if(!data.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=data.map(s=>`<tr>
+    <td style="font-weight:600">${s.id}</td>
+    <td>${fmtDt(s.data)}</td>
+    <td title="${s.local}">${s.local}</td>
+    <td title="${s.desc}">${s.desc}</td>
+    <td>${s.tipo}</td>
+    <td><span class="badge ${s.status}">${labelStatus(s.status)}</span></td>
+    <td>${s.numServ||'—'}</td>
+    <td title="${s.equip||''}">${s.equip||'—'}</td>
+    <td><div class="row-acts">
+      <button class="act-btn info" onclick="abrirHist('${s._docId}')">Histórico</button>
+      ${s.status==='cadastrado'?`<button class="act-btn" onclick="abrirEnv('${s._docId}','${s.id}')">Enviar CEMIG</button>`:''}
+      ${s.status==='enviado'?`<button class="act-btn warn" onclick="abrirNum('${s._docId}','${s.id}')">Nº CEMIG</button>`:''}
+      ${s.status==='pendente'?`<button class="act-btn suc" onclick="concluir('${s._docId}','${s.id}')">Concluir</button>`:''}
+    </div></td>
+  </tr>`).join('');
+}
+
+function renderDono(){
+  const data=sortArr(filtrar('d'),sortKeyD,sortDirD);
+  const tbody=document.getElementById('tbody-d');
+  const empty=document.getElementById('empty-d');
+  document.getElementById('loading-d').style.display='none';
+  if(!data.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=data.map(s=>`<tr>
+    <td style="font-weight:600">${s.id}</td>
+    <td>${fmtDt(s.data)}</td>
+    <td title="${s.local}">${s.local}</td>
+    <td title="${s.desc}">${s.desc}</td>
+    <td>${s.tipo}</td>
+    <td><span class="badge ${s.status}">${labelStatus(s.status)}</span></td>
+    <td>${s.numServ||'—'}</td>
+    <td title="${s.equip||''}">${s.equip||'—'}</td>
+    <td>${s.autor||'—'}</td>
+  </tr>`).join('');
+}
+
+function renderDash(){
+  const total=services.length;
+  const env=services.filter(x=>x.status==='enviado').length;
+  const pend=services.filter(x=>x.status==='pendente').length;
+  const conc=services.filter(x=>x.status==='concluido').length;
+  document.getElementById('d-total').textContent=total;
+  document.getElementById('d-env').textContent=env;
+  document.getElementById('d-pend').textContent=pend;
+  document.getElementById('d-conc').textContent=conc;
+  const comNum=services.filter(x=>x.dtNumero&&x.dtCadastro);
+  if(comNum.length){
+    const avg=comNum.reduce((acc,x)=>{
+      return acc+(new Date(x.dtNumero)-new Date(x.dtCadastro))/86400000;
+    },0)/comNum.length;
+    document.getElementById('tempo-medio').textContent=avg.toFixed(1);
+  }
+  const autores={};
+  services.forEach(x=>{if(x.autor)autores[x.autor]=(autores[x.autor]||0)+1;});
+  const tipos={NSIS:0,NSMP:0,RC02:0,INBE:0};
+  services.forEach(x=>{if(tipos[x.tipo]!==undefined)tipos[x.tipo]++;});
+  if(chartProd){chartProd.destroy();}
+  if(chartTipo){chartTipo.destroy();}
+  const cpCtx=document.getElementById('chart-prod');
+  if(cpCtx&&Object.keys(autores).length){
+    chartProd=new Chart(cpCtx,{type:'bar',data:{labels:Object.keys(autores),datasets:[{label:'Cadastros',data:Object.values(autores),backgroundColor:'#1565C0',borderWidth:0,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  }
+  const ctCtx=document.getElementById('chart-tipo');
+  if(ctCtx){
+    chartTipo=new Chart(ctCtx,{type:'doughnut',data:{labels:Object.keys(tipos),datasets:[{data:Object.values(tipos),backgroundColor:['#1565C0','#2E7D32','#E65100','#6A1B9A'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:8}}}}});
+  }
+}
+
+window.abrirEnv=function(docId,id){
+  actionTarget=docId;
+  document.getElementById('menv-id').textContent=id;
+  document.getElementById('modal-env').classList.add('open');
+};
+window.confirmarEnvio=async function(){
+  const s=services.find(x=>x._docId===actionTarget);
+  if(s){
+    const hist=[...s.hist,{who:cu.label,matricula:cu.matricula,when:now(),msg:'Enviado à CEMIG.'}];
+    await updateDoc(doc(db,'servicos',actionTarget),{status:'enviado',hist});
+  }
+  closeModal('modal-env');
+  toast('Serviço marcado como enviado à CEMIG.');
+};
+
+window.abrirNum=function(docId,id){
+  actionTarget=docId;
+  document.getElementById('mnum-id').textContent=id;
+  document.getElementById('input-num').value='';
+  document.getElementById('modal-num').classList.add('open');
+};
+window.confirmarNum=async function(){
+  const num=document.getElementById('input-num').value.trim();
+  if(!num){alert('Informe o número.');return;}
+  const s=services.find(x=>x._docId===actionTarget);
+  if(s){
+    const hist=[...s.hist,{who:cu.label,matricula:cu.matricula,when:now(),msg:'Número '+num+' recebido da CEMIG. Status: Pendente.'}];
+    await updateDoc(doc(db,'servicos',actionTarget),{numServ:num,status:'pendente',dtNumero:now(),hist});
+  }
+  closeModal('modal-num');
+  toast('Número salvo. Serviço marcado como pendente.');
+};
+
+window.concluir=async function(docId,id){
+  if(!confirm('Confirmar conclusão do serviço '+id+'?'))return;
+  const s=services.find(x=>x._docId===docId);
+  if(s){
+    const hist=[...s.hist,{who:cu.label,matricula:cu.matricula,when:now(),msg:'Serviço concluído.'}];
+    await updateDoc(doc(db,'servicos',docId),{status:'concluido',hist});
+  }
+  toast('Serviço '+id+' concluído!');
+};
+
+window.abrirHist=function(docId){
+  const s=services.find(x=>x._docId===docId);
+  document.getElementById('mhist-id').textContent=s?.id||'';
+  const body=document.getElementById('mhist-body');
+  if(!s||!s.hist||!s.hist.length){
+    body.innerHTML='<p style="font-size:13px;color:#aaa">Sem histórico.</p>';
+  } else {
+    body.innerHTML=s.hist.slice().reverse().map(h=>`
+      <div class="hist-item">
+        <span class="hist-who">${h.who}</span>
+        <span style="font-size:11px;color:#aaa;margin-left:4px">(${h.matricula||''})</span>
+        <span class="hist-when">${fmtDt(h.when)}</span>
+        <div class="hist-what">${h.msg}</div>
+      </div>`).join('');
+  }
+  document.getElementById('modal-hist').classList.add('open');
+};
+
+window.closeModal=function(id){
+  document.getElementById(id).classList.remove('open');
+  actionTarget=null;
+};
+
+window.exportarExcel=function(){
+  const data=filtrar('d').map(s=>({
+    'ID':s.id,'Data':s.data,'Localidade':s.local,'Descrição':s.desc,
+    'Tipo':s.tipo,'Equipamento':s.equip,'Status':labelStatus(s.status),
+    'Nº Serviço':s.numServ,'Técnico':s.orig,'Cadastrado por':s.autor,
+    'Matrícula':s.matriculaAutor,'Observações':s.obs
+  }));
+  if(!data.length){alert('Nenhum dado para exportar com os filtros atuais.');return;}
+  const ws=XLSX.utils.json_to_sheet(data);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Serviços');
+  XLSX.writeFile(wb,'visao_de_dono_'+new Date().toISOString().slice(0,10)+'.xlsx');
+};
+</script>
+</body>
+</html>
