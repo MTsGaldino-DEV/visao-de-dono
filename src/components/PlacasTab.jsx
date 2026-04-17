@@ -213,6 +213,148 @@ const PlacasTab = () => {
         ))}
       </div>
 
+      {/* ── Dashboard por posto / localidade ── */}
+      {(() => {
+        const todasPlacas = servicos.filter(s =>
+          s.status !== 'cancelado' && norm(s.desc).includes('PLACA')
+        );
+
+        const POSTO_COLORS = {
+          'Posto 1 — Pedro':    { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
+          'Posto 2 — Elton':    { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe' },
+          'Posto 3 — Vinicius': { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' },
+          'Posto 4 — Victor':   { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
+          'Não mapeado':        { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
+        };
+
+        // Agrupa por posto → localidade
+        const dadosPosto = Object.keys(POSTOS).map(posto => {
+          const servsPosto = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
+          const montadas   = servsPosto.filter(s => s.placaMontada).length;
+          const pendentes  = servsPosto.length - montadas;
+
+          // por localidade dentro do posto
+          const locMap = {};
+          servsPosto.forEach(s => {
+            const loc = s.local || 'Desconhecida';
+            if (!locMap[loc]) locMap[loc] = { total: 0, montadas: 0 };
+            locMap[loc].total++;
+            if (s.placaMontada) locMap[loc].montadas++;
+          });
+
+          return { posto, total: servsPosto.length, montadas, pendentes, locMap };
+        }).filter(d => d.total > 0);
+
+        const naoMapeado = todasPlacas.filter(s => !postoDeLocalidade(s.local));
+        const maxTotal = Math.max(...dadosPosto.map(d => d.total), 1);
+
+        return (
+          <div style={{ ...card, overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>Dashboard de placas por supervisão</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Montadas vs pendentes por posto e localidade</div>
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500' }}>
+                {todasPlacas.length} placas no total
+              </div>
+            </div>
+
+            {todasPlacas.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '13px' }}>
+                Nenhum serviço de placa registrado ainda.
+              </div>
+            ) : (
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                {dadosPosto.map(({ posto, total, montadas, pendentes, locMap }) => {
+                  const cfg = POSTO_COLORS[posto];
+                  const pct = total > 0 ? Math.round((montadas / total) * 100) : 0;
+                  const supervisor = posto.split('—')[1]?.trim() || '';
+                  const postoNome  = posto.split('—')[0].trim();
+
+                  return (
+                    <div key={posto}>
+                      {/* Cabeçalho do posto */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            fontSize: '10px', fontWeight: '700', padding: '3px 10px', borderRadius: '20px',
+                            background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                          }}>{postoNome}</span>
+                          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>{supervisor}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px' }}>
+                          <span style={{ color: '#15803d', fontWeight: '700' }}>✓ {montadas} montadas</span>
+                          <span style={{ color: '#c2410c', fontWeight: '700' }}>{pendentes} pendentes</span>
+                          <span style={{ color: '#64748b' }}>{total} total · {pct}%</span>
+                        </div>
+                      </div>
+
+                      {/* Barra geral do posto */}
+                      <div style={{ height: '10px', borderRadius: '5px', background: '#f1f5f9', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
+                        <div style={{ height: '100%', background: cfg.color, width: `${(total / maxTotal) * 100}%`, borderRadius: '5px', overflow: 'hidden', display: 'flex' }}>
+                          <div style={{ height: '100%', background: '#15803d', width: `${pct}%`, transition: 'width 0.4s' }} />
+                          <div style={{ height: '100%', background: cfg.color, opacity: 0.35, flex: 1 }} />
+                        </div>
+                      </div>
+
+                      {/* Grid de localidades */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                        {Object.entries(locMap)
+                          .sort((a, b) => b[1].total - a[1].total)
+                          .map(([loc, d]) => {
+                            const pctLoc = d.total > 0 ? Math.round((d.montadas / d.total) * 100) : 0;
+                            const tudo = pctLoc === 100;
+                            const nada = pctLoc === 0;
+                            return (
+                              <div key={loc} style={{
+                                padding: '10px 12px', borderRadius: '8px',
+                                border: tudo ? '1px solid #bbf7d0' : nada ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                                background: tudo ? '#f0fdf4' : nada ? '#fef2f2' : '#f8fafc',
+                              }}>
+                                <div style={{ fontSize: '11px', fontWeight: '600', color: '#334155', marginBottom: '6px', lineHeight: 1.3 }}>
+                                  {loc}
+                                </div>
+                                {/* Mini barra */}
+                                <div style={{ height: '5px', borderRadius: '3px', background: '#e2e8f0', overflow: 'hidden', marginBottom: '6px' }}>
+                                  <div style={{
+                                    height: '100%', borderRadius: '3px',
+                                    background: tudo ? '#15803d' : '#1d4ed8',
+                                    width: `${pctLoc}%`, transition: 'width 0.4s',
+                                  }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                  <span style={{ color: '#15803d', fontWeight: '600' }}>✓ {d.montadas}</span>
+                                  <span style={{ color: '#c2410c', fontWeight: '600' }}>{d.total - d.montadas} pend.</span>
+                                  <span style={{ color: '#94a3b8', fontWeight: '500' }}>{pctLoc}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Não mapeados */}
+                {naoMapeado.length > 0 && (
+                  <div style={{ padding: '12px 14px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', marginBottom: '4px' }}>
+                      ⚠ {naoMapeado.length} serviço(s) com localidade não mapeada em nenhum posto
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#92400e' }}>
+                      {naoMapeado.map(s => `${s.id} (${s.local || 'sem local'})`).join(' · ')}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Estoque de dígitos ── */}
       <div style={{ ...card, padding: '16px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
