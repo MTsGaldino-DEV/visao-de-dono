@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script>
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      const redirect = '?redirect=' + encodeURIComponent(path + search + hash);
+      window.location.replace('/' + 'visao-de-dono' + '/' + redirect);
+    </script>
+  </head>
+  <body></body>
+</html>
