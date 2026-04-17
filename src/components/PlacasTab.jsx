@@ -123,7 +123,8 @@ const PlacasTab = () => {
   // Serviços pendentes de montagem: status !== cancelado && !== concluido && placaMontada !== true
   const pendentesMontagem = servicos.filter(s =>
     s.status !== 'cancelado' &&
-    !s.placaMontada
+    !s.placaMontada &&
+    norm(s.desc).includes('PLACA')
   );
 
   // Aplicar filtro de posto
