@@ -2,6 +2,14 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+  (function() {
+    const redirect = new URLSearchParams(window.location.search).get('redirect');
+    if (redirect) {
+      window.history.replaceState(null, '', redirect);
+    }
+  })();
+</script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/visao-de-dono/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
