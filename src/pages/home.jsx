@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import CadastroForm from '../components/CadastroForm';
 import ServicosTable from '../components/ServicosTable';
+import PlacasTab from '../components/PlacasTab';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
@@ -142,14 +143,9 @@ const Home = () => {
           <ServicosTable />
         </div>
 
-        {activeTab === 'placas' && (
-          <div style={{
-            background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0',
-            padding: '60px 24px', textAlign: 'center',
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: '13px' }}>Nenhuma placa encontrada.</div>
-          </div>
-        )}
+        <div style={{ display: activeTab === 'placas' ? 'block' : 'none' }}>
+          <PlacasTab />
+        </div>
 
         {activeTab === 'painel' && isDono && (
           <div style={{
