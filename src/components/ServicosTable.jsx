@@ -327,14 +327,28 @@ const ServicosTable = () => {
   useEffect(() => {
     let lista = [...services];
 
-    // Busca por palavra-chave em múltiplos campos
+    // Busca: detecta se é lista de nº de serviço (vírgula/ponto-e-vírgula) ou palavra-chave geral
     if (busca.trim()) {
-      const terms = busca.trim().toLowerCase().split(/\s+/);
-      lista = lista.filter(s => {
-        const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs]
-          .join(' ').toLowerCase();
-        return terms.every(t => haystack.includes(t));
-      });
+      const raw = busca.trim();
+      const temVirgula = /[,;]/.test(raw);
+      if (temVirgula) {
+        // Modo lista: cada termo deve bater com numServ ou id exato
+        const termos = raw.split(/[,;\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+        lista = lista.filter(s =>
+          termos.some(t =>
+            (s.numServ || '').toLowerCase().includes(t) ||
+            (s.id || '').toLowerCase() === t
+          )
+        );
+      } else {
+        // Modo palavra-chave: busca em todos os campos
+        const terms = raw.toLowerCase().split(/\s+/);
+        lista = lista.filter(s => {
+          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs]
+            .join(' ').toLowerCase();
+          return terms.every(t => haystack.includes(t));
+        });
+      }
     }
 
     // Multi status
@@ -449,18 +463,32 @@ const ServicosTable = () => {
           Filtros
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
-          {/* Busca por palavra-chave */}
+          {/* Busca por palavra-chave ou múltiplos nº de serviço */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca por palavras-chave</label>
+            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca — palavra-chave ou nº serviços (vírgula)</label>
             <div style={{ position: 'relative' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
                 style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input type="text" placeholder="ID, localidade, descrição, equipamento..."
+              <input type="text"
+                placeholder="Palavra-chave  ou  240539792, 240800668, 240855834..."
                 value={busca} onChange={e => setBusca(e.target.value)}
                 style={{ ...inputStyle, paddingLeft: '30px' }} />
             </div>
+            {/* Badges quando modo lista */}
+            {/[,;]/.test(busca) && busca.trim() && (() => {
+              const termos = busca.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+              return termos.length > 0 ? (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {termos.map(t => (
+                    <span key={t} style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : null;
+            })()}
           </div>
 
           {/* Multi status */}
