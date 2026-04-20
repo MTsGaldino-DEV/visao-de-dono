@@ -1,398 +1,240 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
-import DetalheModal from './DetalheModal';
-import * as XLSX from 'xlsx';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
-const STATUS_CONFIG = {
-  cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
-  enviado:    { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
-  pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
-  concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
-  cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+// ── Localidades por posto ────────────────────────────────────────────────────
+const POSTOS = {
+  'Posto 1 — Pedro': [
+    'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
+    'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
+    'Mathias Lobato','São Geraldo do Tumiritinga','Sobrália','Tarumirim','Tumiritinga',
+  ],
+  'Posto 2 — Elton': [
+    'Coluna','São Geraldo da Piedade','Água Boa','José Raydan','Paulistas',
+    'Cantagalo','Peçanha','São João Evangelista','São José do Jacuri',
+    'Santa Efigênia de Minas','Gonzaga','Santa Maria do Suaçuí','Frei Lago Negro',
+    'São Pedro do Suaçuí','São Sebastião do Maranhão','Sardoá',
+  ],
+  'Posto 3 — Vinicius': [
+    'Cuparaque','Conselheiro Pena','Resplendor','Aimorés','Goiabeira',
+    'Itueta','Santa Rita do Itueto','São Geraldo do Baixio','Galileia',
+  ],
+  'Posto 4 — Victor': [
+    'Itabirinha de Mantena','Divino das Laranjeiras','Central de Minas','Mendes Pimentel',
+    'Nova Belém','São Félix de Minas','Tipiti','Mantena','São João do Manteninha',
+    'Marilac','Coroaci','Virgolândia','Nacip Raydan','São José da Safira',
+  ],
 };
 
-const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
+// Lista plana com referência ao posto
+const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
+  locs.map(loc => ({ loc, posto }))
+).sort((a, b) => a.loc.localeCompare(b.loc, 'pt-BR'));
 
-const NEXT_STATUS = {
-  cadastrado: { next: 'enviado',  msg: 'Enviado à CEMIG',       label: 'Enviar',   color: '#7c3aed' },
-  enviado:    { next: 'pendente', msg: 'Número CEMIG recebido',  label: 'Nº CEMIG', color: '#c2410c' },
-  pendente:   { next: 'concluido', msg: 'Serviço concluído',    label: 'Concluir', color: '#15803d' },
+const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const POSTO_COLORS = {
+  'Posto 1 — Pedro':    '#1d4ed8',
+  'Posto 2 — Elton':    '#7c3aed',
+  'Posto 3 — Vinicius': '#0369a1',
+  'Posto 4 — Victor':   '#15803d',
 };
 
-const fmtDt = (iso) => {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-};
+// ── Select pesquisável com agrupamento por posto ──────────────────────────────
+const LocalidadeSelect = ({ value, onChange, focused, onFocus, onBlur }) => {
+  const [query, setQuery]       = useState('');
+  const [open, setOpen]         = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const containerRef = useRef(null);
+  const inputRef     = useRef(null);
+  const listRef      = useRef(null);
 
-const idNum = (id) => parseInt((id || '').replace(/\D/g, '') || '0', 10);
+  // Filtra por query
+  const resultados = query.trim()
+    ? TODAS_LOCALIDADES.filter(({ loc }) => norm(loc).includes(norm(query)))
+    : TODAS_LOCALIDADES;
 
-const inputStyle = {
-  width: '100%', padding: '7px 10px',
-  border: '1px solid #e2e8f0', borderRadius: '8px',
-  fontSize: '12px', background: '#fff', color: '#1e293b',
-  outline: 'none', fontFamily: "'Segoe UI', system-ui, sans-serif",
-  boxSizing: 'border-box',
-};
+  // Agrupa por posto mantendo ordem
+  const grupos = Object.keys(POSTOS).reduce((acc, posto) => {
+    const itens = resultados.filter(r => r.posto === posto);
+    if (itens.length) acc.push({ posto, itens });
+    return acc;
+  }, []);
 
-const POPUP_OVERLAY = {
-  position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.45)',
-  backdropFilter: 'blur(3px)', zIndex: 400,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-};
-const POPUP_BOX = {
-  background: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0',
-  padding: '28px 32px', maxWidth: '380px', width: '100%',
-  boxShadow: '0 20px 60px rgba(15,37,68,0.18)', animation: 'popIn 0.18s ease',
-};
-const BTN_CANCEL = {
-  padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px',
-  background: '#fff', color: '#475569', cursor: 'pointer',
-  fontSize: '13px', fontWeight: '500', fontFamily: 'inherit',
-};
-const BTN_PRIMARY = {
-  padding: '8px 20px', border: 'none', borderRadius: '8px',
-  background: 'linear-gradient(135deg, #0f2544, #1d4ed8)',
-  color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'inherit',
-};
+  // Lista plana para navegação por teclado
+  const flat = resultados;
 
-const Badge = ({ status }) => {
-  const cfg = STATUS_CONFIG[status] || { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', label: status };
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', fontSize: '10px', padding: '3px 9px',
-      borderRadius: '20px', fontWeight: '600', letterSpacing: '0.03em',
-      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap',
-    }}>
-      {cfg.label}
-    </span>
-  );
-};
-
-// ── Modal de Mensagem CEMIG ──────────────────────────────────────────────────
-const MensagemCemigModal = ({ servico, onConfirm, onCancel }) => {
-  const gerarMensagem = (s) => {
-    const tipoMsg = {
-      'NSIS': 'NSIS',
-      'NSMP': 'NSMP', 
-      'RC02': 'RC02',
-      'INBE': 'INBE'
-    }[s.tipo] || s.tipo;
-
-    return `Gentileza, gerar ${tipoMsg}:
-Campo Bairro: VD-Placa ${s.equip || s.id}
-Equipamento: ${s.equip || '—'}
-Referências: ${s.desc || 'chave ' + (s.equip || s.id)}
-Coordenadas: ${s.coord || '—'}
-Localidade: ${s.local || '—'}
-Serviço a ser executado:
-${s.desc || 'Substituir placa de identificação ilegível'}
-Observação:
-${s.obs || 'Dúvidas ligar para Matheus ENGELMIG 31 99914-8716'}
-Recurso necessário:
-${s.tipo === 'NSIS' ? 'PLACA DE IDENTIFICAÇÃO' : 'CONFORME TIPO DE SERVIÇO'}`;
+  const selecionar = (loc) => {
+    onChange(loc);
+    setQuery('');
+    setOpen(false);
+    setHighlighted(0);
   };
 
-  const [mensagem, setMensagem] = useState(gerarMensagem(servico));
-  const [copiado, setCopiado] = useState(false);
+  const limpar = () => { onChange(''); setQuery(''); inputRef.current?.focus(); };
 
-  const copiarMensagem = () => {
-    navigator.clipboard.writeText(mensagem);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  };
-
-  return (
-    <div style={POPUP_OVERLAY}>
-      <div style={{ ...POPUP_BOX, maxWidth: '650px', maxHeight: '85vh', overflow: 'auto' }}>
-        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '4px' }}>
-              Mensagem para CEMIG
-            </div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>
-              Serviço <strong>{servico.id}</strong> — Revise e edite antes de enviar
-            </div>
-          </div>
-          <button 
-            onClick={copiarMensagem}
-            style={{
-              padding: '6px 12px', fontSize: '11px', fontWeight: '600',
-              border: '1px solid #e2e8f0', borderRadius: '6px',
-              background: copiado ? '#f0fdf4' : '#f8fafc',
-              color: copiado ? '#15803d' : '#64748b',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-              transition: 'all 0.2s'
-            }}
-          >
-            {copiado ? (
-              <>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                Copiado!
-              </>
-            ) : (
-              <>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/>
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                </svg>
-                Copiar
-              </>
-            )}
-          </button>
-        </div>
-
-        <textarea
-          value={mensagem}
-          onChange={e => setMensagem(e.target.value)}
-          style={{
-            width: '100%', minHeight: '320px', padding: '14px',
-            border: '1px solid #e2e8f0', borderRadius: '10px',
-            fontSize: '13px', fontFamily: "'Courier New', monospace",
-            lineHeight: '1.6', resize: 'vertical',
-            background: '#f8fafc', color: '#1e293b',
-            marginBottom: '20px'
-          }}
-        />
-
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={onCancel} style={BTN_CANCEL}>
-            Cancelar
-          </button>
-          <button 
-            onClick={() => {
-              copiarMensagem();
-              setTimeout(() => onConfirm(), 500);
-            }}
-            style={BTN_PRIMARY}
-          >
-            Copiar e Enviar à CEMIG
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Popup confirmação de status (com campo Nº CEMIG quando aplicável) ────────
-const ConfirmPopup = ({ servico, novoStatus, onConfirm, onCancel }) => {
-  const cfg = STATUS_CONFIG[novoStatus] || {};
-  const precisaNum = novoStatus === 'pendente';
-  const [num, setNum] = useState(servico.numServ || '');
-
-  const handleConfirm = () => {
-    if (precisaNum && !num.trim()) return;
-    onConfirm(precisaNum ? num.trim() : null);
-  };
-
-  return (
-    <div style={POPUP_OVERLAY}>
-      <div style={POPUP_BOX}>
-        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-        <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544', marginBottom: '6px' }}>
-          {precisaNum ? 'Nº do serviço CEMIG' : 'Confirmar alteração'}
-        </div>
-        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px', lineHeight: '1.6' }}>
-          {precisaNum
-            ? <>Informe o número retornado pela CEMIG para <strong style={{ color: '#0f2544' }}>{servico.id}</strong>.</>
-            : <>Alterar o status de <strong style={{ color: '#0f2544' }}>{servico.id}</strong> para:</>
-          }
-        </div>
-
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', fontSize: '11px', padding: '4px 12px',
-          borderRadius: '20px', fontWeight: '600', background: cfg.bg, color: cfg.color,
-          border: `1px solid ${cfg.border}`, marginBottom: precisaNum ? '14px' : '22px',
-        }}>{cfg.label}</div>
-
-        {precisaNum && (
-          <div style={{ marginBottom: '22px' }}>
-            <input
-              autoFocus type="text" value={num}
-              onChange={e => setNum(e.target.value)}
-              placeholder="Ex: 240850456"
-              onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); }}
-              style={{
-                ...inputStyle, padding: '10px 13px', fontSize: '14px',
-                border: num.trim() ? '1px solid #3b82f6' : '1px solid #fca5a5',
-                boxShadow: num.trim() ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 0 0 3px rgba(239,68,68,0.08)',
-              }}
-            />
-            {!num.trim() && (
-              <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>
-                Campo obrigatório para avançar o status.
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
-          <button
-            onClick={handleConfirm}
-            disabled={precisaNum && !num.trim()}
-            style={{ ...BTN_PRIMARY, opacity: precisaNum && !num.trim() ? 0.5 : 1, cursor: precisaNum && !num.trim() ? 'not-allowed' : 'pointer' }}
-          >
-            {precisaNum ? 'Salvar e avançar' : 'Confirmar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Popup Nº CEMIG standalone ────────────────────────────────────────────────
-const NumServPopup = ({ servico, onConfirm, onCancel }) => {
-  const [num, setNum] = useState(servico.numServ || '');
-  return (
-    <div style={POPUP_OVERLAY}>
-      <div style={POPUP_BOX}>
-        <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544', marginBottom: '6px' }}>Nº do serviço CEMIG</div>
-        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>
-          Editar número registrado para <strong style={{ color: '#0f2544' }}>{servico.id}</strong>.
-        </div>
-        <input
-          autoFocus type="text" value={num}
-          onChange={e => setNum(e.target.value)}
-          placeholder="Ex: 240850456"
-          onKeyDown={e => { if (e.key === 'Enter' && num.trim()) onConfirm(num.trim()); }}
-          style={{
-            ...inputStyle, padding: '10px 13px', fontSize: '14px',
-            border: '1px solid #3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)',
-            marginBottom: '22px',
-          }}
-        />
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
-          <button onClick={() => num.trim() && onConfirm(num.trim())} style={BTN_PRIMARY}>Salvar</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Popup status Dono ────────────────────────────────────────────────────────
-const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
-  const [novoStatus, setNovoStatus] = useState(servico.status);
-  return (
-    <div style={POPUP_OVERLAY}>
-      <div style={POPUP_BOX}>
-        <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544', marginBottom: '6px' }}>Alterar status — Dono</div>
-        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
-          Novo status para <strong style={{ color: '#0f2544' }}>{servico.id}</strong>:
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '22px' }}>
-          {STATUS_ORDER.map(s => {
-            const cfg = STATUS_CONFIG[s];
-            const ativo = novoStatus === s;
-            return (
-              <button key={s} onClick={() => setNovoStatus(s)} style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px',
-                borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit',
-                border: ativo ? `2px solid ${cfg.color}` : '1px solid #e2e8f0',
-                background: ativo ? cfg.bg : '#f8fafc', transition: 'all 0.1s',
-              }}>
-                <div style={{
-                  width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0,
-                  border: ativo ? `4px solid ${cfg.color}` : '2px solid #cbd5e1', transition: 'all 0.1s',
-                }} />
-                <span style={{ fontSize: '13px', fontWeight: ativo ? '600' : '400', color: ativo ? cfg.color : '#334155' }}>
-                  {cfg.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
-          <button onClick={() => onConfirm(novoStatus)} disabled={novoStatus === servico.status}
-            style={{ ...BTN_PRIMARY, background: novoStatus === servico.status ? '#94a3b8' : BTN_PRIMARY.background, cursor: novoStatus === servico.status ? 'not-allowed' : 'pointer' }}>
-            Aplicar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Dropdown multi-select ────────────────────────────────────────────────────
-const MultiSelect = ({ label, options, selected, onChange }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
+  // Fecha ao clicar fora
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) { setOpen(false); setQuery(''); } };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const toggle = (val) => {
-    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+  // Scroll do item destacado
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector('[data-highlighted="true"]');
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [highlighted]);
+
+  const handleKeyDown = (e) => {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) { setOpen(true); return; }
+    if (e.key === 'ArrowDown') { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
+    else if (e.key === 'Enter' && flat[highlighted]) { selecionar(flat[highlighted].loc); e.preventDefault(); }
+    else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
-  const displayLabel = selected.length === 0
-    ? 'Todos'
-    : selected.length === 1
-      ? options.find(o => o.value === selected[0])?.label || selected[0]
-      : `${selected.length} selecionados`;
+  const borderColor = focused ? '#3b82f6' : value ? '#a5b4fc' : '#e2e8f0';
+  const boxShadow   = focused ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none';
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        cursor: 'pointer', background: selected.length > 0 ? '#eff6ff' : '#fff',
-        border: selected.length > 0 ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-        color: selected.length > 0 ? '#1d4ed8' : '#1e293b', fontWeight: selected.length > 0 ? '600' : '400',
-      }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          style={{ flexShrink: 0, marginLeft: '6px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <polyline points="6 9 12 15 18 9"/>
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      {/* Campo de exibição/pesquisa */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        border: `1px solid ${borderColor}`,
+        borderRadius: '8px',
+        background: focused ? '#fff' : '#f8fafc',
+        boxShadow,
+        transition: 'all 0.15s',
+        cursor: 'text',
+        overflow: 'hidden',
+      }} onClick={() => { setOpen(true); inputRef.current?.focus(); }}>
+
+        {/* Ícone busca */}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
+          style={{ flexShrink: 0, marginLeft: '11px' }}>
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-      </button>
+
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder={value ? '' : 'Digite para pesquisar localidade...'}
+          value={open ? query : ''}
+          onChange={e => { setQuery(e.target.value); setHighlighted(0); setOpen(true); }}
+          onFocus={() => { setOpen(true); onFocus(); }}
+          onBlur={onBlur}
+          onKeyDown={handleKeyDown}
+          style={{
+            flex: 1, padding: '9px 8px', border: 'none', outline: 'none',
+            fontSize: '13px', background: 'transparent', color: '#1e293b',
+            fontFamily: "'Segoe UI', system-ui, sans-serif",
+          }}
+        />
+
+        {/* Valor selecionado (quando dropdown fechado) */}
+        {value && !open && (
+          <div style={{
+            position: 'absolute', left: '34px', right: '60px',
+            fontSize: '13px', color: '#1e293b', pointerEvents: 'none',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {value}
+          </div>
+        )}
+
+        {/* Badge do posto */}
+        {value && !open && (() => {
+          const entry = TODAS_LOCALIDADES.find(l => l.loc === value);
+          const color = entry ? POSTO_COLORS[entry.posto] : '#64748b';
+          const postoNome = entry ? entry.posto.split('—')[0].trim() : '';
+          return (
+            <span style={{
+              fontSize: '9px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px',
+              background: `${color}15`, color, border: `1px solid ${color}30`,
+              flexShrink: 0, marginRight: '6px', whiteSpace: 'nowrap',
+            }}>{postoNome}</span>
+          );
+        })()}
+
+        {/* Botão limpar / chevron */}
+        {value ? (
+          <button onClick={e => { e.stopPropagation(); limpar(); }} style={{
+            padding: '0 10px', background: 'none', border: 'none', cursor: 'pointer',
+            color: '#94a3b8', fontSize: '16px', lineHeight: 1, flexShrink: 0,
+          }}>×</button>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5"
+            style={{ marginRight: '10px', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        )}
+      </div>
+
+      {/* Dropdown */}
       {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200,
+        <div ref={listRef} style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300,
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.1)', minWidth: '180px', overflow: 'hidden',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.1)', maxHeight: '280px', overflowY: 'auto',
         }}>
-          {selected.length > 0 && (
-            <button onClick={() => onChange([])} style={{
-              width: '100%', padding: '8px 12px', border: 'none', borderBottom: '1px solid #f1f5f9',
-              background: '#f8fafc', color: '#64748b', cursor: 'pointer', fontSize: '11px',
-              fontFamily: 'inherit', textAlign: 'left', fontWeight: '600',
-            }}>
-              Limpar seleção
-            </button>
+          {grupos.length === 0 && (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+              Nenhuma localidade encontrada para "{query}"
+            </div>
           )}
-          {options.map(({ value, label, badge }) => {
-            const sel = selected.includes(value);
+          {grupos.map(({ posto, itens }) => {
+            const color = POSTO_COLORS[posto];
+            const postoNome  = posto.split('—')[0].trim();
+            const supervisor = posto.split('—')[1]?.trim() || '';
             return (
-              <button key={value} onClick={() => toggle(value)} style={{
-                width: '100%', padding: '8px 12px', border: 'none', borderBottom: '1px solid #f8fafc',
-                background: sel ? '#f0f7ff' : '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit',
-              }}>
+              <div key={posto}>
+                {/* Cabeçalho do grupo */}
                 <div style={{
-                  width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
-                  border: sel ? '4px solid #1d4ed8' : '1.5px solid #cbd5e1',
-                  background: sel ? '#1d4ed8' : '#fff', transition: 'all 0.1s',
-                }} />
-                {badge ? (
-                  <span style={{
-                    fontSize: '10px', padding: '2px 8px', borderRadius: '20px', fontWeight: '600',
-                    background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`,
-                  }}>{label}</span>
-                ) : (
-                  <span style={{ fontSize: '12px', color: '#334155' }}>{label}</span>
-                )}
-              </button>
+                  padding: '7px 12px 5px',
+                  fontSize: '10px', fontWeight: '700',
+                  color, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  borderTop: '1px solid #f1f5f9', background: `${color}08`,
+                  position: 'sticky', top: 0,
+                }}>
+                  <span>{postoNome}</span>
+                  <span style={{ fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— {supervisor}</span>
+                </div>
+                {/* Itens */}
+                {itens.map(({ loc }) => {
+                  const flatIdx = flat.findIndex(f => f.loc === loc);
+                  const isHigh  = flatIdx === highlighted;
+                  const isSel   = loc === value;
+                  return (
+                    <button
+                      key={loc}
+                      data-highlighted={isHigh}
+                      onMouseDown={e => { e.preventDefault(); selecionar(loc); }}
+                      onMouseEnter={() => setHighlighted(flatIdx)}
+                      style={{
+                        width: '100%', padding: '8px 14px 8px 20px',
+                        border: 'none', textAlign: 'left', cursor: 'pointer',
+                        fontSize: '13px', fontFamily: 'inherit',
+                        background: isSel ? `${color}10` : isHigh ? '#f0f7ff' : '#fff',
+                        color: isSel ? color : '#334155',
+                        fontWeight: isSel ? '600' : '400',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      }}
+                    >
+                      {loc}
+                      {isSel && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
@@ -401,510 +243,247 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
   );
 };
 
+// ── Estilos base ─────────────────────────────────────────────────────────────
+const inputStyle = {
+  width: '100%', padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: '8px',
+  fontSize: '13px', background: '#f8fafc', color: '#1e293b', boxSizing: 'border-box',
+  outline: 'none', transition: 'border-color 0.15s, background 0.15s',
+  fontFamily: "'Segoe UI', system-ui, sans-serif",
+};
+const labelStyle = { fontSize: '11px', fontWeight: '600', color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '5px', display: 'block' };
+const fieldStyle = { display: 'flex', flexDirection: 'column' };
+const SectionLabel = ({ children }) => (
+  <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+    {children}
+    <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+  </div>
+);
+
+const SuccessPopup = ({ onClose }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.45)', backdropFilter: 'blur(3px)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+    <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '36px 40px', textAlign: 'center', maxWidth: '340px', width: '100%', boxShadow: '0 20px 60px rgba(15,37,68,0.18)', animation: 'popIn 0.2s ease' }}>
+      <style>{`@keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
+      <div style={{ width: '56px', height: '56px', background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '6px' }}>Serviço cadastrado!</div>
+      <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px', lineHeight: '1.5' }}>O serviço foi registrado com sucesso e já aparece na lista.</div>
+      <button onClick={onClose} style={{ padding: '9px 28px', border: 'none', borderRadius: '8px', background: 'linear-gradient(135deg, #0f2544, #1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>OK</button>
+    </div>
+  </div>
+);
+
 // ── Componente principal ─────────────────────────────────────────────────────
-const ServicosTable = () => {
+const CadastroForm = () => {
   const { user } = useAuth();
-  const isDono = user?.role === 'dono';
-  const fileInputRef = useRef(null);
+  const [formData, setFormData] = useState({
+    data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: ''
+  });
+  const [loading, setLoading]       = useState(false);
+  const [focused, setFocused]       = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const [services, setServices]               = useState([]);
-  const [filteredServices, setFilteredServices] = useState([]);
-  const [selectedService, setSelectedService] = useState(null);
-  const [modalOpen, setModalOpen]             = useState(false);
-  const [busca, setBusca]                     = useState('');
-  const [statusFilter, setStatusFilter]       = useState([]);
-  const [tipoFilter, setTipoFilter]           = useState([]);
-  const [sortCol, setSortCol]                 = useState('id');
-  const [sortDir, setSortDir]                 = useState('desc');
+  const hoje = new Date();
+  const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}T23:59:59`;
+  const minDate = '2025-01-01T00:00:00';
 
-  const [confirmPending, setConfirmPending]       = useState(null);
-  const [numServPending, setNumServPending]       = useState(null);
-  const [statusDonoPending, setStatusDonoPending] = useState(null);
-  const [mensagemCemigPending, setMensagemCemigPending] = useState(null);
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-      setServices(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-    });
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    let lista = [...services];
-
-    if (busca.trim()) {
-      const raw = busca.trim();
-      const temVirgula = /[,;]/.test(raw);
-      if (temVirgula) {
-        const termos = raw.split(/[,;\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
-        lista = lista.filter(s =>
-          termos.some(t =>
-            (s.numServ || '').toLowerCase().includes(t) ||
-            (s.id || '').toLowerCase() === t
-          )
-        );
-      } else {
-        const terms = raw.toLowerCase().split(/\s+/);
-        lista = lista.filter(s => {
-          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs]
-            .join(' ').toLowerCase();
-          return terms.every(t => haystack.includes(t));
-        });
-      }
-    }
-
-    if (statusFilter.length > 0) {
-      lista = lista.filter(s => statusFilter.includes(s.status));
-    } else {
-      lista = lista.filter(s => s.status !== 'cancelado');
-    }
-
-    if (tipoFilter.length > 0) {
-      lista = lista.filter(s => tipoFilter.includes(s.tipo));
-    }
-
-    lista.sort((a, b) => {
-      let va, vb;
-      if (sortCol === 'id') {
-        va = idNum(a.id); vb = idNum(b.id);
-      } else if (sortCol === 'dtCadastro' || sortCol === 'data') {
-        va = a[sortCol]?.seconds ?? (a[sortCol] ? new Date(a[sortCol]).getTime() / 1000 : 0);
-        vb = b[sortCol]?.seconds ?? (b[sortCol] ? new Date(b[sortCol]).getTime() / 1000 : 0);
-      } else if (sortCol === 'status') {
-        va = STATUS_ORDER.indexOf(a.status); vb = STATUS_ORDER.indexOf(b.status);
-      } else {
-        va = (a[sortCol] || '').toString().toLowerCase();
-        vb = (b[sortCol] || '').toString().toLowerCase();
-      }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, sortCol, sortDir]);
-
-  const toggleSort = (col) => {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortCol(col); setSortDir('asc'); }
+  const handleChange = (e) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id.replace('f-', '')]: value }));
   };
 
-  const atualizarStatus = async (docId, novoStatus, mensagem, extra = {}) => {
+  const inp = (id) => ({
+    ...inputStyle,
+    borderColor: focused === id ? '#3b82f6' : '#e2e8f0',
+    background:  focused === id ? '#fff'    : '#f8fafc',
+    boxShadow:   focused === id ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
+  });
+
+  const cadastrar = async () => {
+    if (!formData.local || !formData.desc || !formData.tipo) {
+      alert('Preencha os campos obrigatórios: Localidade, Descrição e Tipo.');
+      return;
+    }
+    if (formData.data) {
+      const dt = new Date(formData.data);
+      if (dt > new Date()) { alert('A data não pode ser no futuro.'); return; }
+      if (dt < new Date('2025-01-01')) { alert('A data não pode ser anterior a 01/01/2025.'); return; }
+    }
+    setLoading(true);
     try {
-      const atual = services.find(s => s._docId === docId);
-      await updateDoc(doc(db, 'servicos', docId), {
-        status: novoStatus, ...extra,
-        hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: mensagem }]
+      const snapshot = await getDocs(collection(db, 'servicos'));
+      const novoId = `VD${String(snapshot.size + 1).padStart(4, '0')}`;
+      await addDoc(collection(db, 'servicos'), {
+        ...formData,
+        id: novoId,
+        status: 'cadastrado',
+        numServ: '',
+        autor: user.label,
+        matriculaAutor: user.matricula,
+        dtCadastro: serverTimestamp(),
+        hist: [{ who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Serviço cadastrado.' }]
       });
-    } catch { alert('Erro ao atualizar.'); }
+      setFormData({ data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: '' });
+      setShowSuccess(true);
+    } catch { alert('Erro ao cadastrar o serviço.'); }
+    finally { setLoading(false); }
   };
 
-  const confirmarStatus = async (numServ) => {
-    const { servico, novoStatus, mensagem } = confirmPending;
-    const extra = numServ ? { numServ } : {};
-    await atualizarStatus(servico._docId, novoStatus, mensagem, extra);
-    setConfirmPending(null);
-  };
-
-  const confirmarNumServ = async (num) => {
-    const s = numServPending;
-    await updateDoc(doc(db, 'servicos', s._docId), {
-      numServ: num,
-      hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Nº CEMIG registrado: ${num}` }]
-    });
-    setNumServPending(null);
-  };
-
-  const confirmarStatusDono = async (novoStatus) => {
-    const s = statusDonoPending;
-    await atualizarStatus(s._docId, novoStatus, `Status alterado para "${STATUS_CONFIG[novoStatus]?.label}" pelo Dono.`);
-    setStatusDonoPending(null);
-  };
-
-  const confirmarMensagemCemig = async () => {
-    const s = mensagemCemigPending;
-    await atualizarStatus(s._docId, 'enviado', 'Enviado à CEMIG');
-    setMensagemCemigPending(null);
-  };
-
-  // ── Exportar para Excel ──────────────────────────────────────────────────
-  const exportarExcel = () => {
-    const dados = filteredServices.map(s => ({
-      'ID': s.id,
-      'Data': s.data ? fmtDt(s.data) : '—',
-      'Localidade': s.local || '—',
-      'Descrição': s.desc || '—',
-      'Tipo': s.tipo || '—',
-      'Equipamento': s.equip || '—',
-      'Status': STATUS_CONFIG[s.status]?.label || s.status,
-      'Nº Serviço': s.numServ || '—',
-      'Coordenadas': s.coord || '—',
-      'Observações': s.obs || '—',
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dados);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Serviços');
-    
-    const timestamp = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `servicos_${timestamp}.xlsx`);
-  };
-
-  // ── Importar do Excel ────────────────────────────────────────────────────
-  const importarExcel = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        let importados = 0;
-        for (const row of jsonData) {
-          // Mapear colunas do Excel para campos do Firebase
-          const novoServico = {
-            id: row['ID'] || `VD${Date.now()}`,
-            data: row['Data'] || new Date().toISOString(),
-            local: row['Localidade'] || '',
-            desc: row['Descrição'] || '',
-            tipo: row['Tipo'] || 'NSIS',
-            equip: row['Equipamento'] || '',
-            status: 'cadastrado',
-            numServ: row['Nº Serviço'] || '',
-            coord: row['Coordenadas'] || '',
-            obs: row['Observações'] || '',
-            hist: [{
-              who: user.label,
-              matricula: user.matricula,
-              when: new Date().toISOString(),
-              msg: 'Importado do Excel'
-            }]
-          };
-
-          await addDoc(collection(db, 'servicos'), novoServico);
-          importados++;
-        }
-
-        alert(`✅ ${importados} serviço(s) importado(s) com sucesso!`);
-        fileInputRef.current.value = '';
-      } catch (error) {
-        alert('❌ Erro ao importar arquivo. Verifique o formato.');
-        console.error(error);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const SortIcon = ({ col }) => {
-    if (sortCol !== col) return <span style={{ opacity: 0.25, marginLeft: '3px', fontSize: '9px' }}>↕</span>;
-    return <span style={{ marginLeft: '3px', fontSize: '9px', color: '#1d4ed8' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
-  };
-
-  const thBase = {
-    textAlign: 'left', fontSize: '10px', color: '#94a3b8', fontWeight: '700',
-    padding: '10px 12px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc',
-    whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase',
-    userSelect: 'none',
-  };
-  const thClick = (col) => ({ ...thBase, cursor: col ? 'pointer' : 'default' });
-
-  const td = {
-    padding: '10px 12px', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle',
-    fontSize: '12px', color: '#334155', whiteSpace: 'nowrap',
-    overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px',
-  };
-
-  const statusOptions = STATUS_ORDER.map(s => ({
-    value: s, label: STATUS_CONFIG[s].label,
-    badge: STATUS_CONFIG[s],
-  }));
-  const tipoOptions = ['NSIS','NSMP','RC02','INBE'].map(t => ({ value: t, label: t }));
+  // Posto da localidade selecionada
+  const postoSelecionado = formData.local
+    ? TODAS_LOCALIDADES.find(l => l.loc === formData.local)?.posto
+    : null;
 
   return (
-    <div>
-      {/* Popups */}
-      {confirmPending    && <ConfirmPopup    servico={confirmPending.servico}    novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}       onCancel={() => setConfirmPending(null)} />}
-      {numServPending    && <NumServPopup    servico={numServPending}             onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
-      {statusDonoPending && <StatusDonoPopup servico={statusDonoPending}          onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
-      {mensagemCemigPending && <MensagemCemigModal servico={mensagemCemigPending} onConfirm={confirmarMensagemCemig}     onCancel={() => setMensagemCemigPending(null)} />}
+    <>
+      {showSuccess && <SuccessPopup onClose={() => setShowSuccess(false)} />}
 
-      {/* Filtros */}
-      <div style={{
-        background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
-        padding: '14px 16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-          Filtros
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(to right, #f8fafc, #fff)' }}>
+          <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #0f2544, #1d4ed8)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f2544' }}>Novo Serviço Levantado</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>Preencha os campos para registrar o levantamento</div>
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca — palavra-chave ou nº serviços (vírgula)</label>
-            <div style={{ position: 'relative' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
-                style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input type="text"
-                placeholder="ID, localidade, descrição, equipamento..."
-                value={busca} onChange={e => setBusca(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: '30px' }} />
+
+        <div style={{ padding: '20px' }}>
+          <SectionLabel>Identificação</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Data do levantamento</label>
+              <input type="datetime-local" step="1" id="f-data"
+                min={minDate} max={maxDate}
+                value={formData.data} onChange={handleChange}
+                style={inp('data')} onFocus={() => setFocused('data')} onBlur={() => setFocused('')}
+              />
             </div>
-            {/[,;]/.test(busca) && busca.trim() && (() => {
-              const termos = busca.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
-              return termos.length > 0 ? (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {termos.map(t => (
-                    <span key={t} style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              ) : null;
-            })()}
+
+            {/* Localidade — select pesquisável */}
+            <div style={fieldStyle}>
+              <label style={labelStyle}>
+                Localidade <span style={{ color: '#ef4444' }}>*</span>
+                {postoSelecionado && (
+                  <span style={{
+                    marginLeft: '8px', fontSize: '10px', fontWeight: '700',
+                    color: POSTO_COLORS[postoSelecionado],
+                    background: `${POSTO_COLORS[postoSelecionado]}15`,
+                    border: `1px solid ${POSTO_COLORS[postoSelecionado]}30`,
+                    padding: '1px 6px', borderRadius: '4px',
+                    textTransform: 'none', letterSpacing: 0,
+                  }}>
+                    {postoSelecionado.split('—')[0].trim()} · {postoSelecionado.split('—')[1]?.trim()}
+                  </span>
+                )}
+              </label>
+              <LocalidadeSelect
+                value={formData.local}
+                onChange={val => setFormData(prev => ({ ...prev, local: val }))}
+                focused={focused === 'local'}
+                onFocus={() => setFocused('local')}
+                onBlur={() => setFocused('')}
+              />
+            </div>
+
+            <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Descrição da solicitação <span style={{ color: '#ef4444' }}>*</span></label>
+              <textarea id="f-desc" rows={3} placeholder="Descreva detalhadamente o serviço..."
+                value={formData.desc} onChange={handleChange}
+                style={{ ...inp('desc'), resize: 'vertical' }}
+                onFocus={() => setFocused('desc')} onBlur={() => setFocused('')}
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Status</label>
-            <MultiSelect options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
+          <SectionLabel>Técnico</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Tipo de serviço <span style={{ color: '#ef4444' }}>*</span></label>
+              <select id="f-tipo" value={formData.tipo} onChange={handleChange}
+                style={inp('tipo')} onFocus={() => setFocused('tipo')} onBlur={() => setFocused('')}>
+                <option value="">Selecione...</option>
+                <option value="NSIS">NSIS</option>
+                <option value="NSMP">NSMP</option>
+                <option value="RC02">RC02</option>
+                <option value="INBE">INBE</option>
+              </select>
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Equipamento (nº da placa)</label>
+              <input type="text" id="f-equip" placeholder="Ex: 13867"
+                value={formData.equip} onChange={handleChange}
+                style={inp('equip')} onFocus={() => setFocused('equip')} onBlur={() => setFocused('')}
+              />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Coordenada</label>
+              <input type="text" id="f-coord" placeholder="-18.517, -41.936"
+                value={formData.coord} onChange={handleChange}
+                style={inp('coord')} onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
+              />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Técnico de origem</label>
+              <input type="text" id="f-orig" placeholder="Nome do técnico"
+                value={formData.orig} onChange={handleChange}
+                style={inp('orig')} onFocus={() => setFocused('orig')} onBlur={() => setFocused('')}
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Tipo</label>
-            <MultiSelect options={tipoOptions} selected={tipoFilter} onChange={setTipoFilter} />
+          <SectionLabel>Complemento</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Link da foto</label>
+              <input type="text" id="f-foto" placeholder="https://..."
+                value={formData.foto} onChange={handleChange}
+                style={inp('foto')} onFocus={() => setFocused('foto')} onBlur={() => setFocused('')}
+              />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Observações</label>
+              <input type="text" id="f-obs" placeholder="Observações adicionais"
+                value={formData.obs} onChange={handleChange}
+                style={inp('obs')} onFocus={() => setFocused('obs')} onBlur={() => setFocused('')}
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>De</label>
-            <input type="date" style={inputStyle} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Até</label>
-            <input type="date" style={inputStyle} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              <span style={{ color: '#ef4444' }}>*</span> Campos obrigatórios
+            </div>
+            <button onClick={cadastrar} disabled={loading} style={{
+              padding: '9px 22px', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '13px', border: 'none',
+              background: loading ? '#94a3b8' : 'linear-gradient(135deg, #0f2544, #1d4ed8)',
+              color: '#fff', fontWeight: '600', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: '6px', opacity: loading ? 0.7 : 1,
+            }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.9'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              {loading ? 'Cadastrando...' : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                  </svg>
+                  Cadastrar serviço
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Tabela */}
-      <div style={{
-        overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px',
-        background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{
-          padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Botão Importar */}
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                padding: '6px 12px', fontSize: '11px', fontWeight: '600',
-                border: '1px solid #cbd5e1', borderRadius: '6px',
-                background: '#fff', color: '#475569',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-              </svg>
-              Importar
-            </button>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept=".xlsx,.xls"
-              onChange={importarExcel}
-              style={{ display: 'none' }}
-            />
-
-            {/* Botão Exportar */}
-            <button 
-              onClick={exportarExcel}
-              disabled={filteredServices.length === 0}
-              style={{
-                padding: '6px 12px', fontSize: '11px', fontWeight: '600',
-                border: '1px solid #1d4ed8', borderRadius: '6px',
-                background: filteredServices.length === 0 ? '#f1f5f9' : '#eff6ff',
-                color: filteredServices.length === 0 ? '#94a3b8' : '#1d4ed8',
-                cursor: filteredServices.length === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => { if (filteredServices.length > 0) { e.currentTarget.style.background = '#dbeafe'; }}}
-              onMouseLeave={e => { if (filteredServices.length > 0) { e.currentTarget.style.background = '#eff6ff'; }}}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-              </svg>
-              Exportar
-            </button>
-
-            {(statusFilter.length > 0 || tipoFilter.length > 0 || busca) && (
-              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); }}
-                style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                Limpar filtros
-              </button>
-            )}
-            <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500' }}>
-              {filteredServices.length} {filteredServices.length === 1 ? 'registro' : 'registros'}
-            </div>
-          </div>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr>
-              <th style={{ ...thBase, width: '32px' }} />
-              <th style={{ ...thBase, width: '32px' }} />
-              <th style={{ ...thBase, width: '32px' }} title="Placa montada" />
-              <th style={{ ...thClick('id'), width: '80px' }} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
-              <th style={{ ...thClick('data'), width: '150px' }} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
-              <th style={{ ...thClick('local'), width: '120px' }} onClick={() => toggleSort('local')}>Localidade <SortIcon col="local" /></th>
-              <th style={thClick('desc')} onClick={() => toggleSort('desc')}>Descrição <SortIcon col="desc" /></th>
-              <th style={{ ...thClick('tipo'), width: '65px' }} onClick={() => toggleSort('tipo')}>Tipo <SortIcon col="tipo" /></th>
-              <th style={{ ...thClick('equip'), width: '110px' }} onClick={() => toggleSort('equip')}>Equipamento <SortIcon col="equip" /></th>
-              <th style={{ ...thClick('status'), width: '145px' }} onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
-              <th style={{ ...thClick('numServ'), width: '120px' }} onClick={() => toggleSort('numServ')}>Nº Serviço <SortIcon col="numServ" /></th>
-              <th style={{ ...thBase, width: '120px' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredServices.map((s, i) => {
-              const nextInfo = NEXT_STATUS[s.status];
-              const placaMontada = s.placaMontada === true;
-              const isEnviarCemig = s.status === 'cadastrado';
-              
-              return (
-                <tr key={s._docId} style={{
-                  opacity: s.status === 'cancelado' ? 0.4 : 1,
-                  textDecoration: s.status === 'cancelado' ? 'line-through' : 'none',
-                  background: i % 2 === 0 ? '#fff' : '#fafbfc', transition: 'background 0.1s',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'; }}
-                >
-                  <td style={td}>
-                    <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
-                      style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                  </td>
-
-                  <td style={td}>
-                    {isDono && (
-                      <button onClick={() => setStatusDonoPending(s)} title="Alterar status (Dono)"
-                        style={{ width: '26px', height: '26px', border: '1px solid #fde68a', borderRadius: '6px', background: '#fffbeb', color: '#92400e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.borderColor = '#fbbf24'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      </button>
-                    )}
-                  </td>
-
-                  <td style={{ ...td, textAlign: 'center' }}>
-                    <span title={placaMontada ? 'Placa montada' : 'Placa não montada'} style={{ fontSize: '14px', opacity: placaMontada ? 1 : 0.2 }}>
-                      {placaMontada ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        </svg>
-                      )}
-                    </span>
-                  </td>
-
-                  <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
-                  <td style={{ ...td, color: '#64748b' }}>{fmtDt(s.data)}</td>
-                  <td style={td}>{s.local}</td>
-                  <td style={{ ...td, maxWidth: '220px' }}>{s.desc}</td>
-                  <td style={td}>
-                    <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', letterSpacing: '0.04em' }}>
-                      {s.tipo}
-                    </span>
-                  </td>
-                  <td style={{ ...td, color: '#64748b' }}>{s.equip || '—'}</td>
-                  <td style={td}><Badge status={s.status} /></td>
-
-                  <td style={td}>
-                    <button onClick={() => setNumServPending(s)} title="Editar Nº do serviço"
-                      style={{
-                        background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer',
-                        color: s.numServ ? '#0f2544' : '#94a3b8', fontSize: '12px', fontFamily: 'inherit',
-                        fontWeight: s.numServ ? '600' : '400', borderRadius: '4px',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1d4ed8'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = s.numServ ? '#0f2544' : '#94a3b8'; }}
-                    >
-                      {s.numServ || '—'}
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </button>
-                  </td>
-
-                  <td style={td}>
-                    {nextInfo && s.status !== 'cancelado' && (
-                      <button
-                        onClick={() => {
-                          if (isEnviarCemig) {
-                            setMensagemCemigPending(s);
-                          } else {
-                            setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg });
-                          }
-                        }}
-                        style={{
-                          fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`,
-                          borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color,
-                          cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}
-                      >
-                        {nextInfo.label}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {filteredServices.length === 0 && (
-              <tr>
-                <td colSpan={12} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>
-                  Nenhum serviço encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <DetalheModal service={selectedService} isOpen={modalOpen} onClose={() => setModalOpen(false)} isDono={isDono} />
-    </div>
+    </>
   );
 };
 
-export default ServicosTable;
+export default CadastroForm;

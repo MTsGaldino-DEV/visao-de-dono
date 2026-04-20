@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
 import DetalheModal from './DetalheModal';
+import * as XLSX from 'xlsx';
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
@@ -12,7 +13,6 @@ const STATUS_CONFIG = {
   cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
 
-// Fluxo sem montagem_pendente — isso vai para a aba Placas
 const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
 
 const NEXT_STATUS = {
@@ -27,7 +27,6 @@ const fmtDt = (iso) => {
   return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
-// Extrai número do ID para ordenação correta (VD0012 → 12)
 const idNum = (id) => parseInt((id || '').replace(/\D/g, '') || '0', 10);
 
 const inputStyle = {
@@ -72,10 +71,118 @@ const Badge = ({ status }) => {
   );
 };
 
+// ── Modal de Mensagem CEMIG ──────────────────────────────────────────────────
+const MensagemCemigModal = ({ servico, onConfirm, onCancel }) => {
+  const gerarMensagem = (s) => {
+    const tipoMsg = {
+      'NSIS': 'NSIS',
+      'NSMP': 'NSMP', 
+      'RC02': 'RC02',
+      'INBE': 'INBE'
+    }[s.tipo] || s.tipo;
+
+    return `Gentileza, gerar ${tipoMsg}:
+Campo Bairro: VD-Placa ${s.equip || s.id}
+Equipamento: ${s.equip || '—'}
+Referências: ${s.desc || 'chave ' + (s.equip || s.id)}
+Coordenadas: ${s.coord || '—'}
+Localidade: ${s.local || '—'}
+Serviço a ser executado:
+${s.desc || 'Substituir placa de identificação ilegível'}
+Observação:
+${s.obs || 'Dúvidas ligar para Matheus ENGELMIG 31 99914-8716'}
+Recurso necessário:
+${s.tipo === 'NSIS' ? 'PLACA DE IDENTIFICAÇÃO' : 'CONFORME TIPO DE SERVIÇO'}`;
+  };
+
+  const [mensagem, setMensagem] = useState(gerarMensagem(servico));
+  const [copiado, setCopiado] = useState(false);
+
+  const copiarMensagem = () => {
+    navigator.clipboard.writeText(mensagem);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  return (
+    <div style={POPUP_OVERLAY}>
+      <div style={{ ...POPUP_BOX, maxWidth: '650px', maxHeight: '85vh', overflow: 'auto' }}>
+        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '4px' }}>
+              Mensagem para CEMIG
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Serviço <strong>{servico.id}</strong> — Revise e edite antes de enviar
+            </div>
+          </div>
+          <button 
+            onClick={copiarMensagem}
+            style={{
+              padding: '6px 12px', fontSize: '11px', fontWeight: '600',
+              border: '1px solid #e2e8f0', borderRadius: '6px',
+              background: copiado ? '#f0fdf4' : '#f8fafc',
+              color: copiado ? '#15803d' : '#64748b',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {copiado ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Copiado!
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>
+                Copiar
+              </>
+            )}
+          </button>
+        </div>
+
+        <textarea
+          value={mensagem}
+          onChange={e => setMensagem(e.target.value)}
+          style={{
+            width: '100%', minHeight: '320px', padding: '14px',
+            border: '1px solid #e2e8f0', borderRadius: '10px',
+            fontSize: '13px', fontFamily: "'Courier New', monospace",
+            lineHeight: '1.6', resize: 'vertical',
+            background: '#f8fafc', color: '#1e293b',
+            marginBottom: '20px'
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={BTN_CANCEL}>
+            Cancelar
+          </button>
+          <button 
+            onClick={() => {
+              copiarMensagem();
+              setTimeout(() => onConfirm(), 500);
+            }}
+            style={BTN_PRIMARY}
+          >
+            Copiar e Enviar à CEMIG
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Popup confirmação de status (com campo Nº CEMIG quando aplicável) ────────
 const ConfirmPopup = ({ servico, novoStatus, onConfirm, onCancel }) => {
   const cfg = STATUS_CONFIG[novoStatus] || {};
-  // Se estiver avançando para "pendente" (ação "Nº CEMIG"), exibe campo para digitar o número
   const precisaNum = novoStatus === 'pendente';
   const [num, setNum] = useState(servico.numServ || '');
 
@@ -98,14 +205,12 @@ const ConfirmPopup = ({ servico, novoStatus, onConfirm, onCancel }) => {
           }
         </div>
 
-        {/* Badge do novo status */}
         <div style={{
           display: 'inline-flex', alignItems: 'center', fontSize: '11px', padding: '4px 12px',
           borderRadius: '20px', fontWeight: '600', background: cfg.bg, color: cfg.color,
           border: `1px solid ${cfg.border}`, marginBottom: precisaNum ? '14px' : '22px',
         }}>{cfg.label}</div>
 
-        {/* Campo Nº CEMIG — só aparece quando a ação é "Nº CEMIG" */}
         {precisaNum && (
           <div style={{ marginBottom: '22px' }}>
             <input
@@ -142,7 +247,7 @@ const ConfirmPopup = ({ servico, novoStatus, onConfirm, onCancel }) => {
   );
 };
 
-// ── Popup Nº CEMIG standalone (edição avulsa pela célula da tabela) ──────────
+// ── Popup Nº CEMIG standalone ────────────────────────────────────────────────
 const NumServPopup = ({ servico, onConfirm, onCancel }) => {
   const [num, setNum] = useState(servico.numServ || '');
   return (
@@ -296,26 +401,26 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
   );
 };
 
-import { useRef } from 'react';
-
 // ── Componente principal ─────────────────────────────────────────────────────
 const ServicosTable = () => {
   const { user } = useAuth();
   const isDono = user?.role === 'dono';
+  const fileInputRef = useRef(null);
 
   const [services, setServices]               = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
   const [modalOpen, setModalOpen]             = useState(false);
   const [busca, setBusca]                     = useState('');
-  const [statusFilter, setStatusFilter]       = useState([]); // multi
-  const [tipoFilter, setTipoFilter]           = useState([]); // multi
+  const [statusFilter, setStatusFilter]       = useState([]);
+  const [tipoFilter, setTipoFilter]           = useState([]);
   const [sortCol, setSortCol]                 = useState('id');
-  const [sortDir, setSortDir]                 = useState('desc'); // maior → menor por padrão
+  const [sortDir, setSortDir]                 = useState('desc');
 
   const [confirmPending, setConfirmPending]       = useState(null);
   const [numServPending, setNumServPending]       = useState(null);
   const [statusDonoPending, setStatusDonoPending] = useState(null);
+  const [mensagemCemigPending, setMensagemCemigPending] = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -327,12 +432,10 @@ const ServicosTable = () => {
   useEffect(() => {
     let lista = [...services];
 
-    // Busca: detecta se é lista de nº de serviço (vírgula/ponto-e-vírgula) ou palavra-chave geral
     if (busca.trim()) {
       const raw = busca.trim();
       const temVirgula = /[,;]/.test(raw);
       if (temVirgula) {
-        // Modo lista: cada termo deve bater com numServ ou id exato
         const termos = raw.split(/[,;\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
         lista = lista.filter(s =>
           termos.some(t =>
@@ -341,7 +444,6 @@ const ServicosTable = () => {
           )
         );
       } else {
-        // Modo palavra-chave: busca em todos os campos
         const terms = raw.toLowerCase().split(/\s+/);
         lista = lista.filter(s => {
           const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs]
@@ -351,19 +453,16 @@ const ServicosTable = () => {
       }
     }
 
-    // Multi status
     if (statusFilter.length > 0) {
       lista = lista.filter(s => statusFilter.includes(s.status));
     } else {
       lista = lista.filter(s => s.status !== 'cancelado');
     }
 
-    // Multi tipo
     if (tipoFilter.length > 0) {
       lista = lista.filter(s => tipoFilter.includes(s.tipo));
     }
 
-    // Ordenação
     lista.sort((a, b) => {
       let va, vb;
       if (sortCol === 'id') {
@@ -422,6 +521,84 @@ const ServicosTable = () => {
     setStatusDonoPending(null);
   };
 
+  const confirmarMensagemCemig = async () => {
+    const s = mensagemCemigPending;
+    await atualizarStatus(s._docId, 'enviado', 'Enviado à CEMIG');
+    setMensagemCemigPending(null);
+  };
+
+  // ── Exportar para Excel ──────────────────────────────────────────────────
+  const exportarExcel = () => {
+    const dados = filteredServices.map(s => ({
+      'ID': s.id,
+      'Data': s.data ? fmtDt(s.data) : '—',
+      'Localidade': s.local || '—',
+      'Descrição': s.desc || '—',
+      'Tipo': s.tipo || '—',
+      'Equipamento': s.equip || '—',
+      'Status': STATUS_CONFIG[s.status]?.label || s.status,
+      'Nº Serviço': s.numServ || '—',
+      'Coordenadas': s.coord || '—',
+      'Observações': s.obs || '—',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Serviços');
+    
+    const timestamp = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `servicos_${timestamp}.xlsx`);
+  };
+
+  // ── Importar do Excel ────────────────────────────────────────────────────
+  const importarExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        let importados = 0;
+        for (const row of jsonData) {
+          // Mapear colunas do Excel para campos do Firebase
+          const novoServico = {
+            id: row['ID'] || `VD${Date.now()}`,
+            data: row['Data'] || new Date().toISOString(),
+            local: row['Localidade'] || '',
+            desc: row['Descrição'] || '',
+            tipo: row['Tipo'] || 'NSIS',
+            equip: row['Equipamento'] || '',
+            status: 'cadastrado',
+            numServ: row['Nº Serviço'] || '',
+            coord: row['Coordenadas'] || '',
+            obs: row['Observações'] || '',
+            hist: [{
+              who: user.label,
+              matricula: user.matricula,
+              when: new Date().toISOString(),
+              msg: 'Importado do Excel'
+            }]
+          };
+
+          await addDoc(collection(db, 'servicos'), novoServico);
+          importados++;
+        }
+
+        alert(`✅ ${importados} serviço(s) importado(s) com sucesso!`);
+        fileInputRef.current.value = '';
+      } catch (error) {
+        alert('❌ Erro ao importar arquivo. Verifique o formato.');
+        console.error(error);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const SortIcon = ({ col }) => {
     if (sortCol !== col) return <span style={{ opacity: 0.25, marginLeft: '3px', fontSize: '9px' }}>↕</span>;
     return <span style={{ marginLeft: '3px', fontSize: '9px', color: '#1d4ed8' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
@@ -453,6 +630,7 @@ const ServicosTable = () => {
       {confirmPending    && <ConfirmPopup    servico={confirmPending.servico}    novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}       onCancel={() => setConfirmPending(null)} />}
       {numServPending    && <NumServPopup    servico={numServPending}             onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
       {statusDonoPending && <StatusDonoPopup servico={statusDonoPending}          onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
+      {mensagemCemigPending && <MensagemCemigModal servico={mensagemCemigPending} onConfirm={confirmarMensagemCemig}     onCancel={() => setMensagemCemigPending(null)} />}
 
       {/* Filtros */}
       <div style={{
@@ -463,7 +641,6 @@ const ServicosTable = () => {
           Filtros
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
-          {/* Busca por palavra-chave ou múltiplos nº de serviço */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca — palavra-chave ou nº serviços (vírgula)</label>
             <div style={{ position: 'relative' }}>
@@ -476,7 +653,6 @@ const ServicosTable = () => {
                 value={busca} onChange={e => setBusca(e.target.value)}
                 style={{ ...inputStyle, paddingLeft: '30px' }} />
             </div>
-            {/* Badges quando modo lista */}
             {/[,;]/.test(busca) && busca.trim() && (() => {
               const termos = busca.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
               return termos.length > 0 ? (
@@ -491,13 +667,11 @@ const ServicosTable = () => {
             })()}
           </div>
 
-          {/* Multi status */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Status</label>
             <MultiSelect options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
           </div>
 
-          {/* Multi tipo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Tipo</label>
             <MultiSelect options={tipoOptions} selected={tipoFilter} onChange={setTipoFilter} />
@@ -525,6 +699,54 @@ const ServicosTable = () => {
         }}>
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Botão Importar */}
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                padding: '6px 12px', fontSize: '11px', fontWeight: '600',
+                border: '1px solid #cbd5e1', borderRadius: '6px',
+                background: '#fff', color: '#475569',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              Importar
+            </button>
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              accept=".xlsx,.xls"
+              onChange={importarExcel}
+              style={{ display: 'none' }}
+            />
+
+            {/* Botão Exportar */}
+            <button 
+              onClick={exportarExcel}
+              disabled={filteredServices.length === 0}
+              style={{
+                padding: '6px 12px', fontSize: '11px', fontWeight: '600',
+                border: '1px solid #1d4ed8', borderRadius: '6px',
+                background: filteredServices.length === 0 ? '#f1f5f9' : '#eff6ff',
+                color: filteredServices.length === 0 ? '#94a3b8' : '#1d4ed8',
+                cursor: filteredServices.length === 0 ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { if (filteredServices.length > 0) { e.currentTarget.style.background = '#dbeafe'; }}}
+              onMouseLeave={e => { if (filteredServices.length > 0) { e.currentTarget.style.background = '#eff6ff'; }}}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              Exportar
+            </button>
+
             {(statusFilter.length > 0 || tipoFilter.length > 0 || busca) && (
               <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); }}
                 style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
@@ -545,7 +767,6 @@ const ServicosTable = () => {
             <tr>
               <th style={{ ...thBase, width: '32px' }} />
               <th style={{ ...thBase, width: '32px' }} />
-              {/* Ícone placa */}
               <th style={{ ...thBase, width: '32px' }} title="Placa montada" />
               <th style={{ ...thClick('id'), width: '80px' }} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
               <th style={{ ...thClick('data'), width: '150px' }} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
@@ -562,6 +783,8 @@ const ServicosTable = () => {
             {filteredServices.map((s, i) => {
               const nextInfo = NEXT_STATUS[s.status];
               const placaMontada = s.placaMontada === true;
+              const isEnviarCemig = s.status === 'cadastrado';
+              
               return (
                 <tr key={s._docId} style={{
                   opacity: s.status === 'cancelado' ? 0.4 : 1,
@@ -571,7 +794,6 @@ const ServicosTable = () => {
                   onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'; }}
                 >
-                  {/* Ver detalhes */}
                   <td style={td}>
                     <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
                       style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
@@ -584,7 +806,6 @@ const ServicosTable = () => {
                     </button>
                   </td>
 
-                  {/* Alterar status — Dono */}
                   <td style={td}>
                     {isDono && (
                       <button onClick={() => setStatusDonoPending(s)} title="Alterar status (Dono)"
@@ -600,7 +821,6 @@ const ServicosTable = () => {
                     )}
                   </td>
 
-                  {/* Ícone placa montada — preenchido pela aba Placas no futuro */}
                   <td style={{ ...td, textAlign: 'center' }}>
                     <span title={placaMontada ? 'Placa montada' : 'Placa não montada'} style={{ fontSize: '14px', opacity: placaMontada ? 1 : 0.2 }}>
                       {placaMontada ? (
@@ -627,7 +847,6 @@ const ServicosTable = () => {
                   <td style={{ ...td, color: '#64748b' }}>{s.equip || '—'}</td>
                   <td style={td}><Badge status={s.status} /></td>
 
-                  {/* Nº serviço clicável */}
                   <td style={td}>
                     <button onClick={() => setNumServPending(s)} title="Editar Nº do serviço"
                       style={{
@@ -647,11 +866,16 @@ const ServicosTable = () => {
                     </button>
                   </td>
 
-                  {/* Ação de avanço */}
                   <td style={td}>
                     {nextInfo && s.status !== 'cancelado' && (
                       <button
-                        onClick={() => setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg })}
+                        onClick={() => {
+                          if (isEnviarCemig) {
+                            setMensagemCemigPending(s);
+                          } else {
+                            setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg });
+                          }
+                        }}
                         style={{
                           fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`,
                           borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color,
