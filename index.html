@@ -19,4 +19,1170 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
-<html>
+  <html>
+=======
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Visão de Dono</title>
+<!--
+  ============================================================
+  VISÃO DE DONO — Sistema de controle de serviços de campo
+  Tecnologias:
+    - HTML/CSS/JS puro (roda em qualquer navegador)
+    - Firebase Firestore (banco de dados em nuvem do Google)
+    - Chart.js (gráficos do painel)
+    - SheetJS/XLSX (exportação para Excel)
+  ============================================================
+-->
+
+<!-- Biblioteca para exportar Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ============================================================
+   ESTILOS GLOBAIS — Reset e base do sistema
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:14px;background:#f0f4f8;color:#222}
+#app{min-height:100vh}
+.screen{display:none}.screen.active{display:block}
+
+/* ============================================================
+   BARRA SUPERIOR — Topo fixo com logo e info do usuário
+   ============================================================ */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#1a3a5c;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.topbar-title{font-size:15px;font-weight:700;color:#fff}
+.topbar-right{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.8)}
+.btn-logout{font-size:12px;padding:5px 12px;border:1px solid rgba(255,255,255,0.4);border-radius:6px;background:transparent;color:#fff;cursor:pointer}
+.btn-logout:hover{background:rgba(255,255,255,0.15)}
+
+/* ============================================================
+   LAYOUT PRINCIPAL — Área de conteúdo com abas
+   ============================================================ */
+.wrap{padding:16px;max-width:1200px;margin:0 auto}
+.tabs{display:flex;gap:2px;border-bottom:2px solid #e0e0e0;margin-bottom:16px;flex-wrap:wrap;background:#fff;padding:0 8px;border-radius:8px 8px 0 0}
+.tab{padding:10px 16px;font-size:13px;cursor:pointer;border:none;background:none;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab.active{color:#1a3a5c;font-weight:700;border-bottom:2px solid #1a3a5c}
+.tab:hover{color:#1a3a5c}
+
+/* ============================================================
+   CARDS — Caixas de conteúdo e formulários
+   ============================================================ */
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px}
+.card h3{font-size:14px;font-weight:700;margin-bottom:14px;color:#1a3a5c;border-bottom:1px solid #f0f0f0;padding-bottom:10px}
+
+/* ============================================================
+   FORMULÁRIOS — Campos de entrada de dados
+   ============================================================ */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrid .full{grid-column:1/-1}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.03em}
+.fld input,.fld select,.fld textarea{width:100%;padding:8px 10px;border:1px solid #d0d0d0;border-radius:6px;font-size:13px;background:#fff;color:#222;transition:border-color 0.15s}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:#1a3a5c}
+.fld textarea{resize:vertical;min-height:70px}
+
+/* ============================================================
+   BOTÕES — Ações principais e secundárias
+   ============================================================ */
+.btn-prim{padding:9px 20px;border-radius:6px;cursor:pointer;font-size:13px;border:none;background:#1a3a5c;color:#fff;font-weight:700;transition:background 0.15s}
+.btn-prim:hover{background:#12294a}
+.btn-sec{padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid #ccc;background:#fff;color:#333;font-weight:600}
+.btn-sec:hover{background:#f5f5f5}
+
+/* ============================================================
+   FILTROS — Barra de busca e filtros da tabela
+   ============================================================ */
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;align-items:end}
+
+/* ============================================================
+   ABAS DE TIPO — Filtro rápido por tipo de serviço
+   ============================================================ */
+.tipo-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tipo-tab{padding:5px 14px;font-size:12px;border:1px solid #ccc;border-radius:20px;cursor:pointer;background:#fff;color:#888}
+.tipo-tab.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+
+/* ============================================================
+   TABELA — Listagem de serviços
+   ============================================================ */
+.tbl-wrap{overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:11px;color:#888;font-weight:700;padding:9px 8px;border-bottom:1px solid #e0e0e0;white-space:nowrap;cursor:pointer;background:#f8f8f8;text-transform:uppercase;letter-spacing:0.03em}
+th:hover{color:#1a3a5c}
+td{padding:8px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fbff}
+
+/* ============================================================
+   BADGES — Etiquetas coloridas de status
+   ============================================================ */
+.badge{display:inline-block;font-size:10px;padding:3px 9px;border-radius:12px;font-weight:700;white-space:nowrap}
+.badge.cadastrado{background:#E3F2FD;color:#1565C0}
+.badge.enviado{background:#F3E5F5;color:#6A1B9A}
+.badge.pendente{background:#FFF3E0;color:#E65100}
+.badge.montagem{background:#E8EAF6;color:#283593}
+.badge.concluido{background:#E8F5E9;color:#2E7D32}
+.badge.cancelado{background:#FFEBEE;color:#c62828}
+
+/* ============================================================
+   BOTÕES DE AÇÃO NAS LINHAS — Lupa, X e ações de fluxo
+   ============================================================ */
+.row-acts{display:flex;gap:3px;align-items:center}
+.act-btn{font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:5px;background:#fff;color:#555;cursor:pointer;white-space:nowrap;line-height:1.2}
+.act-btn:hover{background:#f0f0f0}
+.act-btn.warn{border-color:#E65100;color:#E65100}
+.act-btn.suc{border-color:#2E7D32;color:#2E7D32}
+.act-btn.info{border-color:#1565C0;color:#1565C0}
+.act-btn.purple{border-color:#6A1B9A;color:#6A1B9A}
+.act-btn.lupa{font-size:14px;padding:3px 7px;border-color:#1a3a5c;color:#1a3a5c}
+.act-btn.cancel-btn{font-size:13px;padding:2px 8px;border-color:#c62828;color:#c62828;font-weight:700}
+
+/* ============================================================
+   CARDS DE ESTATÍSTICAS — Números do painel
+   ============================================================ */
+.stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.stat{background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #e0e0e0}
+.stat .lbl{font-size:11px;color:#888;margin-bottom:4px;font-weight:600;text-transform:uppercase}
+.stat .val{font-size:22px;font-weight:700}
+.val.blue{color:#1565C0}.val.amber{color:#E65100}.val.green{color:#2E7D32}.val.muted{color:#555}.val.purple{color:#6A1B9A}
+
+/* ============================================================
+   GRÁFICOS — Área dos charts do painel
+   ============================================================ */
+.chart-wrap{position:relative;width:100%;height:200px;margin-top:8px}
+.section-title{font-size:11px;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
+
+/* ============================================================
+   BARRAS DE LOCALIDADE — Gráfico de barras simples por local
+   ============================================================ */
+.loc-bar-wrap{margin-bottom:10px}
+.loc-bar-label{font-size:12px;color:#555;margin-bottom:4px;display:flex;justify-content:space-between}
+.loc-bar-bg{background:#e8eef5;border-radius:4px;height:10px}
+.loc-bar-fill{background:#1a3a5c;border-radius:4px;height:10px;transition:width 0.4s}
+
+/* ============================================================
+   CARDS DE PLACAS — Agrupamento por equipamento
+   ============================================================ */
+.placa-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px;margin-bottom:12px}
+.placa-card h4{font-size:13px;font-weight:700;color:#1a3a5c;margin-bottom:8px}
+
+/* ============================================================
+   TELA DE LOGIN — Formulário de entrada no sistema
+   ============================================================ */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;background:linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%)}
+.login-card{background:#fff;border-radius:14px;padding:36px 30px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.login-card h2{font-size:22px;font-weight:700;color:#1a3a5c}
+.login-card .subtitle{font-size:13px;color:#888;margin-bottom:24px;margin-top:2px}
+.login-card .fld{margin-bottom:14px}
+
+/* ============================================================
+   MODAIS — Janelas pop-up para ações e detalhes
+   ============================================================ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px;color:#1a3a5c;border-bottom:1px solid #f0f0f0;padding-bottom:10px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #f0f0f0}
+.modal-section{margin-bottom:16px}
+.modal-section-title{font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px}
+
+/* ============================================================
+   DETALHES DO SERVIÇO — Layout dentro do modal de lupa
+   ============================================================ */
+.detail-grid{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px;margin-bottom:14px}
+.detail-label{font-weight:700;color:#666;padding-top:1px}
+.detail-val{color:#222}
+
+/* ============================================================
+   HISTÓRICO — Linha do tempo de alterações
+   ============================================================ */
+.hist-item{padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px}
+.hist-item:last-child{border-bottom:none}
+.hist-who{font-weight:700;color:#1a3a5c}
+.hist-when{color:#bbb;margin-left:6px;font-size:11px}
+.hist-what{color:#666;margin-top:3px}
+
+/* ============================================================
+   TOAST — Notificação de sucesso que aparece e some
+   ============================================================ */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a3a5c;color:#fff;padding:14px 28px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;display:none;min-width:280px;text-align:center}
+.toast.show{display:block}
+
+/* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+.empty{text-align:center;padding:40px;color:#bbb;font-size:13px}
+.loading{text-align:center;padding:40px;color:#aaa;font-size:13px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ============================================================
+     TELA DE LOGIN
+     Exibida para todos antes de entrar no sistema
+     ============================================================ -->
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <!-- Logo SVG inline — olho minimalista -->
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="10" fill="#1a3a5c"/>
+          <path d="M6,20 Q20,6 34,20 Q20,34 6,20 Z" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="20" cy="20" r="6" fill="#fff"/>
+          <circle cx="20" cy="20" r="2.5" fill="#1a3a5c"/>
+        </svg>
+        <h2>Visão de Dono</h2>
+      </div>
+      <p class="subtitle">Controle de serviços de campo</p>
+      <div class="fld">
+        <label>Matrícula</label>
+        <input type="text" id="lu" placeholder="Digite sua matrícula" onkeydown="if(event.key==='Enter')document.getElementById('lp').focus()"/>
+      </div>
+      <div class="fld" style="margin-bottom:20px">
+        <label>Senha</label>
+        <input type="password" id="lp" placeholder="Digite sua senha" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn-prim" style="width:100%;padding:11px" onclick="doLogin()">Entrar</button>
+      <p id="lerr" style="color:#c62828;font-size:12px;margin-top:10px;display:none;text-align:center">Matrícula ou senha incorretos.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TELA PRINCIPAL
+     Exibida após login — contém todas as abas do sistema
+     ============================================================ -->
+<div id="screen-main" class="screen">
+  <!-- Barra superior -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <svg width="30" height="30" viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="10" fill="rgba(255,255,255,0.15)"/>
+        <path d="M6,20 Q20,6 34,20 Q20,34 6,20 Z" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="6" fill="#fff"/>
+        <circle cx="20" cy="20" r="2.5" fill="#1a3a5c"/>
+      </svg>
+      <span class="topbar-title">Visão de Dono</span>
+    </div>
+    <div class="topbar-right">
+      <span id="ulabel"></span>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- Abas de navegação — algumas só aparecem para Dono -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('cad',this)">Cadastrar</button>
+      <button class="tab" onclick="switchTab('lista',this)">Serviços</button>
+      <button class="tab" onclick="switchTab('placas',this)">Placas</button>
+      <button class="tab dono-only hidden" onclick="switchTab('dash',this)">Painel</button>
+    </div>
+
+    <!-- ============================================================
+         ABA: CADASTRAR SERVIÇO
+         Todos os usuários podem cadastrar
+         ============================================================ -->
+    <div id="tab-cad">
+      <div class="card">
+        <h3>Novo serviço levantado</h3>
+        <div class="fgrid">
+          <div class="fld"><label>Data do levantamento</label><input type="datetime-local" id="f-data"/></div>
+          <div class="fld"><label>Localidade</label><input type="text" id="f-local" placeholder="Ex: Frei Inocêncio"/></div>
+          <div class="fld full"><label>Descrição da solicitação</label><textarea id="f-desc" placeholder="Descreva o serviço levantado pelo técnico..."></textarea></div>
+          <div class="fld"><label>Tipo de serviço</label>
+            <select id="f-tipo">
+              <option value="">Selecione...</option>
+              <option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option>
+            </select>
+          </div>
+          <div class="fld"><label>Equipamento (nº da placa)</label><input type="text" id="f-equip" placeholder="Ex: 13867"/></div>
+          <div class="fld"><label>Coordenada</label><input type="text" id="f-coord" placeholder="-18.517, -41.936"/></div>
+          <div class="fld"><label>Link da foto</label><input type="text" id="f-foto" placeholder="https://..."/></div>
+          <div class="fld"><label>Técnico de origem</label><input type="text" id="f-orig" placeholder="Nome do técnico"/></div>
+          <div class="fld full"><label>Observações</label><input type="text" id="f-obs" placeholder="Observações adicionais"/></div>
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn-prim" onclick="cadastrar()">Cadastrar serviço</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         ABA: LISTA DE SERVIÇOS
+         Todos veem, Dono pode cancelar e editar via lupa
+         ============================================================ -->
+    <div id="tab-lista" class="hidden">
+      <!-- Filtros de busca -->
+      <div class="filters">
+        <div class="fld"><label>Busca (ID ou Nº serviço)</label><input type="text" id="f-busca" placeholder="VD0001 ou 207809115" oninput="renderLista()"/></div>
+        <div class="fld"><label>Status</label>
+          <select id="f-status" onchange="renderLista()">
+            <option value="">Todos</option>
+            <option value="cadastrado">Cadastrado</option>
+            <option value="enviado">Enviado CEMIG</option>
+            <option value="pendente">Pendente</option>
+            <option value="montagem">Montagem Pendente</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+        <div class="fld"><label>Tipo</label>
+          <select id="f-ftipo" onchange="renderLista()">
+            <option value="">Todos</option>
+            <option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option>
+          </select>
+        </div>
+        <div class="fld"><label>De</label><input type="date" id="f-de" onchange="renderLista()"/></div>
+        <div class="fld"><label>Até</label><input type="date" id="f-ate" onchange="renderLista()"/></div>
+      </div>
+      <!-- Filtro rápido por tipo -->
+      <div class="tipo-tabs">
+        <button class="tipo-tab active" onclick="setTipoFilter('',this)">Todos</button>
+        <button class="tipo-tab" onclick="setTipoFilter('NSIS',this)">NSIS</button>
+        <button class="tipo-tab" onclick="setTipoFilter('NSMP',this)">NSMP</button>
+        <button class="tipo-tab" onclick="setTipoFilter('RC02',this)">RC02</button>
+        <button class="tipo-tab" onclick="setTipoFilter('INBE',this)">INBE</button>
+      </div>
+      <!-- Tabela de serviços -->
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:36px"></th><!-- lupa -->
+            <th style="width:36px" class="dono-col"></th><!-- X cancelar -->
+            <th onclick="sortBy('id')" style="width:78px">ID <span id="sort-id"></span></th>
+            <th onclick="sortBy('data')" style="width:120px">Data <span id="sort-data"></span></th>
+            <th onclick="sortBy('local')" style="width:110px">Localidade <span id="sort-local"></span></th>
+            <th onclick="sortBy('desc')">Descrição <span id="sort-desc"></span></th>
+            <th onclick="sortBy('tipo')" style="width:58px">Tipo <span id="sort-tipo"></span></th>
+            <th onclick="sortBy('equip')" style="width:95px">Equipamento <span id="sort-equip"></span></th>
+            <th onclick="sortBy('status')" style="width:130px">Status <span id="sort-status"></span></th>
+            <th onclick="sortBy('numServ')" style="width:100px">Nº serviço <span id="sort-numServ"></span></th>
+            <th style="width:120px">Ações</th>
+          </tr></thead>
+          <tbody id="tbody-a"></tbody>
+        </table>
+        <div id="empty-a" class="empty hidden">Nenhum serviço encontrado.</div>
+        <div id="loading-a" class="loading">Carregando serviços...</div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         ABA: PLACAS
+         Agrupa serviços por número de equipamento
+         Mostra status de montagem de cada placa
+         ============================================================ -->
+    <div id="tab-placas" class="hidden">
+      <div class="card">
+        <h3>Placas por equipamento</h3>
+        <p style="font-size:13px;color:#888;margin-bottom:14px">Acompanhe o status de montagem das placas agrupadas por número de equipamento.</p>
+        <div class="fld" style="max-width:320px;margin-bottom:16px">
+          <label>Buscar por número de equipamento</label>
+          <input type="text" id="placa-busca" placeholder="Ex: 13867" oninput="renderPlacas()"/>
+        </div>
+        <div id="placas-lista"><p class="empty">Nenhuma placa encontrada.</p></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         ABA: PAINEL GERENCIAL (só Dono)
+         Gráficos, estatísticas e exportação
+         ============================================================ -->
+    <div id="tab-dash" class="hidden">
+      <!-- Cards de totais -->
+      <div class="stats-grid">
+        <div class="stat"><div class="lbl">Total</div><div class="val muted" id="d-total">—</div></div>
+        <div class="stat"><div class="lbl">Enviados CEMIG</div><div class="val blue" id="d-env">—</div></div>
+        <div class="stat"><div class="lbl">Pendentes</div><div class="val amber" id="d-pend">—</div></div>
+        <div class="stat"><div class="lbl">Montagem</div><div class="val purple" id="d-mont">—</div></div>
+        <div class="stat"><div class="lbl">Concluídos</div><div class="val green" id="d-conc">—</div></div>
+      </div>
+      <!-- Gráficos lado a lado -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="card" style="margin-bottom:0">
+          <div class="section-title">Produtividade por usuário</div>
+          <div class="chart-wrap"><canvas id="chart-prod" role="img" aria-label="Cadastros por usuário">Cadastros por usuário.</canvas></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="section-title">Serviços por tipo</div>
+          <div class="chart-wrap"><canvas id="chart-tipo" role="img" aria-label="Distribuição por tipo">Distribuição por tipo.</canvas></div>
+        </div>
+      </div>
+      <!-- Barras por localidade -->
+      <div class="card">
+        <div class="section-title">Serviços por localidade</div>
+        <div id="loc-bars"></div>
+      </div>
+      <!-- Tempo médio -->
+      <div class="card">
+        <div class="section-title">Tempo médio (cadastro → retorno CEMIG)</div>
+        <div id="tempo-medio" style="font-size:28px;font-weight:700;color:#1a3a5c;margin:6px 0">—</div>
+        <div style="font-size:12px;color:#aaa">dias em média até receber o número da CEMIG</div>
+      </div>
+      <!-- Tabela completa com filtros e exportação -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="section-title" style="margin-bottom:0">Todos os serviços</div>
+          <button class="btn-sec" onclick="exportarExcel()">Exportar Excel</button>
+        </div>
+        <div class="filters" style="margin-bottom:12px">
+          <div class="fld"><label>Busca</label><input type="text" id="d-busca" placeholder="VD0001 ou 207809115" oninput="renderTodos()"/></div>
+          <div class="fld"><label>Status</label>
+            <select id="d-status" onchange="renderTodos()">
+              <option value="">Todos</option>
+              <option value="cadastrado">Cadastrado</option>
+              <option value="enviado">Enviado CEMIG</option>
+              <option value="pendente">Pendente</option>
+              <option value="montagem">Montagem Pendente</option>
+              <option value="concluido">Concluído</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="fld"><label>Tipo</label>
+            <select id="d-ftipo" onchange="renderTodos()">
+              <option value="">Todos</option>
+              <option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option>
+            </select>
+          </div>
+          <div class="fld"><label>De</label><input type="date" id="d-de" onchange="renderTodos()"/></div>
+          <div class="fld"><label>Até</label><input type="date" id="d-ate" onchange="renderTodos()"/></div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortByD('id')" style="width:78px">ID <span id="ds-id"></span></th>
+              <th onclick="sortByD('data')" style="width:120px">Data <span id="ds-data"></span></th>
+              <th onclick="sortByD('local')" style="width:110px">Localidade <span id="ds-local"></span></th>
+              <th onclick="sortByD('desc')">Descrição <span id="ds-desc"></span></th>
+              <th onclick="sortByD('tipo')" style="width:58px">Tipo <span id="ds-tipo"></span></th>
+              <th onclick="sortByD('status')" style="width:130px">Status <span id="ds-status"></span></th>
+              <th onclick="sortByD('numServ')" style="width:100px">Nº serviço <span id="ds-numServ"></span></th>
+              <th onclick="sortByD('equip')" style="width:95px">Equipamento <span id="ds-equip"></span></th>
+              <th onclick="sortByD('autor')" style="width:90px">Usuário <span id="ds-autor"></span></th>
+            </tr></thead>
+            <tbody id="tbody-d"></tbody>
+          </table>
+          <div id="empty-d" class="empty hidden">Nenhum serviço encontrado.</div>
+          <div id="loading-d" class="loading">Carregando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: DETALHES E EDIÇÃO DO SERVIÇO (lupa)
+     Dono pode editar campos — outros só visualizam
+     ============================================================ -->
+<div class="modal-overlay" id="modal-det">
+  <div class="modal">
+    <h3>Detalhes do serviço — <span id="mdet-id"></span></h3>
+    <!-- Modo visualização -->
+    <div id="mdet-view">
+      <div class="modal-section">
+        <div class="modal-section-title">Informações</div>
+        <div class="detail-grid" id="mdet-body"></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Histórico de alterações</div>
+        <div id="mdet-hist"></div>
+      </div>
+    </div>
+    <!-- Modo edição (só Dono) -->
+    <div id="mdet-edit" class="hidden">
+      <div class="fgrid" style="margin-bottom:12px">
+        <div class="fld"><label>Localidade</label><input type="text" id="edit-local"/></div>
+        <div class="fld"><label>Tipo de serviço</label>
+          <select id="edit-tipo"><option>NSIS</option><option>NSMP</option><option>RC02</option><option>INBE</option></select>
+        </div>
+        <div class="fld full"><label>Descrição</label><textarea id="edit-desc"></textarea></div>
+        <div class="fld"><label>Equipamento</label><input type="text" id="edit-equip"/></div>
+        <div class="fld"><label>Técnico de origem</label><input type="text" id="edit-orig"/></div>
+        <div class="fld"><label>Coordenada</label><input type="text" id="edit-coord"/></div>
+        <div class="fld"><label>Link da foto</label><input type="text" id="edit-foto"/></div>
+        <div class="fld full"><label>Observações</label><input type="text" id="edit-obs"/></div>
+      </div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeModal('modal-det')">Fechar</button>
+      <button class="btn-sec dono-only hidden" id="btn-toggle-edit" onclick="toggleEdit()">Editar</button>
+      <button class="btn-prim dono-only hidden" id="btn-salvar-edit" onclick="salvarEdicao()" style="display:none!important">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: CONFIRMAR ENVIO À CEMIG
+     ============================================================ -->
+<div class="modal-overlay" id="modal-env">
+  <div class="modal" style="max-width:400px">
+    <h3>Confirmar envio à CEMIG</h3>
+    <p style="font-size:13px;color:#666">O serviço <strong id="menv-id"></strong> será marcado como "Enviado à CEMIG". Confirma?</p>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeModal('modal-env')">Cancelar</button>
+      <button class="btn-prim" onclick="confirmarEnvio()">Confirmar envio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: NÚMERO RETORNADO PELA CEMIG
+     ============================================================ -->
+<div class="modal-overlay" id="modal-num">
+  <div class="modal" style="max-width:400px">
+    <h3>Número retornado pela CEMIG</h3>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">Serviço: <strong id="mnum-id"></strong></p>
+    <div class="fld"><label>Número do serviço</label><input type="text" id="input-num" placeholder="Ex: 207809115"/></div>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeModal('modal-num')">Cancelar</button>
+      <button class="btn-prim" style="background:#E65100" onclick="confirmarNum()">Salvar e marcar pendente</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: CANCELAR SERVIÇO (só Dono)
+     ============================================================ -->
+<div class="modal-overlay" id="modal-cancel">
+  <div class="modal" style="max-width:400px">
+    <h3>Cancelar serviço</h3>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">Serviço: <strong id="mcancel-id"></strong></p>
+    <div class="fld"><label>Motivo do cancelamento</label><input type="text" id="input-motivo" placeholder="Informe o motivo..."/></div>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeModal('modal-cancel')">Voltar</button>
+      <button class="btn-prim" style="background:#c62828" onclick="confirmarCancel()">Confirmar cancelamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de notificação -->
+<div id="toast" class="toast"></div>
+
+<!-- ============================================================
+     BIBLIOTECAS EXTERNAS
+     ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<!-- ============================================================
+     JAVASCRIPT PRINCIPAL
+     Usa ES Modules para importar o Firebase
+     ============================================================ -->
+<script type="module">
+// ============================================================
+// NOTA TÉCNICA: Usamos type="module" para poder importar o
+// Firebase. Isso isola as funções do escopo global, por isso
+// todas as funções chamadas pelo HTML recebem window.nome
+// para ficarem acessíveis globalmente.
+// ============================================================
+
+// ============================================================
+// FIREBASE — Importações e configuração do banco de dados
+// Conecta ao projeto criado no console.firebase.google.com
+// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBht3Y-NTLlrrv3XfIPi3Fb-fTTBm8vf6E",
+  authDomain: "visao-de-dono-bf1a0.firebaseapp.com",
+  projectId: "visao-de-dono-bf1a0",
+  storageBucket: "visao-de-dono-bf1a0.firebasestorage.app",
+  messagingSenderId: "880362803578",
+  appId: "1:880362803578:web:c2a787ae23b43dbc5c86c3"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// ============================================================
+// USUÁRIOS DO SISTEMA
+// Para adicionar novo usuário: copie uma linha e preencha
+// role 'aprendiz' = pode cadastrar e atualizar serviços
+// role 'dono'     = acesso total + painel + cancelar + editar
+// ============================================================
+const USERS = {
+  '27630': { pass:'0000', role:'dono',     label:'Matheus' },
+  '33783': { pass:'0000', role:'dono',     label:'Rafaela' },
+  '34649': { pass:'1234', role:'aprendiz', label:'Ana'     },
+};
+
+// ============================================================
+// VARIÁVEIS DE ESTADO GLOBAL
+// ============================================================
+let cu = null;           // Usuário logado atualmente
+let services = [];       // Lista de serviços carregados do Firebase
+let nextIdNum = 1;       // Próximo número de ID a ser gerado
+let actionTarget = null; // ID do serviço sendo modificado em modal
+let editMode = false;    // Se o modal de detalhes está em modo edição
+let sortKey='id', sortDir=1;       // Ordenação da tabela de serviços
+let sortKeyD='id', sortDirD=1;     // Ordenação da tabela do painel
+let chartProd=null, chartTipo=null; // Instâncias dos gráficos
+
+// ============================================================
+// LISTENER DO FIREBASE — Escuta mudanças em tempo real
+// Toda vez que alguém salva um serviço, todos os usuários
+// conectados veem a atualização automaticamente
+// ============================================================
+onSnapshot(query(collection(db,'servicos'), orderBy('dtCadastro','asc')), snap => {
+  services = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+  calcNextId();
+  // Esconde indicadores de carregamento
+  ['loading-a','loading-d'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.add('hidden');
+  });
+  // Atualiza as telas se o usuário já estiver logado
+  if(cu) refreshAll();
+});
+
+// ============================================================
+// HELPERS — Funções utilitárias reutilizadas no sistema
+// ============================================================
+
+// Calcula o próximo ID disponível baseado nos existentes
+function calcNextId(){
+  if(!services.length){ nextIdNum=1; return; }
+  const nums = services.map(s => parseInt(s.id.replace('VD',''))||0);
+  nextIdNum = Math.max(...nums) + 1;
+}
+
+// Retorna a data/hora atual em formato ISO (para salvar no banco)
+function now(){ return new Date().toISOString(); }
+
+// Formata data ISO para exibição em pt-BR
+function fmtDt(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// Converte código de status para texto legível
+function labelStatus(s){
+  return {cadastrado:'Cadastrado',enviado:'Enviado CEMIG',pendente:'Pendente',
+          montagem:'Montagem Pendente',concluido:'Concluído',cancelado:'Cancelado'}[s] || s;
+}
+
+// Exibe notificação (toast) por alguns segundos e some
+function toast(msg, dur=3500){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// Atualiza todas as renderizações após mudança de dados
+function refreshAll(){
+  renderLista();
+  if(cu.role==='dono'){ renderTodos(); renderDash(); renderPlacas(); }
+}
+
+// ============================================================
+// AUTENTICAÇÃO — Login e logout
+// ============================================================
+window.doLogin = function(){
+  const mat  = document.getElementById('lu').value.trim();
+  const pass = document.getElementById('lp').value;
+  const err  = document.getElementById('lerr');
+  const user = USERS[mat];
+  if(!user || user.pass !== pass){ err.style.display='block'; return; }
+  err.style.display = 'none';
+  cu = { matricula: mat, ...user };
+  // Mostra itens exclusivos do Dono
+  document.querySelectorAll('.dono-only').forEach(el => el.classList.remove('hidden'));
+  document.getElementById('ulabel').textContent = cu.label + ' (' + cu.matricula + ')';
+  show('screen-main');
+  refreshAll();
+};
+
+window.doLogout = function(){
+  cu = null;
+  show('screen-login');
+  document.getElementById('lu').value = '';
+  document.getElementById('lp').value = '';
+};
+
+// Troca entre telas (login / principal)
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ============================================================
+// NAVEGAÇÃO POR ABAS
+// ============================================================
+window.switchTab = function(tab, btn){
+  btn.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['cad','lista','placas','dash'].forEach(t => {
+    document.getElementById('tab-'+t)[t===tab ? 'classList' : 'classList'][t===tab ? 'remove' : 'add']('hidden');
+  });
+  if(tab==='lista') renderLista();
+  if(tab==='dash'){ renderDash(); renderTodos(); }
+  if(tab==='placas') renderPlacas();
+};
+
+// Filtro rápido por tipo nas abinhas
+window.setTipoFilter = function(val, btn){
+  document.querySelectorAll('.tipo-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('f-ftipo').value = val;
+  renderLista();
+};
+
+// ============================================================
+// CADASTRO DE SERVIÇO
+// Salva novo serviço no Firebase com ID sequencial
+// ============================================================
+window.cadastrar = async function(){
+  const local = document.getElementById('f-local').value.trim();
+  const desc  = document.getElementById('f-desc').value.trim();
+  const tipo  = document.getElementById('f-tipo').value;
+  if(!local || !desc || !tipo){ alert('Preencha: localidade, descrição e tipo.'); return; }
+
+  const id = 'VD' + String(nextIdNum).padStart(4,'0');
+  const s = {
+    id,
+    data:  document.getElementById('f-data').value,
+    local, desc, tipo,
+    equip: document.getElementById('f-equip').value.trim(),
+    coord: document.getElementById('f-coord').value.trim(),
+    foto:  document.getElementById('f-foto').value.trim(),
+    orig:  document.getElementById('f-orig').value.trim(),
+    obs:   document.getElementById('f-obs').value.trim(),
+    status: 'cadastrado',
+    numServ: '',
+    autor: cu.label,
+    matriculaAutor: cu.matricula,
+    dtCadastro: now(),
+    dtNumero: null,
+    hist: [{ who: cu.label, matricula: cu.matricula, when: now(), msg: 'Serviço cadastrado.' }]
+  };
+
+  await addDoc(collection(db,'servicos'), s);
+
+  // Limpa o formulário
+  ['f-data','f-local','f-desc','f-tipo','f-equip','f-coord','f-foto','f-orig','f-obs']
+    .forEach(f => document.getElementById(f).value = '');
+
+  // Popup de confirmação com o ID gerado
+  toast('✓ Serviço ' + id + ' cadastrado com sucesso!');
+};
+
+// ============================================================
+// FILTROS — Aplica todos os filtros sobre a lista de serviços
+// ============================================================
+function filtrar(src){
+  let r = [...services];
+  const bEl  = document.getElementById(src+'-busca');
+  const stEl = document.getElementById(src+'-status') || document.getElementById('f-status');
+  const tEl  = document.getElementById(src+'-ftipo')  || document.getElementById('f-ftipo');
+  const deEl = document.getElementById(src+'-de')     || document.getElementById('f-de');
+  const atEl = document.getElementById(src+'-ate')    || document.getElementById('f-ate');
+
+  const b  = (bEl?.value  || '').toLowerCase();
+  const st = stEl?.value || '';
+  const t  = tEl?.value  || '';
+  const de = deEl?.value || '';
+  const ate = atEl?.value || '';
+
+  // Serviços cancelados são ocultados por padrão na lista normal
+  // No painel do Dono, aparecem apenas se filtrado explicitamente
+  if(src === 'f') r = r.filter(x => x.status !== 'cancelado');
+
+  if(b)  r = r.filter(x => x.id.toLowerCase().includes(b) || (x.numServ||'').toLowerCase().includes(b));
+  if(st) r = r.filter(x => x.status === st);
+  if(t)  r = r.filter(x => x.tipo === t);
+  if(de) r = r.filter(x => x.data && x.data >= de);
+  if(ate) r = r.filter(x => x.data && x.data <= ate+'T23:59');
+  return r;
+}
+
+// ============================================================
+// ORDENAÇÃO — Ordena lista por coluna clicada
+// ============================================================
+function sortArr(arr, key, dir){
+  return [...arr].sort((a,b) => {
+    let va = a[key]||'', vb = b[key]||'';
+    if(typeof va==='string') va = va.toLowerCase();
+    if(typeof vb==='string') vb = vb.toLowerCase();
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+}
+
+window.sortBy  = function(k){ if(sortKey===k) sortDir*=-1; else{ sortKey=k; sortDir=1; } updateIcons('sort-',sortKey,sortDir); renderLista(); };
+window.sortByD = function(k){ if(sortKeyD===k) sortDirD*=-1; else{ sortKeyD=k; sortDirD=1; } updateIcons('ds-',sortKeyD,sortDirD); renderTodos(); };
+
+function updateIcons(p,k,d){
+  ['id','data','local','desc','tipo','status','numServ','equip','autor'].forEach(x => {
+    const el = document.getElementById(p+x);
+    if(el) el.textContent = x===k ? (d===1?' ↑':' ↓') : '';
+  });
+}
+
+// ============================================================
+// RENDERIZAÇÃO — Monta as tabelas na tela
+// ============================================================
+function renderLista(){
+  const data = sortArr(filtrar('f'), sortKey, sortDir);
+  const tbody = document.getElementById('tbody-a');
+  const empty = document.getElementById('empty-a');
+  document.getElementById('loading-a').classList.add('hidden');
+  if(!data.length){ tbody.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  const isDono = cu && cu.role==='dono';
+  tbody.innerHTML = data.map(s => `<tr>
+    <td><button class="act-btn lupa" title="Ver detalhes" onclick="abrirDetalhe('${s._docId}')">&#128269;</button></td>
+    <td>${isDono && s.status!=='cancelado' ? `<button class="act-btn cancel-btn" title="Cancelar serviço" onclick="abrirCancel('${s._docId}','${s.id}')">&#x2715;</button>` : ''}</td>
+    <td style="font-weight:700">${s.id}</td>
+    <td>${fmtDt(s.data)}</td>
+    <td title="${s.local}">${s.local}</td>
+    <td title="${s.desc}">${s.desc}</td>
+    <td>${s.tipo}</td>
+    <td title="${s.equip||''}">${s.equip||'—'}</td>
+    <td><span class="badge ${s.status}">${labelStatus(s.status)}</span></td>
+    <td>${s.numServ||'—'}</td>
+    <td><div class="row-acts">
+      ${s.status==='cadastrado' ? `<button class="act-btn info" onclick="abrirEnv('${s._docId}','${s.id}')">Enviar</button>` : ''}
+      ${s.status==='enviado'    ? `<button class="act-btn warn" onclick="abrirNum('${s._docId}','${s.id}')">Nº CEMIG</button>` : ''}
+      ${s.status==='pendente'   ? `<button class="act-btn purple" onclick="marcarMontagem('${s._docId}','${s.id}')">Montagem</button>` : ''}
+      ${s.status==='montagem'   ? `<button class="act-btn suc" onclick="concluir('${s._docId}','${s.id}')">Concluir</button>` : ''}
+    </div></td>
+  </tr>`).join('');
+}
+
+function renderTodos(){
+  const data = sortArr(filtrar('d'), sortKeyD, sortDirD);
+  const tbody = document.getElementById('tbody-d');
+  const empty = document.getElementById('empty-d');
+  if(!tbody) return;
+  document.getElementById('loading-d').classList.add('hidden');
+  if(!data.length){ tbody.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = data.map(s => `<tr>
+    <td style="font-weight:700">${s.id}</td>
+    <td>${fmtDt(s.data)}</td>
+    <td title="${s.local}">${s.local}</td>
+    <td title="${s.desc}">${s.desc}</td>
+    <td>${s.tipo}</td>
+    <td><span class="badge ${s.status}">${labelStatus(s.status)}</span></td>
+    <td>${s.numServ||'—'}</td>
+    <td title="${s.equip||''}">${s.equip||'—'}</td>
+    <td>${s.autor||'—'}</td>
+  </tr>`).join('');
+}
+
+// ============================================================
+// PAINEL GERENCIAL — Gráficos e estatísticas para o Dono
+// ============================================================
+function renderDash(){
+  const ativos = services.filter(x => x.status !== 'cancelado');
+  document.getElementById('d-total').textContent = ativos.length;
+  document.getElementById('d-env').textContent   = ativos.filter(x=>x.status==='enviado').length;
+  document.getElementById('d-pend').textContent  = ativos.filter(x=>x.status==='pendente').length;
+  document.getElementById('d-mont').textContent  = ativos.filter(x=>x.status==='montagem').length;
+  document.getElementById('d-conc').textContent  = ativos.filter(x=>x.status==='concluido').length;
+
+  // Tempo médio: diferença em dias entre cadastro e recebimento do número
+  const comNum = ativos.filter(x => x.dtNumero && x.dtCadastro);
+  if(comNum.length){
+    const avg = comNum.reduce((a,x) => a + (new Date(x.dtNumero)-new Date(x.dtCadastro))/86400000, 0) / comNum.length;
+    document.getElementById('tempo-medio').textContent = avg.toFixed(1);
+  }
+
+  // Gráfico de barras: cadastros por usuário
+  const autores = {};
+  ativos.forEach(x => { if(x.autor) autores[x.autor] = (autores[x.autor]||0)+1; });
+
+  // Gráfico de rosca: distribuição por tipo de serviço
+  const tipos = {NSIS:0, NSMP:0, RC02:0, INBE:0};
+  ativos.forEach(x => { if(tipos[x.tipo]!==undefined) tipos[x.tipo]++; });
+
+  if(chartProd) chartProd.destroy();
+  if(chartTipo) chartTipo.destroy();
+
+  const cpCtx = document.getElementById('chart-prod');
+  if(cpCtx && Object.keys(autores).length){
+    chartProd = new Chart(cpCtx, {
+      type:'bar',
+      data:{labels:Object.keys(autores), datasets:[{label:'Cadastros',data:Object.values(autores),backgroundColor:'#1a3a5c',borderWidth:0,borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+    });
+  }
+  const ctCtx = document.getElementById('chart-tipo');
+  if(ctCtx){
+    chartTipo = new Chart(ctCtx, {
+      type:'doughnut',
+      data:{labels:Object.keys(tipos), datasets:[{data:Object.values(tipos),backgroundColor:['#1a3a5c','#2E7D32','#E65100','#6A1B9A'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:8}}}}
+    });
+  }
+
+  // Barras horizontais por localidade
+  const locs = {};
+  ativos.forEach(x => { if(x.local) locs[x.local] = (locs[x.local]||0)+1; });
+  const max = Math.max(...Object.values(locs), 1);
+  const sorted = Object.entries(locs).sort((a,b) => b[1]-a[1]);
+  document.getElementById('loc-bars').innerHTML = sorted.length
+    ? sorted.map(([loc,cnt]) => `
+        <div class="loc-bar-wrap">
+          <div class="loc-bar-label"><span>${loc}</span><span>${cnt} serviço${cnt>1?'s':''}</span></div>
+          <div class="loc-bar-bg"><div class="loc-bar-fill" style="width:${Math.round(cnt/max*100)}%"></div></div>
+        </div>`).join('')
+    : '<p style="color:#aaa;font-size:13px">Sem dados.</p>';
+}
+
+// ============================================================
+// ABA PLACAS — Agrupa serviços por número de equipamento
+// ============================================================
+function renderPlacas(){
+  const busca = (document.getElementById('placa-busca')?.value||'').trim().toLowerCase();
+  const grupos = {};
+  services
+    .filter(x => x.status !== 'cancelado' && x.equip)
+    .forEach(x => {
+      const k = x.equip.toLowerCase();
+      if(busca && !k.includes(busca)) return;
+      if(!grupos[x.equip]) grupos[x.equip] = [];
+      grupos[x.equip].push(x);
+    });
+
+  const el = document.getElementById('placas-lista');
+  if(!el) return;
+  const keys = Object.keys(grupos).sort();
+  if(!keys.length){ el.innerHTML='<p class="empty">Nenhuma placa encontrada.</p>'; return; }
+
+  el.innerHTML = keys.map(eq => {
+    const items = grupos[eq];
+    const conc = items.filter(x=>x.status==='concluido').length;
+    const perc = Math.round(conc/items.length*100);
+    return `<div class="placa-card">
+      <h4>Equipamento: ${eq}
+        <span style="font-size:11px;font-weight:400;color:#888;margin-left:8px">${items.length} serviço${items.length>1?'s':''} — ${conc} concluído${conc!==1?'s':''} (${perc}%)</span>
+      </h4>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="background:#f5f7fa">
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#555;font-size:11px">ID</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#555;font-size:11px">Descrição</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#555;font-size:11px">Status</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#555;font-size:11px">Nº Serviço</th>
+        </tr>
+        ${items.map(s=>`<tr style="border-top:1px solid #f0f0f0">
+          <td style="padding:6px 8px;font-weight:700">${s.id}</td>
+          <td style="padding:6px 8px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.desc}">${s.desc}</td>
+          <td style="padding:6px 8px"><span class="badge ${s.status}">${labelStatus(s.status)}</span></td>
+          <td style="padding:6px 8px">${s.numServ||'—'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>`;
+  }).join('');
+}
+window.renderPlacas = renderPlacas;
+
+// ============================================================
+// MODAL: DETALHES + EDIÇÃO
+// ============================================================
+window.abrirDetalhe = function(docId){
+  const s = services.find(x => x._docId === docId);
+  if(!s) return;
+  actionTarget = docId;
+  editMode = false;
+  document.getElementById('mdet-id').textContent = s.id;
+  document.getElementById('mdet-view').classList.remove('hidden');
+  document.getElementById('mdet-edit').classList.add('hidden');
+  document.getElementById('btn-toggle-edit').textContent = 'Editar';
+  document.getElementById('btn-salvar-edit').style.display = 'none';
+
+  // Preenche os detalhes em modo visualização
+  document.getElementById('mdet-body').innerHTML = `
+    <span class="detail-label">Data levantamento</span><span class="detail-val">${fmtDt(s.data)}</span>
+    <span class="detail-label">Localidade</span><span class="detail-val">${s.local||'—'}</span>
+    <span class="detail-label">Descrição</span><span class="detail-val">${s.desc||'—'}</span>
+    <span class="detail-label">Tipo de serviço</span><span class="detail-val">${s.tipo||'—'}</span>
+    <span class="detail-label">Equipamento</span><span class="detail-val">${s.equip||'—'}</span>
+    <span class="detail-label">Coordenada</span><span class="detail-val">${s.coord||'—'}</span>
+    <span class="detail-label">Técnico de origem</span><span class="detail-val">${s.orig||'—'}</span>
+    <span class="detail-label">Cadastrado por</span><span class="detail-val">${s.autor||'—'} (${s.matriculaAutor||'—'})</span>
+    <span class="detail-label">Status</span><span class="detail-val"><span class="badge ${s.status}">${labelStatus(s.status)}</span></span>
+    <span class="detail-label">Nº serviço CEMIG</span><span class="detail-val">${s.numServ||'—'}</span>
+    <span class="detail-label">Observações</span><span class="detail-val">${s.obs||'—'}</span>
+    ${s.foto ? `<span class="detail-label">Foto</span><span class="detail-val"><a href="${s.foto}" target="_blank" style="color:#1a3a5c">Ver foto ↗</a></span>` : ''}
+  `;
+
+  // Preenche campos de edição (só Dono usará)
+  document.getElementById('edit-local').value = s.local||'';
+  document.getElementById('edit-tipo').value  = s.tipo||'';
+  document.getElementById('edit-desc').value  = s.desc||'';
+  document.getElementById('edit-equip').value = s.equip||'';
+  document.getElementById('edit-orig').value  = s.orig||'';
+  document.getElementById('edit-coord').value = s.coord||'';
+  document.getElementById('edit-foto').value  = s.foto||'';
+  document.getElementById('edit-obs').value   = s.obs||'';
+
+  // Histórico de alterações
+  document.getElementById('mdet-hist').innerHTML = (!s.hist||!s.hist.length)
+    ? '<p style="font-size:13px;color:#aaa">Sem histórico.</p>'
+    : s.hist.slice().reverse().map(h=>`<div class="hist-item">
+        <span class="hist-who">${h.who}</span>
+        <span style="font-size:11px;color:#aaa;margin-left:4px">(${h.matricula||''})</span>
+        <span class="hist-when">${fmtDt(h.when)}</span>
+        <div class="hist-what">${h.msg}</div>
+      </div>`).join('');
+
+  document.getElementById('modal-det').classList.add('open');
+};
+
+// Alterna entre visualização e edição no modal de detalhes
+window.toggleEdit = function(){
+  editMode = !editMode;
+  document.getElementById('mdet-view').classList.toggle('hidden', editMode);
+  document.getElementById('mdet-edit').classList.toggle('hidden', !editMode);
+  document.getElementById('btn-toggle-edit').textContent = editMode ? 'Cancelar edição' : 'Editar';
+  document.getElementById('btn-salvar-edit').style.display = editMode ? 'inline-block' : 'none';
+};
+
+// Salva as edições feitas pelo Dono
+window.salvarEdicao = async function(){
+  const s = services.find(x => x._docId === actionTarget);
+  if(!s) return;
+  const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'Informações do serviço editadas.'}];
+  await updateDoc(doc(db,'servicos',actionTarget), {
+    local: document.getElementById('edit-local').value.trim(),
+    tipo:  document.getElementById('edit-tipo').value,
+    desc:  document.getElementById('edit-desc').value.trim(),
+    equip: document.getElementById('edit-equip').value.trim(),
+    orig:  document.getElementById('edit-orig').value.trim(),
+    coord: document.getElementById('edit-coord').value.trim(),
+    foto:  document.getElementById('edit-foto').value.trim(),
+    obs:   document.getElementById('edit-obs').value.trim(),
+    hist
+  });
+  closeModal('modal-det');
+  toast('Serviço atualizado com sucesso!');
+};
+
+// ============================================================
+// AÇÕES DE FLUXO — Avançam o status do serviço
+// ============================================================
+
+// Abre modal para confirmar envio à CEMIG
+window.abrirEnv = function(docId, id){
+  actionTarget = docId;
+  document.getElementById('menv-id').textContent = id;
+  document.getElementById('modal-env').classList.add('open');
+};
+
+// Confirma o envio e atualiza status para 'enviado'
+window.confirmarEnvio = async function(){
+  const s = services.find(x => x._docId === actionTarget);
+  if(s){
+    const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'Enviado à CEMIG.'}];
+    await updateDoc(doc(db,'servicos',actionTarget), {status:'enviado', hist});
+  }
+  closeModal('modal-env');
+  toast('Serviço marcado como enviado à CEMIG!');
+};
+
+// Abre modal para inserir o número retornado pela CEMIG
+window.abrirNum = function(docId, id){
+  actionTarget = docId;
+  document.getElementById('mnum-id').textContent = id;
+  document.getElementById('input-num').value = '';
+  document.getElementById('modal-num').classList.add('open');
+};
+
+// Salva o número e muda status para 'pendente'
+window.confirmarNum = async function(){
+  const num = document.getElementById('input-num').value.trim();
+  if(!num){ alert('Informe o número.'); return; }
+  const s = services.find(x => x._docId === actionTarget);
+  if(s){
+    const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'Número '+num+' recebido da CEMIG. Status: Pendente.'}];
+    await updateDoc(doc(db,'servicos',actionTarget), {numServ:num, status:'pendente', dtNumero:now(), hist});
+  }
+  closeModal('modal-num');
+  toast('Número salvo. Serviço agora está Pendente!');
+};
+
+// Muda status para 'montagem' (placa em processo de montagem)
+window.marcarMontagem = async function(docId, id){
+  if(!confirm('Marcar serviço '+id+' como "Montagem Pendente"?')) return;
+  const s = services.find(x => x._docId === docId);
+  if(s){
+    const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'Marcado como Montagem Pendente.'}];
+    await updateDoc(doc(db,'servicos',docId), {status:'montagem', hist});
+  }
+  toast('Serviço '+id+' em Montagem Pendente!');
+};
+
+// Conclui o serviço
+window.concluir = async function(docId, id){
+  if(!confirm('Confirmar conclusão do serviço '+id+'?')) return;
+  const s = services.find(x => x._docId === docId);
+  if(s){
+    const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'Serviço concluído.'}];
+    await updateDoc(doc(db,'servicos',docId), {status:'concluido', hist});
+  }
+  toast('Serviço '+id+' concluído com sucesso!');
+};
+
+// ============================================================
+// CANCELAMENTO (só Dono)
+// Serviços cancelados ficam ocultos na lista normal
+// ============================================================
+window.abrirCancel = function(docId, id){
+  actionTarget = docId;
+  document.getElementById('mcancel-id').textContent = id;
+  document.getElementById('input-motivo').value = '';
+  document.getElementById('modal-cancel').classList.add('open');
+};
+
+window.confirmarCancel = async function(){
+  const motivo = document.getElementById('input-motivo').value.trim();
+  if(!motivo){ alert('Informe o motivo do cancelamento.'); return; }
+  const s = services.find(x => x._docId === actionTarget);
+  if(s){
+    const hist = [...s.hist, {who:cu.label, matricula:cu.matricula, when:now(), msg:'CANCELADO. Motivo: '+motivo}];
+    await updateDoc(doc(db,'servicos',actionTarget), {status:'cancelado', hist});
+  }
+  closeModal('modal-cancel');
+  toast('Serviço cancelado. Ele não aparecerá mais na lista.');
+};
+
+// ============================================================
+// FECHAR MODAIS — Fecha qualquer modal e limpa estado
+// ============================================================
+window.closeModal = function(id){
+  document.getElementById(id).classList.remove('open');
+  actionTarget = null;
+  editMode = false;
+};
+
+// ============================================================
+// EXPORTAÇÃO EXCEL — Baixa os dados filtrados do painel
+// ============================================================
+window.exportarExcel = function(){
+  const data = filtrar('d').map(s => ({
+    'ID': s.id, 'Data': s.data, 'Localidade': s.local, 'Descrição': s.desc,
+    'Tipo': s.tipo, 'Equipamento': s.equip, 'Status': labelStatus(s.status),
+    'Nº Serviço': s.numServ, 'Técnico': s.orig,
+    'Cadastrado por': s.autor, 'Matrícula': s.matriculaAutor, 'Observações': s.obs
+  }));
+  if(!data.length){ alert('Nenhum dado para exportar.'); return; }
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Serviços');
+  XLSX.writeFile(wb, 'visao_de_dono_' + new Date().toISOString().slice(0,10) + '.xlsx');
+};
+
+</script>
+</body>
+>>>>>>> 77fd55332fb9795e3fdca95e32eb6b530cbc2c7d
+</html>
