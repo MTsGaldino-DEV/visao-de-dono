@@ -174,19 +174,20 @@ const NumServPopup = ({ servico, onConfirm, onCancel }) => {
 
 // ── Gera mensagem NSIS para CEMIG ────────────────────────────────────────────
 const gerarMensagemNSIS = (s) => {
-  const equip  = s.equip  || '—';
-  const local  = s.local  || '—';
-  const coords = s.coords || s.coordenadas || '';
-  const bairro = s.bairro || '';
+  const equip = s.equip || '—';
+  const local = s.local || '—';
 
-  // Monta campo bairro: "VD-Placa XXXXX" se houver equip, senão só o bairro
-  const campoBairro = bairro || (equip !== '—' ? `VD-Placa ${equip}` : '—');
-  // Coord: tenta separar lat/lng se vier como string "lat lng" ou "lat,lng"
-  const coordStr = coords
-    ? coords.toString().replace(',', ' ').trim()
-    : '—';
-  const [lat = '', lng = ''] = coordStr !== '—' ? coordStr.split(/[\s,]+/) : [];
-  const coordFormatado = lat && lng ? `${lat} ${lng}` : coordStr;
+  // Campo "coord" no Firestore, formato "-18,60033 -41,082948" (vírgula decimal — preservar como está)
+  const coordFormatado = (s.coord || '').trim() || '—';
+
+  // Campo bairro: usa s.bairro se existir, senão monta "VD-Placa {equip}"
+  const campoBairro = s.bairro || (equip !== '—' ? `VD-Placa ${equip}` : '—');
+
+  // Serviço: desc do cadastro + "nas coordenadas X" ao final
+  const descBase = (s.desc || `Substituir placa ilegível do equipamento ${equip}`).trimEnd();
+  const servicoExec = coordFormatado !== '—'
+    ? `${descBase} nas coordenadas ${coordFormatado}`
+    : descBase;
 
   return `Gentileza, gerar NSIS:
 
@@ -197,7 +198,7 @@ Coordenadas: ${coordFormatado}
 Localidade: ${local}
 
 Serviço a ser executado:
-${s.desc || `substituir placa de identificação ilegível do equipamento ${equip} nas coordenadas ${coordFormatado}`}
+${servicoExec}
 
 Observação:
 dúvidas ligar para Matheus ENGELMIG 31 99914-8716
@@ -207,32 +208,31 @@ PLACA DE IDENTIFICAÇÃO`;
 
 // ── Popup mensagem automática para CEMIG ─────────────────────────────────────
 const MensagemCemigPopup = ({ servico, onClose }) => {
-  const mensagem = gerarMensagemNSIS(servico);
+  const [texto, setTexto] = useState(() => gerarMensagemNSIS(servico));
   const [copiado, setCopiado] = useState(false);
+  const editado = texto !== gerarMensagemNSIS(servico);
 
   const copiar = async () => {
     try {
-      await navigator.clipboard.writeText(mensagem);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2500);
+      await navigator.clipboard.writeText(texto);
     } catch {
-      // fallback para ambientes sem clipboard API
       const ta = document.createElement('textarea');
-      ta.value = mensagem;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
+      ta.value = texto;
+      ta.style.cssText = 'position:fixed;opacity:0';
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2500);
     }
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2500);
   };
+
+  const restaurar = () => setTexto(gerarMensagemNSIS(servico));
 
   return (
     <div style={POPUP_OVERLAY}>
-      <div style={{ ...POPUP_BOX, maxWidth: '520px' }}>
+      <div style={{ ...POPUP_BOX, maxWidth: '540px' }}>
         <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
 
         {/* Header */}
@@ -249,38 +249,60 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
           <div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Mensagem para CEMIG</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>
-              Status atualizado — copie e envie à CEMIG
+              Status atualizado — edite se necessário e copie
             </div>
           </div>
         </div>
 
         {/* Badge serviço */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px',
-          padding: '3px 10px', borderRadius: '20px', fontWeight: '600', marginBottom: '12px',
-          background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe',
-        }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Enviado CEMIG — {servico.id}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px',
+            padding: '3px 10px', borderRadius: '20px', fontWeight: '600',
+            background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe',
+          }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Enviado CEMIG — {servico.id}
+          </div>
+          {editado && (
+            <button onClick={restaurar} style={{
+              fontSize: '11px', color: '#7c3aed', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit',
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              Restaurar original
+            </button>
+          )}
         </div>
 
-        {/* Bloco mensagem */}
-        <div style={{
-          background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px',
-          padding: '14px 16px', marginBottom: '16px', position: 'relative',
-        }}>
-          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-            Mensagem pronta
+        {/* Textarea editável */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
+            Mensagem {editado ? '(editada)' : 'pronta'}
           </div>
-          <pre style={{
-            margin: 0, fontFamily: "'Segoe UI', system-ui, sans-serif",
-            fontSize: '12px', color: '#1e293b', whiteSpace: 'pre-wrap',
-            lineHeight: '1.75', wordBreak: 'break-word',
-          }}>
-            {mensagem}
-          </pre>
+          <textarea
+            value={texto}
+            onChange={e => setTexto(e.target.value)}
+            rows={14}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '12px 14px',
+              border: editado ? '1px solid #a78bfa' : '1px solid #e2e8f0',
+              borderRadius: '10px',
+              background: editado ? '#faf5ff' : '#f8fafc',
+              fontFamily: "'Segoe UI', system-ui, sans-serif",
+              fontSize: '12px', color: '#1e293b',
+              lineHeight: '1.75', resize: 'vertical',
+              outline: 'none',
+              boxShadow: editado ? '0 0 0 3px rgba(124,58,237,0.08)' : 'none',
+              transition: 'border 0.15s, background 0.15s',
+            }}
+          />
         </div>
 
         {/* Botões */}
