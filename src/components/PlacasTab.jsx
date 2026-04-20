@@ -48,7 +48,8 @@ const postoDeLocalidade = (local) => {
 const digitosDeEquip = (equip) => {
   const digits = (equip || '').replace(/\D/g, '').split('').map(Number);
   const count = Array(10).fill(0);
-  digits.forEach(d => count[d]++);
+  // 6 e 9 são o mesmo material físico — 9s são contados no balde do 6
+  digits.forEach(d => count[d === 9 ? 6 : d]++);
   return count;
 };
 
@@ -211,7 +212,11 @@ const PlacasTab = () => {
     try {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
-      for (let i = 0; i <= 9; i++) novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]);
+      // slot 9 não existe mais — digitosDeEquip já acumulou 9s em d[6]
+      for (let i = 0; i <= 9; i++) {
+        if (i === 9) continue;
+        novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]);
+      }
       await updateDoc(doc(db, 'servicos', s._docId), {
         placaMontada: true,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
@@ -226,7 +231,11 @@ const PlacasTab = () => {
     try {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
-      for (let i = 0; i <= 9; i++) novoEstoque[i] += d[i];
+      // slot 9 não existe mais — digitosDeEquip já acumulou 9s em d[6]
+      for (let i = 0; i <= 9; i++) {
+        if (i === 9) continue;
+        novoEstoque[i] += d[i];
+      }
       await updateDoc(doc(db, 'servicos', s._docId), {
         placaMontada: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Montagem da placa revertida.' }],
@@ -238,14 +247,22 @@ const PlacasTab = () => {
 
   const temEstoque = (s) => {
     const d = digitosDeEquip(s.equip);
-    for (let i = 0; i <= 9; i++) { if (d[i] > estoque[i]) return false; }
+    // slot 9 não existe — digitosDeEquip já acumulou 9s em d[6]
+    for (let i = 0; i <= 9; i++) {
+      if (i === 9) continue;
+      if (d[i] > estoque[i]) return false;
+    }
     return true;
   };
 
   const digitosNecessarios = Array(10).fill(0);
   filtrados.forEach(s => {
     const d = digitosDeEquip(s.equip);
-    for (let i = 0; i <= 9; i++) digitosNecessarios[i] += d[i];
+    // slot 9 não existe — digitosDeEquip já acumulou 9s em d[6]
+    for (let i = 0; i <= 9; i++) {
+      if (i === 9) continue;
+      digitosNecessarios[i] += d[i];
+    }
   });
 
   return (
@@ -406,24 +423,37 @@ const PlacasTab = () => {
             </div>
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '8px' }}>
-          {Array.from({ length: 10 }, (_, d) => {
-            const qtd = editandoEstoque ? estoqueTemp[d] : estoque[d];
-            const necessario = digitosNecessarios[d];
-            const falta = Math.max(0, necessario - estoque[d]);
-            const semEstoque = !editandoEstoque && estoque[d] === 0;
-            const baixo = !editandoEstoque && estoque[d] > 0 && estoque[d] < necessario;
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '8px' }}>
+          {[0, 1, 2, 3, 4, 5, '6/9', 7, 8].map((d) => {
+            const slot = d === '6/9' ? 6 : d;
+            const qtd = editandoEstoque ? estoqueTemp[slot] : estoque[slot];
+            const necessario = digitosNecessarios[slot];
+            const falta = Math.max(0, necessario - estoque[slot]);
+            const semEstoque = !editandoEstoque && estoque[slot] === 0;
+            const baixo = !editandoEstoque && estoque[slot] > 0 && estoque[slot] < necessario;
+            const isCombo = d === '6/9';
             return (
-              <div key={d} style={{
+              <div key={String(d)} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
                 padding: '10px 6px', borderRadius: '10px',
-                border: semEstoque ? '1px solid #fecaca' : baixo ? '1px solid #fed7aa' : '1px solid #e2e8f0',
-                background: semEstoque ? '#fef2f2' : baixo ? '#fff7ed' : '#f8fafc',
+                border: semEstoque ? '1px solid #fecaca' : baixo ? '1px solid #fed7aa' : isCombo ? '1px solid #ddd6fe' : '1px solid #e2e8f0',
+                background: semEstoque ? '#fef2f2' : baixo ? '#fff7ed' : isCombo ? '#faf5ff' : '#f8fafc',
               }}>
-                <div style={{ fontSize: '20px', fontWeight: '800', color: semEstoque ? '#b91c1c' : baixo ? '#c2410c' : '#0f2544' }}>{d}</div>
+                <div style={{
+                  fontSize: isCombo ? '16px' : '20px', fontWeight: '800',
+                  color: semEstoque ? '#b91c1c' : baixo ? '#c2410c' : isCombo ? '#7c3aed' : '#0f2544',
+                  lineHeight: 1,
+                }}>
+                  {isCombo ? '6/9' : d}
+                </div>
+                {isCombo && (
+                  <div style={{ fontSize: '8px', color: '#7c3aed', fontWeight: '600', letterSpacing: '0.04em', marginTop: '-4px' }}>
+                    mesmo mat.
+                  </div>
+                )}
                 {editandoEstoque ? (
-                  <input type="number" min="0" max="9999" value={estoqueTemp[d]}
-                    onChange={e => { const v = parseInt(e.target.value) || 0; setEstoqueTemp(prev => { const n = [...prev]; n[d] = v; return n; }); }}
+                  <input type="number" min="0" max="9999" value={estoqueTemp[slot]}
+                    onChange={e => { const v = parseInt(e.target.value) || 0; setEstoqueTemp(prev => { const n = [...prev]; n[slot] = v; return n; }); }}
                     style={{ width: '100%', padding: '4px 6px', border: '1px solid #3b82f6', borderRadius: '6px', fontSize: '13px', fontWeight: '700', textAlign: 'center', color: '#0f2544', outline: 'none', background: '#fff', fontFamily: 'inherit' }}
                   />
                 ) : (
@@ -542,7 +572,9 @@ const PlacasTab = () => {
                       {digStr ? (
                         <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
                           {digStr.split('').map((d, idx) => {
-                            const semEst = estoque[parseInt(d)] === 0;
+                            // 6 e 9 compartilham estoque[6]
+                            const slot = d === '9' ? 6 : parseInt(d);
+                            const semEst = estoque[slot] === 0;
                             return (
                               <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', background: semEst ? '#fef2f2' : '#eff6ff', color: semEst ? '#b91c1c' : '#1d4ed8', border: `1px solid ${semEst ? '#fecaca' : '#bfdbfe'}` }}>
                                 {d}
