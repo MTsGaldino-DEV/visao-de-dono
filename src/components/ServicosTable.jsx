@@ -72,6 +72,115 @@ const Badge = ({ status }) => {
   );
 };
 
+// ── Modal de Mensagem CEMIG ──────────────────────────────────────────────────
+const MensagemCemigModal = ({ servico, onConfirm, onCancel }) => {
+  const gerarMensagem = (s) => {
+    const tipoMsg = {
+      'NSIS': 'NSIS',
+      'NSMP': 'NSMP', 
+      'RC02': 'RC02',
+      'INBE': 'INBE'
+    }[s.tipo] || s.tipo;
+
+    return `Gentileza, gerar ${tipoMsg}:
+Campo Bairro: VD-Placa ${s.equip || s.id}
+Equipamento: ${s.equip || '—'}
+Referências: ${s.desc || 'chave ' + (s.equip || s.id)}
+Coordenadas: ${s.coord || '—'}
+Localidade: ${s.local || '—'}
+Serviço a ser executado:
+${s.desc || 'Substituir placa de identificação ilegível'}
+Observação:
+${s.obs || 'Dúvidas ligar para Matheus ENGELMIG 31 99914-8716'}
+Recurso necessário:
+${s.tipo === 'NSIS' ? 'PLACA DE IDENTIFICAÇÃO' : 'CONFORME TIPO DE SERVIÇO'}`;
+  };
+
+  const [mensagem, setMensagem] = useState(gerarMensagem(servico));
+  const [copiado, setCopiado] = useState(false);
+
+  const copiarMensagem = () => {
+    navigator.clipboard.writeText(mensagem);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  return (
+    <div style={POPUP_OVERLAY}>
+      <div style={{ ...POPUP_BOX, maxWidth: '650px', maxHeight: '85vh', overflow: 'auto' }}>
+        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '4px' }}>
+              Mensagem para CEMIG
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Serviço <strong>{servico.id}</strong> — Revise e edite antes de enviar
+            </div>
+          </div>
+          <button 
+            onClick={copiarMensagem}
+            style={{
+              padding: '6px 12px', fontSize: '11px', fontWeight: '600',
+              border: '1px solid #e2e8f0', borderRadius: '6px',
+              background: copiado ? '#f0fdf4' : '#f8fafc',
+              color: copiado ? '#15803d' : '#64748b',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {copiado ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Copiado!
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>
+                Copiar
+              </>
+            )}
+          </button>
+        </div>
+
+        <textarea
+          value={mensagem}
+          onChange={e => setMensagem(e.target.value)}
+          style={{
+            width: '100%', minHeight: '320px', padding: '14px',
+            border: '1px solid #e2e8f0', borderRadius: '10px',
+            fontSize: '13px', fontFamily: "'Courier New', monospace",
+            lineHeight: '1.6', resize: 'vertical',
+            background: '#f8fafc', color: '#1e293b',
+            marginBottom: '20px'
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={BTN_CANCEL}>
+            Cancelar
+          </button>
+          <button 
+            onClick={() => {
+              copiarMensagem();
+              setTimeout(() => onConfirm(), 500);
+            }}
+            style={BTN_PRIMARY}
+          >
+            Copiar e Enviar à CEMIG
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Popup confirmação de status (com campo Nº CEMIG quando aplicável) ────────
 const ConfirmPopup = ({ servico, novoStatus, onConfirm, onCancel }) => {
   const cfg = STATUS_CONFIG[novoStatus] || {};
