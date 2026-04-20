@@ -172,6 +172,152 @@ const NumServPopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
+// ── Gera mensagem NSIS para CEMIG ────────────────────────────────────────────
+const gerarMensagemNSIS = (s) => {
+  const equip  = s.equip  || '—';
+  const local  = s.local  || '—';
+  const coords = s.coords || s.coordenadas || '';
+  const bairro = s.bairro || '';
+
+  // Monta campo bairro: "VD-Placa XXXXX" se houver equip, senão só o bairro
+  const campoBairro = bairro || (equip !== '—' ? `VD-Placa ${equip}` : '—');
+  // Coord: tenta separar lat/lng se vier como string "lat lng" ou "lat,lng"
+  const coordStr = coords
+    ? coords.toString().replace(',', ' ').trim()
+    : '—';
+  const [lat = '', lng = ''] = coordStr !== '—' ? coordStr.split(/[\s,]+/) : [];
+  const coordFormatado = lat && lng ? `${lat} ${lng}` : coordStr;
+
+  return `Gentileza, gerar NSIS:
+
+Campo Bairro: ${campoBairro}
+Equipamento: ${equip}
+Referências: chave ${equip}
+Coordenadas: ${coordFormatado}
+Localidade: ${local}
+
+Serviço a ser executado:
+${s.desc || `substituir placa de identificação ilegível do equipamento ${equip} nas coordenadas ${coordFormatado}`}
+
+Observação:
+dúvidas ligar para Matheus ENGELMIG 31 99914-8716
+Recurso necessário:
+PLACA DE IDENTIFICAÇÃO`;
+};
+
+// ── Popup mensagem automática para CEMIG ─────────────────────────────────────
+const MensagemCemigPopup = ({ servico, onClose }) => {
+  const mensagem = gerarMensagemNSIS(servico);
+  const [copiado, setCopiado] = useState(false);
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(mensagem);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      // fallback para ambientes sem clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = mensagem;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    }
+  };
+
+  return (
+    <div style={POPUP_OVERLAY}>
+      <div style={{ ...POPUP_BOX, maxWidth: '520px' }}>
+        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <div style={{
+            width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0,
+            background: 'linear-gradient(135deg, #7c3aed22, #7c3aed11)',
+            border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Mensagem para CEMIG</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Status atualizado — copie e envie à CEMIG
+            </div>
+          </div>
+        </div>
+
+        {/* Badge serviço */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px',
+          padding: '3px 10px', borderRadius: '20px', fontWeight: '600', marginBottom: '12px',
+          background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe',
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Enviado CEMIG — {servico.id}
+        </div>
+
+        {/* Bloco mensagem */}
+        <div style={{
+          background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px',
+          padding: '14px 16px', marginBottom: '16px', position: 'relative',
+        }}>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+            Mensagem pronta
+          </div>
+          <pre style={{
+            margin: 0, fontFamily: "'Segoe UI', system-ui, sans-serif",
+            fontSize: '12px', color: '#1e293b', whiteSpace: 'pre-wrap',
+            lineHeight: '1.75', wordBreak: 'break-word',
+          }}>
+            {mensagem}
+          </pre>
+        </div>
+
+        {/* Botões */}
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={BTN_CANCEL}>Fechar</button>
+          <button
+            onClick={copiar}
+            style={{
+              ...BTN_PRIMARY,
+              background: copiado
+                ? 'linear-gradient(135deg, #15803d, #16a34a)'
+                : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s',
+            }}
+          >
+            {copiado ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Copiado!
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                Copiar mensagem
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Popup status Dono ────────────────────────────────────────────────────────
 const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
   const [novoStatus, setNovoStatus] = useState(servico.status);
@@ -316,6 +462,7 @@ const ServicosTable = () => {
   const [confirmPending, setConfirmPending]       = useState(null);
   const [numServPending, setNumServPending]       = useState(null);
   const [statusDonoPending, setStatusDonoPending] = useState(null);
+  const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -404,6 +551,10 @@ const ServicosTable = () => {
     const { servico, novoStatus, mensagem } = confirmPending;
     const extra = numServ ? { numServ } : {};
     await atualizarStatus(servico._docId, novoStatus, mensagem, extra);
+    // Se avançou para "enviado", mostra popup com mensagem para CEMIG
+    if (novoStatus === 'enviado') {
+      setMensagemCemigServico(servico);
+    }
     setConfirmPending(null);
   };
 
@@ -453,6 +604,7 @@ const ServicosTable = () => {
       {confirmPending    && <ConfirmPopup    servico={confirmPending.servico}    novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}       onCancel={() => setConfirmPending(null)} />}
       {numServPending    && <NumServPopup    servico={numServPending}             onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
       {statusDonoPending && <StatusDonoPopup servico={statusDonoPending}          onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
+      {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico} onClose={() => setMensagemCemigServico(null)} />}
 
       {/* Filtros */}
       <div style={{
