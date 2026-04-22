@@ -181,7 +181,7 @@ const gerarMensagemNSIS = (s) => {
   const coordFormatado = (s.coord || '').trim() || '—';
 
   // Campo bairro: usa s.bairro se existir, senão monta "VD-Placa {equip}"
-  const campoBairro = s.bairro || (equip !== '—' ? `VD-[alterar] ${equip}` : '—');
+  const campoBairro = s.bairro || (equip !== '—' ? `VD-Placa ${equip}` : '—');
 
   // Serviço: desc do cadastro + "nas coordenadas X" ao final
   const descBase = (s.desc || `Substituir placa ilegível do equipamento ${equip}`).trimEnd();
@@ -191,6 +191,7 @@ const gerarMensagemNSIS = (s) => {
 
   return `Gentileza, gerar NSIS:
 
+Campo Bairro: ${campoBairro}
 Equipamento: ${equip}
 Referências: chave ${equip}
 Coordenadas: ${coordFormatado}
@@ -200,7 +201,9 @@ Serviço a ser executado:
 ${servicoExec}
 
 Observação:
-dúvidas ligar para Matheus ENGELMIG 31 99914-8716`;
+dúvidas ligar para Matheus ENGELMIG 31 99914-8716
+Recurso necessário:
+PLACA DE IDENTIFICAÇÃO`;
 };
 
 // ── Popup mensagem automática para CEMIG ─────────────────────────────────────
