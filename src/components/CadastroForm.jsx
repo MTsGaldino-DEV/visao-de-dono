@@ -42,7 +42,7 @@ const POSTO_COLORS = {
 };
 
 // ── Select pesquisável com agrupamento por posto ──────────────────────────────
-const LocalidadeSelect = ({ value, onChange, focused, onFocus, onBlur }) => {
+const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur }) => {
   const [query, setQuery]       = useState('');
   const [open, setOpen]         = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -96,8 +96,13 @@ const LocalidadeSelect = ({ value, onChange, focused, onFocus, onBlur }) => {
     else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
-  const borderColor = focused ? '#3b82f6' : value ? '#a5b4fc' : '#e2e8f0';
-  const boxShadow   = focused ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none';
+  const borderColor = hasError  ? '#ef4444'
+                    : focused   ? '#3b82f6'
+                    : value     ? '#a5b4fc'
+                    : '#e2e8f0';
+  const boxShadow   = hasError  ? '0 0 0 3px rgba(239,68,68,0.1)'
+                    : focused   ? '0 0 0 3px rgba(59,130,246,0.1)'
+                    : 'none';
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
@@ -283,6 +288,7 @@ const CadastroForm = () => {
   const [loading, setLoading]       = useState(false);
   const [focused, setFocused]       = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errors, setErrors]         = useState({});
 
   const hoje = new Date();
   const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}T23:59:59`;
@@ -290,19 +296,30 @@ const CadastroForm = () => {
 
   const handleChange = (e) => {
     const { id, value } = e.target;
-    setFormData(prev => ({ ...prev, [id.replace('f-', '')]: value }));
+    const field = id.replace('f-', '');
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
   const inp = (id) => ({
     ...inputStyle,
-    borderColor: focused === id ? '#3b82f6' : '#e2e8f0',
-    background:  focused === id ? '#fff'    : '#f8fafc',
-    boxShadow:   focused === id ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
+    borderColor: errors[id]  ? '#ef4444'
+                : focused === id ? '#3b82f6'
+                : '#e2e8f0',
+    background:  errors[id]  ? '#fff5f5'
+                : focused === id ? '#fff'
+                : '#f8fafc',
+    boxShadow:   errors[id]  ? '0 0 0 3px rgba(239,68,68,0.1)'
+                : focused === id ? '0 0 0 3px rgba(59,130,246,0.1)'
+                : 'none',
   });
 
   const cadastrar = async () => {
-    if (!formData.local || !formData.desc || !formData.tipo) {
-      alert('Preencha os campos obrigatórios: Localidade, Descrição e Tipo.');
+    const campos = { data: formData.data, local: formData.local, desc: formData.desc, tipo: formData.tipo, equip: formData.equip, coord: formData.coord, foto: formData.foto, orig: formData.orig };
+    const novosErros = Object.fromEntries(Object.entries(campos).filter(([, v]) => !v?.trim()));
+    setErrors(novosErros);
+    if (Object.keys(novosErros).length > 0) {
+      alert('Preencha todos os campos obrigatórios antes de cadastrar.');
       return;
     }
     if (formData.data) {
@@ -357,7 +374,7 @@ const CadastroForm = () => {
           <SectionLabel>Identificação</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Data do levantamento</label>
+              <label style={labelStyle}>Data do levantamento <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="datetime-local" step="1" id="f-data"
                 min={minDate} max={maxDate}
                 value={formData.data} onChange={handleChange}
@@ -384,8 +401,9 @@ const CadastroForm = () => {
               </label>
               <LocalidadeSelect
                 value={formData.local}
-                onChange={val => setFormData(prev => ({ ...prev, local: val }))}
+                onChange={val => { setFormData(prev => ({ ...prev, local: val })); setErrors(prev => ({ ...prev, local: undefined })); }}
                 focused={focused === 'local'}
+                hasError={!!errors.local}
                 onFocus={() => setFocused('local')}
                 onBlur={() => setFocused('')}
               />
@@ -415,21 +433,21 @@ const CadastroForm = () => {
               </select>
             </div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Equipamento (nº da placa)</label>
+              <label style={labelStyle}>Equipamento (nº da placa) <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-equip" placeholder="Ex: 13867"
                 value={formData.equip} onChange={handleChange}
                 style={inp('equip')} onFocus={() => setFocused('equip')} onBlur={() => setFocused('')}
               />
             </div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Coordenada</label>
+              <label style={labelStyle}>Coordenada <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-coord" placeholder="-18.517, -41.936"
                 value={formData.coord} onChange={handleChange}
                 style={inp('coord')} onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
               />
             </div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Técnico de origem</label>
+              <label style={labelStyle}>Técnico de origem <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-orig" placeholder="Nome do técnico"
                 value={formData.orig} onChange={handleChange}
                 style={inp('orig')} onFocus={() => setFocused('orig')} onBlur={() => setFocused('')}
@@ -440,7 +458,7 @@ const CadastroForm = () => {
           <SectionLabel>Complemento</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Link da foto</label>
+              <label style={labelStyle}>Link da foto <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-foto" placeholder="https://..."
                 value={formData.foto} onChange={handleChange}
                 style={inp('foto')} onFocus={() => setFocused('foto')} onBlur={() => setFocused('')}
