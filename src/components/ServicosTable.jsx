@@ -593,6 +593,9 @@ const ServicosTable = () => {
     const s = statusDonoPending;
     await atualizarStatus(s._docId, novoStatus, `Status alterado para "${STATUS_CONFIG[novoStatus]?.label}" pelo Dono.`);
     setStatusDonoPending(null);
+    if (novoStatus === 'enviado') {
+      setMensagemCemigServico(s);
+    }
   };
 
   const SortIcon = ({ col }) => {
