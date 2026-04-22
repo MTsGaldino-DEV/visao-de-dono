@@ -12,7 +12,8 @@ export const AuthProvider = ({ children }) => {
   const usersDB = {
     '27630': { role: 'dono', label: 'Matheus' },
     '33783': { role: 'dono', label: 'Rafaela' },
-    '34649': { role: 'aprendiz', label: 'Ana' }
+    '34649': { role: 'aprendiz', label: 'Ana' },
+    '37040': { role: 'aprendiz', label: 'Josué' }
   };
 
   const login = async (matricula, senha) => {
