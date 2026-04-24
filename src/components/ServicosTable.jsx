@@ -201,9 +201,7 @@ Serviço a ser executado:
 ${servicoExec}
 
 Observação:
-dúvidas ligar para Matheus ENGELMIG 31 99914-8716
-Recurso necessário:
-PLACA DE IDENTIFICAÇÃO`;
+dúvidas ligar para Matheus ENGELMIG 31 99914-8716`;
 };
 
 // ── Popup mensagem automática para CEMIG ─────────────────────────────────────

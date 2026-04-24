@@ -1,164 +1,86 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "../../lib/api";
+import { useAuthStore } from "../../lib/store/auth.store";
+import Image from "next/image";
 
-const Login = () => {
-  const [matricula, setMatricula] = useState('');
-  const [senha, setSenha] = useState('');
-  const [error, setError] = useState('');
+export default function LoginPage() {
+  const router = useRouter();
+  const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ email: "", password: "" });
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
-
-    const matriculaLimpa = matricula.trim().replace('@visaodono.app', '');
-
+    setError("");
     try {
-      await login(matriculaLimpa, senha);
-      navigate('/');
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/configuration-not-found') {
-        setError('Erro de configuração do Firebase. Aguarde 30 segundos e tente novamente.');
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        setError('Matrícula ou senha incorreta.');
-      } else {
-        setError('Erro ao fazer login. Tente novamente mais tarde.');
-      }
+      const { data } = await api.post("/auth/login", form);
+      setAuth(data.token, data.user, data.barbershop);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Email ou senha invalidos");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyDown = (e, nextId) => {
-    if (e.key === 'Enter' && nextId) {
-      document.getElementById(nextId)?.focus();
-    }
-  };
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f0f4f8',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 20px',
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '14px',
-      boxSizing: 'border-box'
-    }}>
-      <div style={{
-        backgroundColor: '#fff',
-        border: '1px solid #e0e0e0',
-        borderRadius: '12px',
-        padding: '32px 28px',
-        width: '100%',
-        maxWidth: '360px'
-      }}>
-        {/* Logo + Título */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-            <ellipse cx="18" cy="18" rx="17" ry="17" fill="#1a3a5c"/>
-            <path d="M4,18 Q18,4 32,18 Q18,32 4,18 Z" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-            <circle cx="18" cy="18" r="5" fill="#fff"/>
-            <circle cx="18" cy="18" r="2" fill="#1a3a5c"/>
-          </svg>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#1a3a5c', margin: 0 }}>
-            Visão de Dono
-          </h2>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f0f4f8", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", fontFamily: "Arial, sans-serif", fontSize: "14px" }}>
+      <div style={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: "12px", padding: "32px 28px", width: "100%", maxWidth: "380px" }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+          <Image src="/logo.png" alt="Navalha CRM" width={40} height={40} style={{ objectFit: "contain" }} />
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#1a1a1a", margin: 0 }}>Navalha CRM</h2>
         </div>
 
-        <p style={{ fontSize: '13px', color: '#888', margin: '0 0 24px 0' }}>
-          Controle de serviços de campo
-        </p>
+        <p style={{ fontSize: "13px", color: "#888", margin: "0 0 24px 0" }}>Gestao inteligente para barbearias</p>
 
         <form onSubmit={handleSubmit}>
-          {/* Matrícula */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
-            <label style={{ fontSize: '11px', color: '#888' }}>Matrícula</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "12px" }}>
+            <label style={{ fontSize: "11px", color: "#888" }}>Email</label>
             <input
-              id="input-matricula"
-              type="text"
-              value={matricula}
-              onChange={(e) => setMatricula(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, 'input-senha')}
-              placeholder="Digite sua matrícula"
-              style={{
-                width: '100%',
-                padding: '7px 9px',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                fontSize: '13px',
-                background: '#fff',
-                color: '#222',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="seu@email.com"
               required
+              style={{ width: "100%", padding: "7px 9px", border: "1px solid #ccc", borderRadius: "6px", fontSize: "13px", background: "#fff", color: "#222", outline: "none", boxSizing: "border-box" }}
             />
           </div>
 
-          {/* Senha */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '18px' }}>
-            <label style={{ fontSize: '11px', color: '#888' }}>Senha</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "18px" }}>
+            <label style={{ fontSize: "11px", color: "#888" }}>Senha</label>
             <input
-              id="input-senha"
               type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="Digite sua senha"
-              style={{
-                width: '100%',
-                padding: '7px 9px',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                fontSize: '13px',
-                background: '#fff',
-                color: '#222',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
               required
+              style={{ width: "100%", padding: "7px 9px", border: "1px solid #ccc", borderRadius: "6px", fontSize: "13px", background: "#fff", color: "#222", outline: "none", boxSizing: "border-box" }}
             />
           </div>
 
-          {/* Erro */}
           {error && (
-            <p style={{ color: '#c62828', fontSize: '12px', margin: '0 0 10px 0' }}>
-              {error}
-            </p>
+            <p style={{ color: "#c62828", fontSize: "12px", margin: "0 0 10px 0" }}>{error}</p>
           )}
 
-          {/* Botão */}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '8px 18px',
-              backgroundColor: '#1a3a5c',
-              color: '#fff',
-              border: '2px solid #1a3a5c',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: loading ? 'not-allowed' : 'pointer'
-            }}
-            onMouseEnter={(e) => { if (!loading) e.target.style.backgroundColor = '#12294a'; }}
-            onMouseLeave={(e) => { e.target.style.backgroundColor = '#1a3a5c'; }}
+            style={{ width: "100%", padding: "8px 18px", backgroundColor: "#1a1a1a", color: "#fff", border: "2px solid #1a1a1a", borderRadius: "6px", fontSize: "13px", fontWeight: "700", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "20px" }}>
+          Nao tem conta?{" "}
+          <a href="/register" style={{ color: "#d97706", fontWeight: "600" }}>Cadastre sua barbearia</a>
+        </p>
       </div>
     </div>
   );
-};
-
-export default Login;
+}
