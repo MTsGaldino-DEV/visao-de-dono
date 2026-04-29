@@ -793,6 +793,154 @@ const exportarExcel = (dados) => {
   URL.revokeObjectURL(url);
 };
 
+// ── [NOVO] Importar dados de Excel/CSV ───────────────────────────────────────
+const importarExcel = (file, onSuccess, onError) => {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      // Remove BOM se existir
+      const clean = text.replace(/^\uFEFF/, '');
+      const lines = clean.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { onError('Arquivo vazio ou sem dados.'); return; }
+
+      // Detecta separador (ponto-e-vírgula ou vírgula)
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+
+      const parseCell = (val) => (val || '').replace(/^"|"$/g, '').trim();
+
+      const rows = lines.slice(1).map(line => {
+        // Parsing básico respeitando aspas
+        const cells = [];
+        let cur = '', inQ = false;
+        for (let c of line) {
+          if (c === '"') { inQ = !inQ; }
+          else if (c === sep && !inQ) { cells.push(cur); cur = ''; }
+          else { cur += c; }
+        }
+        cells.push(cur);
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = parseCell(cells[i]); });
+        return obj;
+      }).filter(r => Object.values(r).some(v => v));
+
+      onSuccess(rows, headers);
+    } catch (err) {
+      onError('Erro ao processar arquivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+// ── [NOVO] Popup de importação ────────────────────────────────────────────────
+const ImportPopup = ({ onClose }) => {
+  const [preview, setPreview] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [erro, setErro]       = useState('');
+  const [fileName, setFileName] = useState('');
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    setErro('');
+    setPreview(null);
+    importarExcel(
+      file,
+      (rows, hdrs) => { setPreview(rows.slice(0, 5)); setHeaders(hdrs); },
+      (msg) => setErro(msg)
+    );
+  };
+
+  return (
+    <div style={POPUP_OVERLAY}>
+      <div style={{ ...POPUP_BOX, maxWidth: '560px' }}>
+        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Importar de Excel / CSV</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>Selecione um arquivo .csv exportado por esta tabela</div>
+          </div>
+        </div>
+
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
+          border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer',
+          background: '#f0fdf4', marginBottom: '14px', transition: 'all 0.15s',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span style={{ fontSize: '13px', color: fileName ? '#15803d' : '#64748b', fontWeight: fileName ? '600' : '400' }}>
+            {fileName || 'Clique para selecionar arquivo .csv'}
+          </span>
+          <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+
+        {erro && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#b91c1c' }}>
+            ⚠️ {erro}
+          </div>
+        )}
+
+        {preview && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>
+              Pré-visualização — {preview.length} primeiras linhas
+            </div>
+            <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr>{headers.slice(0, 6).map(h => (
+                    <th key={h} style={{ padding: '6px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {preview.map((row, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                      {headers.slice(0, 6).map(h => (
+                        <td key={h} style={{ padding: '5px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row[h] || '—'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#92400e', lineHeight: '1.5' }}>
+              ℹ️ A importação é apenas para <strong>visualização e referência</strong>. Para atualizar dados no sistema, utilize o cadastro oficial.
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={BTN_CANCEL}>Fechar</button>
+          {preview && (
+            <button
+              onClick={() => { alert(`${preview.length} linhas lidas com sucesso. Use o cadastro para importar registros oficialmente.`); }}
+              style={{ ...BTN_PRIMARY, background: 'linear-gradient(135deg, #15803d, #16a34a)' }}
+            >
+              Confirmar leitura
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 const ServicosTable = () => {
   const { user } = useAuth();
@@ -805,11 +953,16 @@ const ServicosTable = () => {
   const [busca, setBusca]                       = useState('');
   const [statusFilter, setStatusFilter]         = useState([]);
   const [tipoFilter, setTipoFilter]             = useState([]);
+  const [localidadeFilter, setLocalidadeFilter] = useState('');   // [NOVO] filtro localidade
+  const [postoFilter, setPostoFilter]           = useState([]);   // [NOVO] filtro posto
+  const [dataInicio, setDataInicio]             = useState('');   // [NOVO] filtro data início
+  const [dataFim, setDataFim]                   = useState('');   // [NOVO] filtro data fim
   const [sortCol, setSortCol]                   = useState('id');
   const [sortDir, setSortDir]                   = useState('desc');
 
   // [NOVO] paginação
   const [currentPage, setCurrentPage]           = useState(1);
+  const [importPopupOpen, setImportPopupOpen]   = useState(false); // [NOVO]
 
   const [confirmPending, setConfirmPending]               = useState(null);
   const [numServPending, setNumServPending]               = useState(null);
@@ -826,7 +979,7 @@ const ServicosTable = () => {
   }, []);
 
   // Reseta página ao mudar filtros ou ordenação
-  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, sortCol, sortDir]);
+  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir]);
 
   useEffect(() => {
     let lista = [...services];
@@ -845,11 +998,40 @@ const ServicosTable = () => {
       } else {
         const terms = raw.toLowerCase().split(/\s+/);
         lista = lista.filter(s => {
-          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs]
+          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs, s.obsCancelamento]
             .join(' ').toLowerCase();
           return terms.every(t => haystack.includes(t));
         });
       }
+    }
+
+    // [NOVO] Filtro por localidade específica
+    if (localidadeFilter) {
+      lista = lista.filter(s => normStr(s.local || '') === normStr(localidadeFilter));
+    }
+
+    // [NOVO] Filtro por posto (multi-select)
+    if (postoFilter.length > 0) {
+      const locsDosPostos = postoFilter.flatMap(p => POSTOS[p] || []).map(l => normStr(l));
+      lista = lista.filter(s => locsDosPostos.includes(normStr(s.local || '')));
+    }
+
+    // [NOVO] Filtro por data início
+    if (dataInicio) {
+      const ini = new Date(dataInicio + 'T00:00:00');
+      lista = lista.filter(s => {
+        const dt = s.data ? new Date(s.data) : null;
+        return dt && dt >= ini;
+      });
+    }
+
+    // [NOVO] Filtro por data fim
+    if (dataFim) {
+      const fim = new Date(dataFim + 'T23:59:59');
+      lista = lista.filter(s => {
+        const dt = s.data ? new Date(s.data) : null;
+        return dt && dt <= fim;
+      });
     }
 
     if (statusFilter.length > 0) {
@@ -881,7 +1063,7 @@ const ServicosTable = () => {
     });
 
     setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, sortCol, sortDir]);
+  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir]);
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -976,10 +1158,12 @@ const ServicosTable = () => {
 
   const statusOptions = STATUS_ORDER.map(s => ({ value: s, label: STATUS_CONFIG[s].label, badge: STATUS_CONFIG[s] }));
   const tipoOptions   = ['NSIS','NSMP','RC02','INBE'].map(t => ({ value: t, label: t }));
+  const postoOptions  = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p })); // [NOVO]
 
   return (
     <div>
       {/* Popups */}
+      {importPopupOpen        && <ImportPopup                                                                onClose={() => setImportPopupOpen(false)} />}
       {confirmPending       && <ConfirmPopup           servico={confirmPending.servico}    novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}      onCancel={() => setConfirmPending(null)} />}
       {numServPending       && <NumServPopup            servico={numServPending}             onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
       {statusDonoPending    && <StatusDonoPopup         servico={statusDonoPending}          onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
@@ -992,7 +1176,9 @@ const ServicosTable = () => {
         <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
           Filtros
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
+
+        {/* Linha 1: Busca + Status + Tipo + Posto */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end', marginBottom: '10px' }}>
           {/* Busca */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca — palavra-chave ou nº serviços (vírgula)</label>
@@ -1030,13 +1216,34 @@ const ServicosTable = () => {
             <MultiSelect options={tipoOptions} selected={tipoFilter} onChange={setTipoFilter} />
           </div>
 
+          {/* [NOVO] Filtro Posto */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Posto</label>
+            <MultiSelect options={postoOptions} selected={postoFilter} onChange={(val) => { setPostoFilter(val); setLocalidadeFilter(''); }} />
+          </div>
+        </div>
+
+        {/* Linha 2: Localidade + Datas */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
+          {/* [NOVO] Filtro Localidade */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Localidade
+              {postoFilter.length > 0 && <span style={{ marginLeft: '6px', color: '#7c3aed', fontWeight: '700' }}>({postoFilter.map(p => p.split('—')[0].trim()).join(', ')})</span>}
+            </label>
+            <LocalidadeSelect value={localidadeFilter} onChange={setLocalidadeFilter} />
+          </div>
+
+          {/* [CORRIGIDO] Data de */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>De</label>
-            <input type="date" style={inputStyle} />
+            <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
           </div>
+
+          {/* [CORRIGIDO] Data até */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Até</label>
-            <input type="date" style={inputStyle} />
+            <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inputStyle} />
           </div>
         </div>
       </div>
@@ -1048,8 +1255,8 @@ const ServicosTable = () => {
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {(statusFilter.length > 0 || tipoFilter.length > 0 || busca) && (
-              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); }}
+            {(statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim) && (
+              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); }}
                 style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -1058,7 +1265,29 @@ const ServicosTable = () => {
               </button>
             )}
 
-            {/* [NOVO] Botão Exportar Excel */}
+            {/* [NOVO] Botão Importar Excel */}
+            <button
+              onClick={() => setImportPopupOpen(true)}
+              title="Importar dados de arquivo CSV/Excel"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '5px 12px', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '11px', fontWeight: '600', fontFamily: 'inherit',
+                border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Importar
+            </button>
+
+            {/* [EXISTENTE] Botão Exportar Excel */}
             <button
               onClick={() => exportarExcel(filteredServices)}
               title={`Exportar ${filteredServices.length} registros para Excel`}
