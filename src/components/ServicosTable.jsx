@@ -57,8 +57,8 @@ const POSTO_COLORS = {
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// ── Paginação: 100 registros por página ──────────────────────────────────────
-const PAGE_SIZE = 100;
+// ── Paginação: 50 registros por página ──────────────────────────────────────
+const PAGE_SIZE = 50;
 
 const fmtDt = (iso) => {
   if (!iso) return '—';
@@ -69,7 +69,7 @@ const fmtDt = (iso) => {
 const idNum = (id) => parseInt((id || '').replace(/\D/g, '') || '0', 10);
 
 const inputStyle = {
-  width: '100%', padding: '7px 10px',
+  width: '50%', padding: '7px 10px',
   border: '1px solid #e2e8f0', borderRadius: '8px',
   fontSize: '12px', background: '#fff', color: '#1e293b',
   outline: 'none', fontFamily: "'Segoe UI', system-ui, sans-serif",
