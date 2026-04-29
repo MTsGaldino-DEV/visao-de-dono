@@ -69,7 +69,7 @@ const fmtDt = (iso) => {
 const idNum = (id) => parseInt((id || '').replace(/\D/g, '') || '0', 10);
 
 const inputStyle = {
-  width: '150%', padding: '7px 10px',
+  width: '100%', padding: '7px 10px',
   border: '1px solid #e2e8f0', borderRadius: '8px',
   fontSize: '12px', background: '#fff', color: '#1e293b',
   outline: 'none', fontFamily: "'Segoe UI', system-ui, sans-serif",
