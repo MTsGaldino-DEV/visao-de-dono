@@ -95,7 +95,7 @@ const Home = () => {
       </header>
 
       {/* CONTEÚDO */}
-      <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+      <main style={{ padding: '24px', maxWidth: '100%', margin: '0 auto' }}>
 
         {/* TABS */}
         <nav style={{
