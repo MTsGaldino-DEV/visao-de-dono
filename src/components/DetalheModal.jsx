@@ -180,6 +180,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp }) => {
                   <option value="NSMP">NSMP</option>
                   <option value="RC02">RC02</option>
                   <option value="INBE">INBE</option>
+                  <option value="NSCP">NSCP</option>
                 </select>
               </Field>
               <Field label="Descrição" fullWidth>

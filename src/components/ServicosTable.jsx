@@ -1157,7 +1157,7 @@ const ServicosTable = () => {
   };
 
   const statusOptions = STATUS_ORDER.map(s => ({ value: s, label: STATUS_CONFIG[s].label, badge: STATUS_CONFIG[s] }));
-  const tipoOptions   = ['NSIS','NSMP','RC02','INBE'].map(t => ({ value: t, label: t }));
+  const tipoOptions   = ['NSIS','NSMP','RC02','INBE','NSCP'].map(t => ({ value: t, label: t }));
   const postoOptions  = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p })); // [NOVO]
 
   return (

@@ -44,7 +44,7 @@ const POSTO_CFG = {
   'Não mapeado':        { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', track: '#f1f5f9' },
 };
 
-const TIPOS = ['NSIS', 'NSMP', 'RC02', 'INBE'];
+const TIPOS = ['NSIS', 'NSMP', 'RC02', 'INBE', 'NSCP'];
 
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
