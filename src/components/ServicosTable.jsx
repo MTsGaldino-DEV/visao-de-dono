@@ -511,11 +511,9 @@ const gerarMensagemNSIS = (s) => {
     ? `${descBase} nas coordenadas ${coordFormatado}`
     : descBase;
 
-  return `Gentileza, gerar NSIS:
+  return `Gentileza, gerar serviço:
 
-Campo Bairro: ${campoBairro}
 Equipamento: ${equip}
-Referências: chave ${equip}
 Coordenadas: ${coordFormatado}
 Localidade: ${local}
 
