@@ -41,28 +41,31 @@ const POSTO_COLORS = {
   'Posto 4 — Victor':   '#15803d',
 };
 
+const STATUS_BADGE = {
+  cadastrado:     { bg: '#B5D4F4', fg: '#0C447C' },
+  'em andamento': { bg: '#FAC775', fg: '#633806' },
+  executado:      { bg: '#C0DD97', fg: '#27500A' },
+};
+
 // ── Select pesquisável com agrupamento por posto ──────────────────────────────
 const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur }) => {
-  const [query, setQuery]       = useState('');
-  const [open, setOpen]         = useState(false);
+  const [query, setQuery]             = useState('');
+  const [open, setOpen]               = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const containerRef = useRef(null);
   const inputRef     = useRef(null);
   const listRef      = useRef(null);
 
-  // Filtra por query
   const resultados = query.trim()
     ? TODAS_LOCALIDADES.filter(({ loc }) => norm(loc).includes(norm(query)))
     : TODAS_LOCALIDADES;
 
-  // Agrupa por posto mantendo ordem
   const grupos = Object.keys(POSTOS).reduce((acc, posto) => {
     const itens = resultados.filter(r => r.posto === posto);
     if (itens.length) acc.push({ posto, itens });
     return acc;
   }, []);
 
-  // Lista plana para navegação por teclado
   const flat = resultados;
 
   const selecionar = (loc) => {
@@ -74,14 +77,17 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
 
   const limpar = () => { onChange(''); setQuery(''); inputRef.current?.focus(); };
 
-  // Fecha ao clicar fora
   useEffect(() => {
-    const handler = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) { setOpen(false); setQuery(''); } };
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Scroll do item destacado
   useEffect(() => {
     if (!listRef.current) return;
     const el = listRef.current.querySelector('[data-highlighted="true"]');
@@ -90,10 +96,10 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
 
   const handleKeyDown = (e) => {
     if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) { setOpen(true); return; }
-    if (e.key === 'ArrowDown') { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
-    else if (e.key === 'ArrowUp') { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
+    if (e.key === 'ArrowDown')      { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
+    else if (e.key === 'ArrowUp')   { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
     else if (e.key === 'Enter' && flat[highlighted]) { selecionar(flat[highlighted].loc); e.preventDefault(); }
-    else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+    else if (e.key === 'Escape')    { setOpen(false); setQuery(''); }
   };
 
   const borderColor = hasError  ? '#ef4444'
@@ -106,7 +112,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      {/* Campo de exibição/pesquisa */}
       <div style={{
         display: 'flex', alignItems: 'center',
         border: `1px solid ${borderColor}`,
@@ -118,7 +123,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
         overflow: 'hidden',
       }} onClick={() => { setOpen(true); inputRef.current?.focus(); }}>
 
-        {/* Ícone busca */}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
           style={{ flexShrink: 0, marginLeft: '11px' }}>
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -140,7 +144,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
           }}
         />
 
-        {/* Valor selecionado (quando dropdown fechado) */}
         {value && !open && (
           <div style={{
             position: 'absolute', left: '34px', right: '60px',
@@ -151,7 +154,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
           </div>
         )}
 
-        {/* Badge do posto */}
         {value && !open && (() => {
           const entry = TODAS_LOCALIDADES.find(l => l.loc === value);
           const color = entry ? POSTO_COLORS[entry.posto] : '#64748b';
@@ -165,7 +167,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
           );
         })()}
 
-        {/* Botão limpar / chevron */}
         {value ? (
           <button onClick={e => { e.stopPropagation(); limpar(); }} style={{
             padding: '0 10px', background: 'none', border: 'none', cursor: 'pointer',
@@ -179,7 +180,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
         )}
       </div>
 
-      {/* Dropdown */}
       {open && (
         <div ref={listRef} style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300,
@@ -197,7 +197,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
             const supervisor = posto.split('—')[1]?.trim() || '';
             return (
               <div key={posto}>
-                {/* Cabeçalho do grupo */}
                 <div style={{
                   padding: '7px 12px 5px',
                   fontSize: '10px', fontWeight: '700',
@@ -209,7 +208,6 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
                   <span>{postoNome}</span>
                   <span style={{ fontWeight: '400', color: '#94a3b8', textTransform: 'none', letterSpacing: 0 }}>— {supervisor}</span>
                 </div>
-                {/* Itens */}
                 {itens.map(({ loc }) => {
                   const flatIdx = flat.findIndex(f => f.loc === loc);
                   const isHigh  = flatIdx === highlighted;
@@ -279,16 +277,98 @@ const SuccessPopup = ({ onClose }) => (
   </div>
 );
 
+// ── Painel de duplicidade ─────────────────────────────────────────────────────
+const DuplicidadePanel = ({ servicos, placa, loading }) => {
+  if (!loading && servicos.length === 0) return null;
+  return (
+    <div style={{ gridColumn: '1 / -1', border: '1px solid #F5C4B3', background: '#FAECE7', borderRadius: '8px', overflow: 'hidden' }}>
+      {loading ? (
+        <div style={{ padding: '11px 14px', fontSize: '12px', color: '#993C1D', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#993C1D" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeDasharray="28" strokeDashoffset="10"/>
+          </svg>
+          Verificando serviços com a placa {placa}...
+        </div>
+      ) : (
+        <>
+          {/* Cabeçalho */}
+          <div style={{ padding: '9px 14px', borderBottom: '1px solid #F5C4B3', display: 'flex', alignItems: 'center', gap: '7px', background: '#F5C4B3' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#993C1D" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#712B13' }}>
+              {servicos.length} serviço{servicos.length > 1 ? 's' : ''} encontrado{servicos.length > 1 ? 's' : ''} para a placa {placa} — verifique antes de cadastrar
+            </span>
+          </div>
+
+          {/* Itens */}
+          {servicos.map(s => {
+            const badge = STATUS_BADGE[s.status] || { bg: '#e2e8f0', fg: '#64748b' };
+            const dt = s.dtCadastro?.toDate
+              ? s.dtCadastro.toDate().toLocaleDateString('pt-BR')
+              : s.dtCadastro
+                ? new Date(s.dtCadastro).toLocaleDateString('pt-BR')
+                : '—';
+            return (
+              <div key={s.id} style={{ padding: '9px 14px', borderBottom: '1px solid #F5C4B3', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#712B13' }}>{s.id || '—'}</span>
+                    <span style={{ fontSize: '10px', fontWeight: '600', padding: '1px 6px', borderRadius: '4px', background: badge.bg, color: badge.fg }}>
+                      {s.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#993C1D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.desc || '—'}
+                  </div>
+                </div>
+                <div style={{ fontSize: '11px', color: '#993C1D', whiteSpace: 'nowrap', textAlign: 'right', flexShrink: 0 }}>
+                  <div>{s.local || '—'}</div>
+                  <div>{dt}</div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+};
+
 // ── Componente principal ─────────────────────────────────────────────────────
 const CadastroForm = () => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: ''
   });
-  const [loading, setLoading]       = useState(false);
-  const [focused, setFocused]       = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [focused, setFocused]         = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [errors, setErrors]         = useState({});
+  const [errors, setErrors]           = useState({});
+
+  // ── Anti-duplicidade ──────────────────────────────────────────────────────
+  const [equipServicos, setEquipServicos] = useState([]);
+  const [loadingEquip, setLoadingEquip]   = useState(false);
+
+  const buscarPorEquip = async (placa) => {
+    if (!placa?.trim()) { setEquipServicos([]); return; }
+    setLoadingEquip(true);
+    try {
+      const snap = await getDocs(collection(db, 'servicos'));
+      const encontrados = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s =>
+          s.equip?.trim().toLowerCase() === placa.trim().toLowerCase() &&
+          s.status !== 'cancelado'
+        );
+      setEquipServicos(encontrados);
+    } catch { /* silencioso */ }
+    finally { setLoadingEquip(false); }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const hoje = new Date();
   const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}T23:59:59`;
@@ -303,13 +383,15 @@ const CadastroForm = () => {
 
   const inp = (id) => ({
     ...inputStyle,
-    borderColor: errors[id]  ? '#ef4444'
+    borderColor: errors[id]    ? '#ef4444'
                 : focused === id ? '#3b82f6'
+                : id === 'equip' && equipServicos.length > 0 ? '#F0997B'
                 : '#e2e8f0',
-    background:  errors[id]  ? '#fff5f5'
+    background:  errors[id]    ? '#fff5f5'
                 : focused === id ? '#fff'
+                : id === 'equip' && equipServicos.length > 0 ? '#FAECE7'
                 : '#f8fafc',
-    boxShadow:   errors[id]  ? '0 0 0 3px rgba(239,68,68,0.1)'
+    boxShadow:   errors[id]    ? '0 0 0 3px rgba(239,68,68,0.1)'
                 : focused === id ? '0 0 0 3px rgba(59,130,246,0.1)'
                 : 'none',
   });
@@ -342,12 +424,12 @@ const CadastroForm = () => {
         hist: [{ who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Serviço cadastrado.' }]
       });
       setFormData({ data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: '' });
+      setEquipServicos([]);
       setShowSuccess(true);
     } catch { alert('Erro ao cadastrar o serviço.'); }
     finally { setLoading(false); }
   };
 
-  // Posto da localidade selecionada
   const postoSelecionado = formData.local
     ? TODAS_LOCALIDADES.find(l => l.loc === formData.local)?.posto
     : null;
@@ -382,7 +464,6 @@ const CadastroForm = () => {
               />
             </div>
 
-            {/* Localidade — select pesquisável */}
             <div style={fieldStyle}>
               <label style={labelStyle}>
                 Localidade <span style={{ color: '#ef4444' }}>*</span>
@@ -432,13 +513,27 @@ const CadastroForm = () => {
                 <option value="INBE">INBE</option>
               </select>
             </div>
+
             <div style={fieldStyle}>
               <label style={labelStyle}>Equipamento (nº da placa) <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-equip" placeholder="Ex: 13867"
                 value={formData.equip} onChange={handleChange}
-                style={inp('equip')} onFocus={() => setFocused('equip')} onBlur={() => setFocused('')}
+                style={inp('equip')}
+                onFocus={() => setFocused('equip')}
+                onBlur={() => {
+                  setFocused('');
+                  buscarPorEquip(formData.equip);
+                }}
               />
             </div>
+
+            {/* Painel de anti-duplicidade */}
+            <DuplicidadePanel
+              servicos={equipServicos}
+              placa={formData.equip}
+              loading={loadingEquip}
+            />
+
             <div style={fieldStyle}>
               <label style={labelStyle}>Coordenada <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="text" id="f-coord" placeholder="-18.517, -41.936"
