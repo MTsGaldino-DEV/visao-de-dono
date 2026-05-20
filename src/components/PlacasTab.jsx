@@ -31,8 +31,17 @@ const POSTO_COLORS = {
   'Posto 2 — Elton':    { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', stroke: '#a78bfa' },
   'Posto 3 — Vinicius': { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', stroke: '#38bdf8' },
   'Posto 4 — Victor':   { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', stroke: '#4ade80' },
-  'Não mapeado':        { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', stroke: '#94a3b8' },
 };
+
+const STATUS_CONFIG = {
+  cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
+  enviado:    { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
+  concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
+  cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+};
+
+const PAGE_SIZE = 50;
 
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -48,66 +57,170 @@ const postoDeLocalidade = (local) => {
 const digitosDeEquip = (equip) => {
   const digits = (equip || '').replace(/\D/g, '').split('').map(Number);
   const count = Array(10).fill(0);
-  // 6 e 9 são o mesmo material físico — 9s são contados no balde do 6
   digits.forEach(d => count[d === 9 ? 6 : d]++);
   return count;
 };
 
-// ── Gráfico circular SVG puro ────────────────────────────────────────────────
+// ── MultiSelect (igual ao ServicosTable) ─────────────────────────────────────
+const MultiSelect = ({ options, selected, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggle = (val) =>
+    onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
+
+  const displayLabel = selected.length === 0
+    ? 'Todos'
+    : selected.length === 1
+      ? options.find(o => o.value === selected[0])?.label || selected[0]
+      : `${selected.length} selecionados`;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        width: '100%', padding: '7px 10px', border: selected.length > 0 ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+        borderRadius: '8px', fontSize: '12px', background: selected.length > 0 ? '#eff6ff' : '#fff',
+        color: selected.length > 0 ? '#1d4ed8' : '#1e293b', fontWeight: selected.length > 0 ? '600' : '400',
+        cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', boxSizing: 'border-box', outline: 'none',
+      }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+          style={{ flexShrink: 0, marginLeft: '6px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 300,
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.1)', minWidth: '190px', overflow: 'hidden',
+        }}>
+          {selected.length > 0 && (
+            <button onClick={() => onChange([])} style={{
+              width: '100%', padding: '8px 12px', border: 'none', borderBottom: '1px solid #f1f5f9',
+              background: '#f8fafc', color: '#64748b', cursor: 'pointer', fontSize: '11px',
+              fontFamily: 'inherit', textAlign: 'left', fontWeight: '600',
+            }}>Limpar seleção</button>
+          )}
+          {options.map(({ value, label, badge }) => {
+            const sel = selected.includes(value);
+            return (
+              <button key={value} onClick={() => toggle(value)} style={{
+                width: '100%', padding: '8px 12px', border: 'none', borderBottom: '1px solid #f8fafc',
+                background: sel ? '#f0f7ff' : '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit',
+              }}>
+                <div style={{
+                  width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
+                  border: sel ? '4px solid #1d4ed8' : '1.5px solid #cbd5e1',
+                  background: sel ? '#1d4ed8' : '#fff', transition: 'all 0.1s',
+                }} />
+                {badge ? (
+                  <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', fontWeight: '600', background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{label}</span>
+                ) : (
+                  <span style={{ fontSize: '12px', color: '#334155' }}>{label}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Paginação ─────────────────────────────────────────────────────────────────
+const Paginacao = ({ totalItems, currentPage, onPageChange }) => {
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const safePage   = Math.min(currentPage, totalPages);
+  const pageStart  = (safePage - 1) * PAGE_SIZE;
+  const pageEnd    = Math.min(pageStart + PAGE_SIZE, totalItems);
+
+  const visiblePages = (() => {
+    const pages = [];
+    for (let i = Math.max(1, safePage - 3); i <= Math.min(totalPages, safePage + 3); i++) pages.push(i);
+    return pages;
+  })();
+
+  if (totalPages <= 1) return null;
+
+  const btnBase = {
+    height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px',
+    background: '#fff', color: '#475569', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
+  };
+
+  return (
+    <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafbfc', borderRadius: '0 0 12px 12px' }}>
+      <div style={{ fontSize: '11px', color: '#64748b' }}>
+        Exibindo <strong style={{ color: '#0f2544' }}>{pageStart + 1}–{pageEnd}</strong> de <strong style={{ color: '#0f2544' }}>{totalItems}</strong> registros
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button onClick={() => onPageChange(p => Math.max(1, p - 1))} disabled={safePage === 1}
+          style={{ ...btnBase, width: '30px', color: safePage === 1 ? '#cbd5e1' : '#475569', cursor: safePage === 1 ? 'not-allowed' : 'pointer', background: safePage === 1 ? '#f8fafc' : '#fff' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+
+        {visiblePages[0] > 1 && (
+          <>
+            <button onClick={() => onPageChange(1)} style={{ ...btnBase, minWidth: '30px', fontSize: '12px', fontWeight: '500', padding: '0 6px' }}>1</button>
+            {visiblePages[0] > 2 && <span style={{ color: '#94a3b8', fontSize: '12px', padding: '0 2px' }}>…</span>}
+          </>
+        )}
+
+        {visiblePages.map(p => (
+          <button key={p} onClick={() => onPageChange(p)}
+            style={{ ...btnBase, minWidth: '30px', padding: '0 6px', fontSize: '12px', fontWeight: p === safePage ? '700' : '500', border: p === safePage ? '2px solid #1d4ed8' : '1px solid #e2e8f0', background: p === safePage ? '#eff6ff' : '#fff', color: p === safePage ? '#1d4ed8' : '#475569' }}>
+            {p}
+          </button>
+        ))}
+
+        {visiblePages[visiblePages.length - 1] < totalPages && (
+          <>
+            {visiblePages[visiblePages.length - 1] < totalPages - 1 && <span style={{ color: '#94a3b8', fontSize: '12px', padding: '0 2px' }}>…</span>}
+            <button onClick={() => onPageChange(totalPages)} style={{ ...btnBase, minWidth: '30px', fontSize: '12px', fontWeight: '500', padding: '0 6px' }}>{totalPages}</button>
+          </>
+        )}
+
+        <button onClick={() => onPageChange(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+          style={{ ...btnBase, width: '30px', color: safePage === totalPages ? '#cbd5e1' : '#475569', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', background: safePage === totalPages ? '#f8fafc' : '#fff' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── Gráfico circular ──────────────────────────────────────────────────────────
 const DonutChart = ({ montadas, pendentes, postoAtivo }) => {
   const total = montadas + pendentes;
   if (total === 0) return (
-    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '12px' }}>
-      Sem dados
-    </div>
+    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '12px' }}>Sem dados</div>
   );
-
   const R = 70, CX = 90, CY = 90, stroke = 28;
   const circ = 2 * Math.PI * R;
-
-  // Segmentos: montadas (verde), pendentes (cor do posto ou laranja)
   const pctMontadas = montadas / total;
   const pendColor = postoAtivo ? (POSTO_COLORS[postoAtivo]?.stroke || '#f97316') : '#f97316';
-
-  const gap = 0.012; // pequeno gap entre segmentos
+  const gap = 0.012;
   const seg1 = pctMontadas * (1 - gap * 2);
   const seg2 = (1 - pctMontadas) * (1 - gap * 2);
-
-  const arc = (pct, offset) => ({
-    strokeDasharray: `${pct * circ} ${circ}`,
-    strokeDashoffset: -offset * circ,
-  });
-
-  const pctLabel = total > 0 ? Math.round((montadas / total) * 100) : 0;
-
+  const arc = (pct, offset) => ({ strokeDasharray: `${pct * circ} ${circ}`, strokeDashoffset: -offset * circ });
+  const pctLabel = Math.round((montadas / total) * 100);
   return (
     <div style={{ position: 'relative', width: '180px', height: '180px', margin: '0 auto' }}>
       <svg width="180" height="180" viewBox="0 0 180 180">
-        {/* Fundo */}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
-        {/* Pendentes */}
-        {pendentes > 0 && (
-          <circle cx={CX} cy={CY} r={R} fill="none"
-            stroke={pendColor} strokeWidth={stroke} strokeLinecap="butt"
-            style={{ ...arc(seg2, pctMontadas + gap), transition: 'stroke-dasharray 0.5s ease' }}
-            transform={`rotate(-90 ${CX} ${CY})`}
-          />
-        )}
-        {/* Montadas */}
-        {montadas > 0 && (
-          <circle cx={CX} cy={CY} r={R} fill="none"
-            stroke="#15803d" strokeWidth={stroke} strokeLinecap="butt"
-            style={{ ...arc(seg1, gap), transition: 'stroke-dasharray 0.5s ease' }}
-            transform={`rotate(-90 ${CX} ${CY})`}
-          />
-        )}
+        {pendentes > 0 && <circle cx={CX} cy={CY} r={R} fill="none" stroke={pendColor} strokeWidth={stroke} strokeLinecap="butt" style={{ ...arc(seg2, pctMontadas + gap), transition: 'stroke-dasharray 0.5s ease' }} transform={`rotate(-90 ${CX} ${CY})`} />}
+        {montadas > 0  && <circle cx={CX} cy={CY} r={R} fill="none" stroke="#15803d"  strokeWidth={stroke} strokeLinecap="butt" style={{ ...arc(seg1, gap),              transition: 'stroke-dasharray 0.5s ease' }} transform={`rotate(-90 ${CX} ${CY})`} />}
       </svg>
-      {/* Centro */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        pointerEvents: 'none',
-      }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
         <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f2544', lineHeight: 1 }}>{pctLabel}%</div>
         <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', marginTop: '2px' }}>montadas</div>
       </div>
@@ -115,26 +228,40 @@ const DonutChart = ({ montadas, pendentes, postoAtivo }) => {
   );
 };
 
-// ── Estilos base ─────────────────────────────────────────────────────────────
-const card = { background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' };
+// ── Estilos base ──────────────────────────────────────────────────────────────
+const card       = { background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' };
 const inputStyle = { width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', background: '#fff', color: '#1e293b', outline: 'none', fontFamily: "'Segoe UI', system-ui, sans-serif", boxSizing: 'border-box' };
-const labelUp = { fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px', display: 'block' };
-const th = { textAlign: 'left', fontSize: '10px', color: '#94a3b8', fontWeight: '700', padding: '9px 12px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase' };
-const td = { padding: '10px 12px', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle', fontSize: '12px', color: '#334155', whiteSpace: 'nowrap' };
+const labelUp    = { fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px', display: 'block' };
+const th         = { textAlign: 'left', fontSize: '10px', color: '#94a3b8', fontWeight: '700', padding: '9px 12px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase' };
+const td         = { padding: '10px 12px', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle', fontSize: '12px', color: '#334155', whiteSpace: 'nowrap' };
 
-// ── Componente principal ─────────────────────────────────────────────────────
+// ── Componente principal ──────────────────────────────────────────────────────
 const PlacasTab = () => {
   const { user } = useAuth();
 
-  const [servicos, setServicos]           = useState([]);
-  const [estoque, setEstoque]             = useState(Array(10).fill(0));
-  const [postoFilter, setPostoFilter]     = useState(''); // para lista
-  const [dashPosto, setDashPosto]         = useState(''); // para dashboard
+  const [servicos, setServicos]               = useState([]);
+  const [estoque, setEstoque]                 = useState(Array(10).fill(0));
+  const [postoFilter, setPostoFilter]         = useState('');
+  const [dashPosto, setDashPosto]             = useState('');
   const [editandoEstoque, setEditandoEstoque] = useState(false);
-  const [estoqueTemp, setEstoqueTemp]     = useState(Array(10).fill(0));
-  const [savingEstoque, setSavingEstoque] = useState(false);
-  const [buscaEquip, setBuscaEquip]       = useState(''); // busca por equipamento(s)
-  const [expandidoLoc, setExpandidoLoc]   = useState({});
+  const [estoqueTemp, setEstoqueTemp]         = useState(Array(10).fill(0));
+  const [savingEstoque, setSavingEstoque]     = useState(false);
+  const [buscaEquip, setBuscaEquip]           = useState('');
+  const [expandidoLoc, setExpandidoLoc]       = useState({});
+
+  // Paginação
+  const [pagePendentes, setPagePendentes]     = useState(1);
+  const [pageMontadas,  setPageMontadas]      = useState(1);
+
+  // Filtros seção montadas
+  const [buscaMontadas,  setBuscaMontadas]    = useState('');
+  const [postoMontadas,  setPostoMontadas]    = useState('');
+  const [envioFilter,    setEnvioFilter]      = useState('todos'); // 'todos' | 'enviado' | 'nao_enviado'
+  const [statusMontadas, setStatusMontadas]   = useState([]);     // multiselect status da nota
+
+  const statusOptions = Object.entries(STATUS_CONFIG).map(([value, cfg]) => ({
+    value, label: cfg.label, badge: cfg,
+  }));
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -153,6 +280,10 @@ const PlacasTab = () => {
     load();
   }, []);
 
+  // Reseta páginas ao mudar filtros
+  useEffect(() => { setPagePendentes(1); }, [postoFilter, buscaEquip]);
+  useEffect(() => { setPageMontadas(1);  }, [buscaMontadas, postoMontadas, envioFilter, statusMontadas]);
+
   const salvarEstoque = async () => {
     setSavingEstoque(true);
     try {
@@ -163,41 +294,53 @@ const PlacasTab = () => {
     finally { setSavingEstoque(false); }
   };
 
-  // Todos os serviços de placa (ativos)
-  const todasPlacas = servicos.filter(s =>
-    s.status !== 'cancelado' && norm(s.desc).includes('PLACA')
-  );
+  const todasPlacas        = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
+  const pendentesMontagem  = todasPlacas.filter(s => !s.placaMontada);
+  const todasMontadas      = todasPlacas.filter(s => s.placaMontada);
 
-  // Pendentes de montagem
-  const pendentesMontagem = todasPlacas.filter(s => !s.placaMontada);
-
-  // Parse da busca por equipamento: aceita vírgula, ponto-e-vírgula, espaço ou quebra de linha
   const equipTermos = buscaEquip.trim()
     ? buscaEquip.split(/[,;\n\s]+/).map(t => t.trim()).filter(Boolean)
     : [];
 
-  // Filtros da lista de pendentes: posto + equipamento
+  // ── Filtros pendentes ─────────────────────────────────────────────────────
   const filtrados = pendentesMontagem.filter(s => {
     if (postoFilter && postoDeLocalidade(s.local) !== postoFilter) return false;
     if (equipTermos.length > 0) {
-      const equip = norm(s.equip || '');
+      const equip   = norm(s.equip || '');
       const numServ = norm(s.numServ || '');
       return equipTermos.some(t => equip.includes(norm(t)) || numServ.includes(norm(t)));
     }
     return true;
   });
 
-  // Dashboard: dados filtrados pelo posto do dashboard
-  const dashPlacas = dashPosto
-    ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto)
-    : todasPlacas;
+  const safePendentesPage = Math.min(pagePendentes, Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE)));
+  const filtradosPage     = filtrados.slice((safePendentesPage - 1) * PAGE_SIZE, safePendentesPage * PAGE_SIZE);
+
+  // ── Filtros montadas ──────────────────────────────────────────────────────
+  const montadasFiltradas = todasMontadas.filter(s => {
+    if (postoMontadas && postoDeLocalidade(s.local) !== postoMontadas) return false;
+    if (envioFilter === 'enviado'     && !s.enviadoSupervisor) return false;
+    if (envioFilter === 'nao_enviado' &&  s.enviadoSupervisor) return false;
+    if (statusMontadas.length > 0 && !statusMontadas.includes(s.status)) return false;
+    if (buscaMontadas.trim()) {
+      const terms = buscaMontadas.toLowerCase().split(/\s+/);
+      const hay   = [s.id, s.equip, s.local, s.desc, s.numServ].join(' ').toLowerCase();
+      if (!terms.every(t => hay.includes(t))) return false;
+    }
+    return true;
+  });
+
+  const safeMontadasPage = Math.min(pageMontadas, Math.max(1, Math.ceil(montadasFiltradas.length / PAGE_SIZE)));
+  const montadasPage     = montadasFiltradas.slice((safeMontadasPage - 1) * PAGE_SIZE, safeMontadasPage * PAGE_SIZE);
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  const dashPlacas    = dashPosto ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto) : todasPlacas;
   const dashMontadas  = dashPlacas.filter(s => s.placaMontada).length;
   const dashPendentes = dashPlacas.length - dashMontadas;
 
-  // Dados por posto para legenda/tabela do dashboard
   const dadosPosto = Object.keys(POSTOS).map(posto => {
-    const ps = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
-    const mont = ps.filter(s => s.placaMontada).length;
+    const ps     = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
+    const mont   = ps.filter(s => s.placaMontada).length;
     const locMap = {};
     ps.forEach(s => {
       const loc = s.local || 'Desconhecida';
@@ -208,17 +351,25 @@ const PlacasTab = () => {
     return { posto, total: ps.length, montadas: mont, pendentes: ps.length - mont, locMap };
   });
 
+  const digitosNecessarios = Array(10).fill(0);
+  filtrados.forEach(s => {
+    const d = digitosDeEquip(s.equip);
+    for (let i = 0; i <= 9; i++) { if (i === 9) continue; digitosNecessarios[i] += d[i]; }
+  });
+
+  const qtdEnviados    = todasMontadas.filter(s =>  s.enviadoSupervisor).length;
+  const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadoSupervisor).length;
+
+  const temFiltroMontadas = buscaMontadas || postoMontadas || envioFilter !== 'todos' || statusMontadas.length > 0;
+
+  // ── Ações Firebase ────────────────────────────────────────────────────────
   const marcarMontada = async (s) => {
     try {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
-      // slot 9 não existe mais — digitosDeEquip já acumulou 9s em d[6]
-      for (let i = 0; i <= 9; i++) {
-        if (i === 9) continue;
-        novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]);
-      }
+      for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]); }
       await updateDoc(doc(db, 'servicos', s._docId), {
-        placaMontada: true,
+        placaMontada: true, enviadoSupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
       });
       await setDoc(doc(db, 'config', 'estoque'), { digitos: novoEstoque });
@@ -231,13 +382,9 @@ const PlacasTab = () => {
     try {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
-      // slot 9 não existe mais — digitosDeEquip já acumulou 9s em d[6]
-      for (let i = 0; i <= 9; i++) {
-        if (i === 9) continue;
-        novoEstoque[i] += d[i];
-      }
+      for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] += d[i]; }
       await updateDoc(doc(db, 'servicos', s._docId), {
-        placaMontada: false,
+        placaMontada: false, enviadoSupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Montagem da placa revertida.' }],
       });
       await setDoc(doc(db, 'config', 'estoque'), { digitos: novoEstoque });
@@ -245,35 +392,33 @@ const PlacasTab = () => {
     } catch { alert('Erro ao reverter montagem.'); }
   };
 
-  const temEstoque = (s) => {
-    const d = digitosDeEquip(s.equip);
-    // slot 9 não existe — digitosDeEquip já acumulou 9s em d[6]
-    for (let i = 0; i <= 9; i++) {
-      if (i === 9) continue;
-      if (d[i] > estoque[i]) return false;
-    }
-    return true;
+  const toggleEnviadoSupervisor = async (s) => {
+    const novoValor = !s.enviadoSupervisor;
+    const msg = novoValor ? 'Placa marcada como enviada ao supervisor.' : 'Envio ao supervisor desmarcado.';
+    try {
+      await updateDoc(doc(db, 'servicos', s._docId), {
+        enviadoSupervisor: novoValor,
+        hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg }],
+      });
+    } catch { alert('Erro ao atualizar envio ao supervisor.'); }
   };
 
-  const digitosNecessarios = Array(10).fill(0);
-  filtrados.forEach(s => {
+  const temEstoque = (s) => {
     const d = digitosDeEquip(s.equip);
-    // slot 9 não existe — digitosDeEquip já acumulou 9s em d[6]
-    for (let i = 0; i <= 9; i++) {
-      if (i === 9) continue;
-      digitosNecessarios[i] += d[i];
-    }
-  });
+    for (let i = 0; i <= 9; i++) { if (i === 9) continue; if (d[i] > estoque[i]) return false; }
+    return true;
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* ── Cards de resumo (só placas) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+      {/* ── Cards resumo ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
         {[
-          { label: 'Total de placas', value: todasPlacas.length, color: '#0f2544' },
-          { label: 'Montadas',        value: todasPlacas.filter(s => s.placaMontada).length, color: '#15803d' },
-          { label: 'Pendentes',       value: pendentesMontagem.length, color: '#c2410c' },
+          { label: 'Total de placas',        value: todasPlacas.length,       color: '#0f2544' },
+          { label: 'Montadas',               value: todasMontadas.length,      color: '#15803d' },
+          { label: 'Enviadas ao supervisor', value: qtdEnviados,               color: '#7c3aed' },
+          { label: 'Pendentes montagem',     value: pendentesMontagem.length,  color: '#c2410c' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ ...card, padding: '16px 20px' }}>
             <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>{label}</div>
@@ -282,18 +427,17 @@ const PlacasTab = () => {
         ))}
       </div>
 
-      {/* ── Dashboard: gráfico circular + tabela por posto/localidade ── */}
+      {/* ── Dashboard ── */}
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>Dashboard de placas</div>
             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Montadas vs pendentes por supervisão e localidade</div>
           </div>
-          {/* Filtro do dashboard */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {['', ...Object.keys(POSTOS)].map(p => {
               const ativo = dashPosto === p;
-              const cfg = p ? POSTO_COLORS[p] : null;
+              const cfg   = p ? POSTO_COLORS[p] : null;
               return (
                 <button key={p || 'todos'} onClick={() => setDashPosto(p)} style={{
                   fontSize: '11px', padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
@@ -308,13 +452,9 @@ const PlacasTab = () => {
             })}
           </div>
         </div>
-
         <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: '220px 1fr', gap: '24px', alignItems: 'start' }}>
-
-          {/* Gráfico */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
             <DonutChart montadas={dashMontadas} pendentes={dashPendentes} postoAtivo={dashPosto || null} />
-            {/* Legenda do gráfico */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#15803d', flexShrink: 0 }} />
@@ -328,30 +468,22 @@ const PlacasTab = () => {
               </div>
             </div>
           </div>
-
-          {/* Tabela por posto e localidade */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {dadosPosto.filter(d => d.total > 0 && (!dashPosto || d.posto === dashPosto)).map(({ posto, total, montadas, pendentes, locMap }) => {
-              const cfg = POSTO_COLORS[posto];
-              const pct = total > 0 ? Math.round((montadas / total) * 100) : 0;
-              const exp = expandidoLoc[posto];
+              const cfg        = POSTO_COLORS[posto];
+              const pct        = total > 0 ? Math.round((montadas / total) * 100) : 0;
+              const exp        = expandidoLoc[posto];
               const postoNome  = posto.split('—')[0].trim();
               const supervisor = posto.split('—')[1]?.trim() || '';
-
               return (
                 <div key={posto} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {/* Linha do posto */}
                   <button onClick={() => setExpandidoLoc(prev => ({ ...prev, [posto]: !prev[posto] }))}
                     style={{ width: '100%', padding: '10px 0', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5"
-                      style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
                       <polyline points="9 18 15 12 9 6"/>
                     </svg>
-                    <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 9px', borderRadius: '20px', background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>
-                      {postoNome}
-                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 9px', borderRadius: '20px', background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>{postoNome}</span>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>{supervisor}</span>
-                    {/* Barra inline */}
                     <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden', margin: '0 8px' }}>
                       <div style={{ height: '100%', background: '#15803d', width: `${pct}%`, transition: 'width 0.4s' }} />
                     </div>
@@ -361,21 +493,15 @@ const PlacasTab = () => {
                       <span style={{ color: '#94a3b8' }}>{total} total · {pct}%</span>
                     </div>
                   </button>
-
-                  {/* Localidades expandidas */}
                   {exp && (
                     <div style={{ paddingLeft: '20px', paddingBottom: '10px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
                         {Object.entries(locMap).sort((a, b) => b[1].total - a[1].total).map(([loc, d]) => {
                           const pctLoc = d.total > 0 ? Math.round((d.montadas / d.total) * 100) : 0;
-                          const tudo = pctLoc === 100;
-                          const nada = pctLoc === 0;
+                          const tudo   = pctLoc === 100;
+                          const nada   = pctLoc === 0;
                           return (
-                            <div key={loc} style={{
-                              padding: '8px 10px', borderRadius: '8px',
-                              border: tudo ? '1px solid #bbf7d0' : nada ? '1px solid #fecaca' : '1px solid #e2e8f0',
-                              background: tudo ? '#f0fdf4' : nada ? '#fef2f2' : '#f8fafc',
-                            }}>
+                            <div key={loc} style={{ padding: '8px 10px', borderRadius: '8px', border: tudo ? '1px solid #bbf7d0' : nada ? '1px solid #fecaca' : '1px solid #e2e8f0', background: tudo ? '#f0fdf4' : nada ? '#fef2f2' : '#f8fafc' }}>
                               <div style={{ fontSize: '11px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>{loc}</div>
                               <div style={{ height: '4px', borderRadius: '2px', background: '#e2e8f0', overflow: 'hidden', marginBottom: '5px' }}>
                                 <div style={{ height: '100%', background: tudo ? '#15803d' : '#1d4ed8', width: `${pctLoc}%` }} />
@@ -395,9 +521,7 @@ const PlacasTab = () => {
               );
             })}
             {dadosPosto.filter(d => d.total > 0 && (!dashPosto || d.posto === dashPosto)).length === 0 && (
-              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                Nenhum serviço de placa encontrado.
-              </div>
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>Nenhum serviço de placa encontrado.</div>
             )}
           </div>
         </div>
@@ -425,32 +549,17 @@ const PlacasTab = () => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '8px' }}>
           {[0, 1, 2, 3, 4, 5, '6/9', 7, 8].map((d) => {
-            const slot = d === '6/9' ? 6 : d;
-            const qtd = editandoEstoque ? estoqueTemp[slot] : estoque[slot];
+            const slot       = d === '6/9' ? 6 : d;
+            const qtd        = editandoEstoque ? estoqueTemp[slot] : estoque[slot];
             const necessario = digitosNecessarios[slot];
-            const falta = Math.max(0, necessario - estoque[slot]);
+            const falta      = Math.max(0, necessario - estoque[slot]);
             const semEstoque = !editandoEstoque && estoque[slot] === 0;
-            const baixo = !editandoEstoque && estoque[slot] > 0 && estoque[slot] < necessario;
-            const isCombo = d === '6/9';
+            const baixo      = !editandoEstoque && estoque[slot] > 0 && estoque[slot] < necessario;
+            const isCombo    = d === '6/9';
             return (
-              <div key={String(d)} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                padding: '10px 6px', borderRadius: '10px',
-                border: semEstoque ? '1px solid #fecaca' : baixo ? '1px solid #fed7aa' : isCombo ? '1px solid #ddd6fe' : '1px solid #e2e8f0',
-                background: semEstoque ? '#fef2f2' : baixo ? '#fff7ed' : isCombo ? '#faf5ff' : '#f8fafc',
-              }}>
-                <div style={{
-                  fontSize: isCombo ? '16px' : '20px', fontWeight: '800',
-                  color: semEstoque ? '#b91c1c' : baixo ? '#c2410c' : isCombo ? '#7c3aed' : '#0f2544',
-                  lineHeight: 1,
-                }}>
-                  {isCombo ? '6/9' : d}
-                </div>
-                {isCombo && (
-                  <div style={{ fontSize: '8px', color: '#7c3aed', fontWeight: '600', letterSpacing: '0.04em', marginTop: '-4px' }}>
-                    mesmo mat.
-                  </div>
-                )}
+              <div key={String(d)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '10px 6px', borderRadius: '10px', border: semEstoque ? '1px solid #fecaca' : baixo ? '1px solid #fed7aa' : isCombo ? '1px solid #ddd6fe' : '1px solid #e2e8f0', background: semEstoque ? '#fef2f2' : baixo ? '#fff7ed' : isCombo ? '#faf5ff' : '#f8fafc' }}>
+                <div style={{ fontSize: isCombo ? '16px' : '20px', fontWeight: '800', color: semEstoque ? '#b91c1c' : baixo ? '#c2410c' : isCombo ? '#7c3aed' : '#0f2544', lineHeight: 1 }}>{isCombo ? '6/9' : d}</div>
+                {isCombo && <div style={{ fontSize: '8px', color: '#7c3aed', fontWeight: '600', letterSpacing: '0.04em', marginTop: '-4px' }}>mesmo mat.</div>}
                 {editandoEstoque ? (
                   <input type="number" min="0" max="9999" value={estoqueTemp[slot]}
                     onChange={e => { const v = parseInt(e.target.value) || 0; setEstoqueTemp(prev => { const n = [...prev]; n[slot] = v; return n; }); }}
@@ -471,45 +580,36 @@ const PlacasTab = () => {
         {!editandoEstoque && (
           <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '10px', color: '#94a3b8' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#fef2f2', border: '1px solid #fecaca', display: 'inline-block' }} />Sem estoque</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#fff7ed', border: '1px solid #fed7aa', display: 'inline-block' }} />Insuficiente para pendentes</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#fff7ed', border: '1px solid #fed7aa', display: 'inline-block' }} />Insuficiente</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'inline-block' }} />Ok</span>
           </div>
         )}
       </div>
 
-      {/* ── Lista de pendentes ── */}
+      {/* ── Pendentes de montagem ── */}
       <div style={card}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544', marginBottom: '10px' }}>Pendentes de montagem</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
-            {/* Busca por equipamento/nº serviço */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelUp}>Buscar por nº equipamento ou nº serviço (separe por vírgula)</label>
               <div style={{ position: 'relative' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
-                  style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input type="text"
-                  placeholder="Ex: 240539792, 240800668, 240855834 — ou cole uma lista"
+                <input type="text" placeholder="Ex: 240539792, 240800668 — ou cole uma lista"
                   value={buscaEquip} onChange={e => setBuscaEquip(e.target.value)}
-                  style={{ ...inputStyle, paddingLeft: '30px' }}
-                />
+                  style={{ ...inputStyle, paddingLeft: '30px' }} />
               </div>
               {equipTermos.length > 1 && (
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
                   {equipTermos.map(t => (
-                    <span key={t} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>
-                      {t}
-                    </span>
+                    <span key={t} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>{t}</span>
                   ))}
-                  <button onClick={() => setBuscaEquip('')} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
-                    limpar
-                  </button>
+                  <button onClick={() => setBuscaEquip('')} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>limpar</button>
                 </div>
               )}
             </div>
-            {/* Filtro posto */}
             <div>
               <label style={labelUp}>Posto / supervisor</label>
               <select value={postoFilter} onChange={e => setPostoFilter(e.target.value)} style={inputStyle}>
@@ -529,33 +629,32 @@ const PlacasTab = () => {
             </div>
           </div>
         </div>
-
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
               <tr>
-                <th style={{ ...th, width: '80px' }}>ID</th>
+                <th style={{ ...th, width: '80px'  }}>ID</th>
                 <th style={{ ...th, width: '120px' }}>Localidade</th>
                 <th style={{ ...th, width: '100px' }}>Posto</th>
                 <th style={th}>Descrição</th>
                 <th style={{ ...th, width: '110px' }}>Equipamento</th>
                 <th style={{ ...th, width: '110px' }}>Dígitos</th>
-                <th style={{ ...th, width: '90px' }}>Status</th>
+                <th style={{ ...th, width: '90px'  }}>Status nota</th>
                 <th style={{ ...th, width: '100px' }}>Estoque</th>
-                <th style={{ ...th, width: '90px' }}>Ação</th>
+                <th style={{ ...th, width: '90px'  }}>Ação</th>
               </tr>
             </thead>
             <tbody>
-              {filtrados.length === 0 && (
+              {filtradosPage.length === 0 && (
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>
                   {equipTermos.length > 0 ? 'Nenhum serviço encontrado para os números informados.' : 'Nenhuma placa pendente de montagem.'}
                 </td></tr>
               )}
-              {filtrados.map((s, i) => {
-                const posto = postoDeLocalidade(s.local);
+              {filtradosPage.map((s, i) => {
+                const posto     = postoDeLocalidade(s.local);
                 const haEstoque = temEstoque(s);
-                const digStr = (s.equip || '').replace(/\D/g, '');
-                const statusCfg = { cadastrado: { label: 'Cadastrado', color: '#1d4ed8' }, enviado: { label: 'Enviado', color: '#7c3aed' }, pendente: { label: 'Pendente', color: '#c2410c' }, concluido: { label: 'Concluído', color: '#15803d' } }[s.status] || { label: s.status, color: '#475569' };
+                const digStr    = (s.equip || '').replace(/\D/g, '');
+                const scfg      = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
                 return (
                   <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
@@ -572,8 +671,7 @@ const PlacasTab = () => {
                       {digStr ? (
                         <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
                           {digStr.split('').map((d, idx) => {
-                            // 6 e 9 compartilham estoque[6]
-                            const slot = d === '9' ? 6 : parseInt(d);
+                            const slot   = d === '9' ? 6 : parseInt(d);
                             const semEst = estoque[slot] === 0;
                             return (
                               <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', background: semEst ? '#fef2f2' : '#eff6ff', color: semEst ? '#b91c1c' : '#1d4ed8', border: `1px solid ${semEst ? '#fecaca' : '#bfdbfe'}` }}>
@@ -585,8 +683,8 @@ const PlacasTab = () => {
                       ) : <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
                     <td style={td}>
-                      <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: `${statusCfg.color}12`, color: statusCfg.color, border: `1px solid ${statusCfg.color}30` }}>
-                        {statusCfg.label}
+                      <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: scfg.bg, color: scfg.color, border: `1px solid ${scfg.border}` }}>
+                        {scfg.label}
                       </span>
                     </td>
                     <td style={td}>
@@ -596,10 +694,10 @@ const PlacasTab = () => {
                       ) : <span style={{ color: '#94a3b8', fontSize: '11px' }}>Sem equip.</span>}
                     </td>
                     <td style={td}>
-                      <button onClick={() => marcarMontada(s)} style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      <button onClick={() => marcarMontada(s)}
+                        style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}
-                      >
+                        onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                         Montar
                       </button>
@@ -610,50 +708,178 @@ const PlacasTab = () => {
             </tbody>
           </table>
         </div>
+        <Paginacao totalItems={filtrados.length} currentPage={safePendentesPage} onPageChange={setPagePendentes} />
       </div>
 
       {/* ── Placas montadas ── */}
-      {servicos.some(s => s.placaMontada) && (
+      {todasMontadas.length > 0 && (
         <div style={card}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>Placas montadas</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Clique em "Reverter" para desfazer a montagem e devolver os dígitos ao estoque</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>Placas montadas</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Gerencie o envio ao supervisor e reverta montagens se necessário</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {temFiltroMontadas && (
+                  <button onClick={() => { setBuscaMontadas(''); setPostoMontadas(''); setEnvioFilter('todos'); setStatusMontadas([]); }}
+                    style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Limpar filtros
+                  </button>
+                )}
+                <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500' }}>
+                  {montadasFiltradas.length} {montadasFiltradas.length === 1 ? 'registro' : 'registros'}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Filtros montadas: linha 1 ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+              {/* Busca */}
+              <div>
+                <label style={labelUp}>Busca</label>
+                <div style={{ position: 'relative' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
+                    style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" placeholder="ID, equipamento, localidade..."
+                    value={buscaMontadas} onChange={e => setBuscaMontadas(e.target.value)}
+                    style={{ ...inputStyle, paddingLeft: '30px' }} />
+                </div>
+              </div>
+
+              {/* Posto */}
+              <div>
+                <label style={labelUp}>Posto</label>
+                <select value={postoMontadas} onChange={e => setPostoMontadas(e.target.value)} style={inputStyle}>
+                  <option value="">Todos os postos</option>
+                  {Object.keys(POSTOS).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+
+              {/* Status da nota — MultiSelect */}
+              <div>
+                <label style={labelUp}>Status da nota</label>
+                <MultiSelect options={statusOptions} selected={statusMontadas} onChange={setStatusMontadas} />
+              </div>
+            </div>
+
+            {/* ── Filtros montadas: linha 2 — Envio supervisor ── */}
+            <div>
+              <label style={labelUp}>Envio ao supervisor</label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { key: 'todos',       label: 'Todos',       count: todasMontadas.length },
+                  { key: 'nao_enviado', label: 'Não enviado', count: qtdNaoEnviados },
+                  { key: 'enviado',     label: 'Enviado',     count: qtdEnviados },
+                ].map(({ key, label, count }) => {
+                  const ativo = envioFilter === key;
+                  const cor   = key === 'enviado' ? '#7c3aed' : key === 'nao_enviado' ? '#c2410c' : '#475569';
+                  return (
+                    <button key={key} onClick={() => setEnvioFilter(key)} style={{
+                      padding: '6px 16px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
+                      border: ativo ? `2px solid ${cor}` : '1px solid #e2e8f0',
+                      background: ativo ? `${cor}10` : '#f8fafc',
+                      color: ativo ? cor : '#64748b',
+                      fontSize: '11px', fontWeight: ativo ? '700' : '500',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      transition: 'all 0.12s',
+                    }}>
+                      {label}
+                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '1px 6px', borderRadius: '20px', background: ativo ? `${cor}20` : '#e2e8f0', color: ativo ? cor : '#475569' }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
                 <tr>
-                  <th style={{ ...th, width: '80px' }}>ID</th>
+                  <th style={{ ...th, width: '80px'  }}>ID</th>
                   <th style={{ ...th, width: '120px' }}>Localidade</th>
                   <th style={{ ...th, width: '100px' }}>Posto</th>
                   <th style={{ ...th, width: '110px' }}>Equipamento</th>
                   <th style={th}>Descrição</th>
-                  <th style={{ ...th, width: '90px' }}>Ação</th>
+                  <th style={{ ...th, width: '120px' }}>Status nota</th>
+                  <th style={{ ...th, width: '160px' }}>Envio supervisor</th>
+                  <th style={{ ...th, width: '90px'  }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
-                {servicos.filter(s => s.placaMontada).map((s, i) => (
-                  <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc', opacity: 0.85 }}>
-                    <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
-                    <td style={td}>{s.local || '—'}</td>
-                    <td style={{ ...td, fontSize: '11px', color: '#64748b' }}>
-                      {postoDeLocalidade(s.local)?.split('—')[0].trim() || <span style={{ color: '#ef4444' }}>Não mapeado</span>}
-                    </td>
-                    <td style={{ ...td, fontWeight: '600' }}>{s.equip || '—'}</td>
-                    <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</td>
-                    <td style={td}>
-                      <button onClick={() => desmarcarMontada(s)} style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '500' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                        onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-                      >
-                        Reverter
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {montadasPage.length === 0 && (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>Nenhuma placa encontrada com esses filtros.</td></tr>
+                )}
+                {montadasPage.map((s, i) => {
+                  const enviado = !!s.enviadoSupervisor;
+                  const scfg   = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
+                  return (
+                    <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc', opacity: 0.92 }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
+                    >
+                      <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
+                      <td style={td}>{s.local || '—'}</td>
+                      <td style={{ ...td, fontSize: '11px', color: '#64748b' }}>
+                        {postoDeLocalidade(s.local)?.split('—')[0].trim() || <span style={{ color: '#ef4444' }}>Não mapeado</span>}
+                      </td>
+                      <td style={{ ...td, fontWeight: '600' }}>{s.equip || '—'}</td>
+                      <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</td>
+
+                      {/* Status da nota */}
+                      <td style={td}>
+                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 9px', borderRadius: '20px', background: scfg.bg, color: scfg.color, border: `1px solid ${scfg.border}` }}>
+                          {scfg.label}
+                        </span>
+                      </td>
+
+                      {/* Envio supervisor */}
+                      <td style={td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            fontSize: '10px', fontWeight: '700', padding: '3px 9px', borderRadius: '20px', whiteSpace: 'nowrap',
+                            background: enviado ? '#faf5ff' : '#f1f5f9',
+                            color:      enviado ? '#7c3aed' : '#64748b',
+                            border:     `1px solid ${enviado ? '#ddd6fe' : '#e2e8f0'}`,
+                          }}>
+                            {enviado ? '✓ Enviado' : 'Não enviado'}
+                          </span>
+                          <button onClick={() => toggleEnviadoSupervisor(s)}
+                            title={enviado ? 'Desmarcar envio' : 'Marcar como enviado ao supervisor'}
+                            style={{
+                              fontSize: '10px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                              fontFamily: 'inherit', fontWeight: '600', whiteSpace: 'nowrap',
+                              border:     enviado ? '1px solid #fecaca' : '1px solid #ddd6fe',
+                              background: enviado ? '#fef2f2'           : '#faf5ff',
+                              color:      enviado ? '#b91c1c'           : '#7c3aed',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
+                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
+                            {enviado ? 'Desmarcar' : 'Enviar'}
+                          </button>
+                        </div>
+                      </td>
+
+                      <td style={td}>
+                        <button onClick={() => desmarcarMontada(s)}
+                          style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '500' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}>
+                          Reverter
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          <Paginacao totalItems={montadasFiltradas.length} currentPage={safeMontadasPage} onPageChange={setPageMontadas} />
         </div>
       )}
     </div>
