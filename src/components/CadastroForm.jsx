@@ -511,6 +511,7 @@ const CadastroForm = () => {
                 <option value="NSMP">NSMP</option>
                 <option value="RC02">RC02</option>
                 <option value="INBE">INBE</option>
+                <option value="NSCP">NSCP</option>
               </select>
             </div>
 
