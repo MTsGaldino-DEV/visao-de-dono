@@ -295,7 +295,7 @@ const PlacasTab = () => {
   };
 
   const todasPlacas        = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
-  const pendentesMontagem  = todasPlacas.filter(s => !s.placaMontada);
+  const pendentesMontagem = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
   const todasMontadas      = todasPlacas.filter(s => s.placaMontada);
 
   const equipTermos = buscaEquip.trim()
