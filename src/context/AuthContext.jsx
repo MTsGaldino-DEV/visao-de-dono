@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
     '27630': { role: 'dono', label: 'Matheus' },
     '33783': { role: 'dono', label: 'Rafaela' },
     '34649': { role: 'dono', label: 'Ana' },
-    '37040': { role: 'Dono', label: 'Josué' }
+    '37040': { role: 'dono', label: 'Josué' }
   };
 
   const login = async (matricula, senha) => {
