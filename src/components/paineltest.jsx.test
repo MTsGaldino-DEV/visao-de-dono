@@ -84,8 +84,7 @@ const card = {
   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
 };
 
-// Mini barra horizontal — FIX 4: agora uma única barra por localidade
-// track (claro) = volume total relativo ao max; fill (escuro) = % concluído sobre esse volume
+// Mini barra horizontal
 const MiniBar = ({ value, max, color, track = '#f1f5f9', height = 6 }) => (
   <div style={{ flex: 1, height, borderRadius: 3, background: track, overflow: 'hidden' }}>
     <div style={{
@@ -203,9 +202,9 @@ const PainelTab = () => {
 
   const maxTotal = Math.max(...dadosPosto.map(d => d.total), 1);
 
-  // ── Dados por tipo — FIX 3: usa `ativos` (sem cancelados) ─────────────────
+  // ── Dados por tipo ─────────────────────────────────────────────────────────
   const dadosTipo = TIPOS.map(tipo => {
-    const ps = ativos.filter(s => s.tipo === tipo); // ativos já exclui cancelados
+    const ps = ativos.filter(s => s.tipo === tipo);
     const concluidos = ps.filter(s => s.status === 'concluido').length;
     return { tipo, total: ps.length, concluidos, pct: ps.length > 0 ? Math.round((concluidos / ps.length) * 100) : 0 };
   }).filter(d => d.total > 0);
@@ -243,12 +242,12 @@ const PainelTab = () => {
   const deltaCadastros  = cadastrosPorSemana[periodoTendencia-1] - (cadastrosPorSemana[periodoTendencia-2] || 0);
   const deltaConclusoes = conclusoesPorSemana[periodoTendencia-1] - (conclusoesPorSemana[periodoTendencia-2] || 0);
 
-  // ── Alertas — FIX 1: filtrar apenas pendentes e exibir nº do serviço ──────
-  const DIAS_ALERTA = 14;
+  // ── Alertas ────────────────────────────────────────────────────────────────
+  const DIAS_ALERTA = 14; // serviço sem atualização há mais de X dias
   const agora_ms = agora.getTime();
 
-  const alertasPendentes = ativos
-    .filter(s => s.status === 'pendente') // somente pendentes
+  const alertas = ativos
+    .filter(s => s.status !== 'concluido')
     .map(s => {
       const hist = s.hist || [];
       const ultima = hist.length > 0 ? parseData(hist[hist.length - 1].when) : null;
@@ -273,8 +272,6 @@ const PainelTab = () => {
     .sort((a, b) => b[1].total - a[1].total)
     .slice(0, 6);
 
-  const maxLocTotal = topLocs.length > 0 ? topLocs[0][1].total : 1;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -282,7 +279,7 @@ const PainelTab = () => {
       {/* ══ LINHA 1: KPIs principais ═══════════════════════════════════════════ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
 
-        {/* Progresso geral */}
+        {/* Progresso geral — maior destaque */}
         <div style={{ ...card, padding: '18px 20px', gridColumn: '1', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <Ring pct={pctGeral} color="#0f2544" size={72} stroke={10} />
@@ -411,66 +408,54 @@ const PainelTab = () => {
           </div>
         </div>
 
-        {/* ── FIX 1: Alertas — apenas pendentes, exibe nº do serviço ─────── */}
+        {/* Alertas — serviços travados */}
         <div style={{ ...card, overflow: 'hidden' }}>
           <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#c2410c', boxShadow: '0 0 0 3px #fff7ed' }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Alertas — Pendentes</span>
-                {alertasPendentes.length > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Alertas</span>
+                {alertas.length > 0 && (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
-                    {alertasPendentes.length}
+                    {alertas.length}
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Notas pendentes sem movimentação há +{DIAS_ALERTA} dias</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Sem movimentação há +{DIAS_ALERTA} dias</div>
             </div>
           </div>
 
           <div style={{ maxHeight: 210, overflowY: 'auto' }}>
-            {alertasPendentes.length === 0 ? (
+            {alertas.length === 0 ? (
               <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✓</div>
-                Nenhuma nota pendente travada. Tudo em dia!
+                Nenhum serviço travado. Tudo em dia!
               </div>
-            ) : alertasPendentes.map((s, i) => {
+            ) : alertas.map((s, i) => {
               const postoCfg = POSTO_CFG[postoDeLocalidade(s.local)] || POSTO_CFG['Não mapeado'];
               const urgente = (s.diasSem || 0) >= 30;
-              // Nº do serviço: campo `numServico` ou `nServico` ou `id`
-              const numServico = s.numServico || s.nServico || s.id || '—';
               return (
                 <div key={s._docId} style={{
                   padding: '10px 20px',
-                  borderBottom: i < alertasPendentes.length - 1 ? '1px solid #f8fafc' : 'none',
+                  borderBottom: i < alertas.length - 1 ? '1px solid #f8fafc' : 'none',
                   background: urgente ? '#fffbeb' : '#fff',
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}>
-                  {/* Dias sem movimentação */}
                   <div style={{
                     fontSize: 10, fontWeight: 800, minWidth: 40, padding: '3px 6px', borderRadius: 6,
                     background: urgente ? '#fef3c7' : '#f1f5f9',
                     color: urgente ? '#92400e' : '#64748b',
                     textAlign: 'center', flexShrink: 0,
                   }}>{s.diasSem}d</div>
-
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      {/* Nº do serviço em destaque */}
-                      <span style={{
-                        fontSize: 11, fontWeight: 800, color: '#c2410c',
-                        background: '#fff7ed', border: '1px solid #fed7aa',
-                        padding: '1px 7px', borderRadius: 5, letterSpacing: '0.03em', flexShrink: 0,
-                      }}>
-                        {numServico}
-                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0f2544' }}>{s.id}</span>
                       <Badge status={s.status} />
                     </div>
                     <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {s.local} · {s.desc?.slice(0, 45)}{s.desc?.length > 45 ? '…' : ''}
                     </div>
                   </div>
-
                   <div style={{
                     fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20, flexShrink: 0,
                     background: postoCfg.bg, color: postoCfg.color, border: `1px solid ${postoCfg.border}`,
@@ -541,21 +526,19 @@ const PainelTab = () => {
                   )}
                 </div>
 
-                {/* Mini badges de status — FIX 2: não mostra cancelado */}
+                {/* Mini badges de status */}
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {STATUS_ORDER
-                    .filter(st => st !== 'cancelado' && (porStatus[st] || 0) > 0)
-                    .map(st => {
-                      const scfg = STATUS_CONFIG[st];
-                      return (
-                        <span key={st} style={{
-                          fontSize: 9, padding: '2px 6px', borderRadius: 20, fontWeight: 700,
-                          background: '#fff', color: scfg.color, border: `1px solid ${scfg.border}`,
-                        }}>
-                          {scfg.label.split(' ')[0]} {porStatus[st]}
-                        </span>
-                      );
-                    })}
+                  {STATUS_ORDER.filter(st => (porStatus[st] || 0) > 0).map(st => {
+                    const scfg = STATUS_CONFIG[st];
+                    return (
+                      <span key={st} style={{
+                        fontSize: 9, padding: '2px 6px', borderRadius: 20, fontWeight: 700,
+                        background: '#fff', color: scfg.color, border: `1px solid ${scfg.border}`,
+                      }}>
+                        {scfg.label.split(' ')[0]} {porStatus[st]}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -566,10 +549,10 @@ const PainelTab = () => {
       {/* ══ LINHA 4: Por tipo + Top localidades ═══════════════════════════════ */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
-        {/* ── FIX 3: Por tipo — usa ativos (cancelados já excluídos) ──────── */}
+        {/* Por tipo */}
         <div style={{ ...card, padding: '18px 20px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544', marginBottom: 2 }}>Por tipo de serviço</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Apenas serviços ativos — volume e taxa de conclusão</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Volume e taxa de conclusão</div>
 
           {dadosTipo.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 12 }}>Sem dados.</div>
@@ -604,21 +587,16 @@ const PainelTab = () => {
           )}
         </div>
 
-        {/* ── FIX 4: Top localidades — uma única barra por localidade ──────── */}
+        {/* Top localidades */}
         <div style={{ ...card, padding: '18px 20px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544', marginBottom: 2 }}>Top localidades</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>
-            Por volume de serviços ativos · <span style={{ color: '#15803d', fontWeight: 600 }}>■</span> preenchimento = % concluído
-          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Por volume de serviços ativos</div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {topLocs.map(([loc, d], i) => {
               const pctLoc = d.total > 0 ? Math.round((d.concluido / d.total) * 100) : 0;
               const cfg = POSTO_CFG[d.posto] || POSTO_CFG['Não mapeado'];
-              // Largura do track = proporção do volume relativo ao maior
-              const trackWidth = maxLocTotal > 0 ? Math.round((d.total / maxLocTotal) * 100) : 0;
-              // Largura do fill dentro do track = % de conclusão
-              const fillWidth = pctLoc;
+              const maxLoc = topLocs[0][1].total;
               return (
                 <div key={loc}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -635,61 +613,28 @@ const PainelTab = () => {
                       <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {pctLoc}%</span>
                     </div>
                   </div>
-
-                  {/* Barra única: track claro (volume relativo) + fill escuro (% concluído) */}
-                  <div style={{ height: 7, borderRadius: 4, background: '#f1f5f9', overflow: 'hidden' }}>
-                    {/* track — volume proporcional ao maior */}
-                    <div style={{
-                      position: 'relative',
-                      height: '100%',
-                      width: `${trackWidth}%`,
-                      background: cfg.track || '#e2e8f0',
-                      borderRadius: 4,
-                      overflow: 'hidden',
-                    }}>
-                      {/* fill — progresso de conclusão dentro do volume */}
-                      <div style={{
-                        height: '100%',
-                        width: `${fillWidth}%`,
-                        background: cfg.color,
-                        borderRadius: 4,
-                        transition: 'width 0.5s ease',
-                      }} />
-                    </div>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <MiniBar value={d.total} max={maxLoc} color={cfg.color} track={cfg.track || '#f1f5f9'} height={5} />
+                    <MiniBar value={d.concluido} max={d.total} color="#15803d" track="#f0fdf4" height={5} />
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Legenda da barra */}
-          <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
-              <div style={{ width: 22, height: 7, borderRadius: 3, background: '#dbeafe' }} />
-              <span>Volume total relativo</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
-              <div style={{ width: 14, height: 7, borderRadius: 3, background: '#1d4ed8' }} />
-              <span>Concluídos (% sobre total)</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ══ LINHA 5: Funil de status + Visão geral ════════════════════════════ */}
+      {/* ══ LINHA 5: Funil de status + Cancelados ═════════════════════════════ */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
 
-        {/* ── FIX 2: Funil de status — sem cancelados, total = ativos ──────── */}
+        {/* Funil de status */}
         <div style={{ ...card, padding: '18px 20px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544', marginBottom: 2 }}>Funil de status</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>
-            Volume de serviços ativos em cada etapa · total: <strong style={{ color: '#0f2544' }}>{totalAtivos}</strong>
-          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Volume de serviços em cada etapa do fluxo</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {STATUS_ORDER.filter(s => s !== 'cancelado').map(st => {
               const cfg = STATUS_CONFIG[st];
               const count = ativos.filter(s => s.status === st).length;
-              // percentual calculado sobre o total de ativos (sem cancelados)
               const pctSt = totalAtivos > 0 ? Math.round((count / totalAtivos) * 100) : 0;
               return (
                 <div key={st} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -710,7 +655,7 @@ const PainelTab = () => {
           </div>
         </div>
 
-        {/* Visão geral */}
+        {/* Cancelados + totais gerais */}
         <div style={{ ...card, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544', marginBottom: 12 }}>Visão geral</div>
