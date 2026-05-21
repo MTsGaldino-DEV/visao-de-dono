@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
 import { collection, onSnapshot, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 const POSTOS = {
   'Posto 1 — Pedro': [
@@ -80,6 +81,25 @@ const MultiSelect = ({ options, selected, onChange }) => {
     : selected.length === 1
       ? options.find(o => o.value === selected[0])?.label || selected[0]
       : `${selected.length} selecionados`;
+
+// ── Exportar (igual ao ServicosTable) ─────────────────────────────────────
+const exportarXLSX = (dados, nomeAba, nomeArquivo) => {
+  const linhas = dados.map(s => ({
+    'ID':        s.id || '—',
+    'Nº Serviço': s.numServ || '—',
+    'Localidade': s.local || '—',
+    'Posto':      postoDeLocalidade(s.local) || '—',
+    'Equipamento': s.equip || '—',
+    'Descrição':  s.desc || '—',
+    'Status':     STATUS_CONFIG[s.status]?.label || s.status || '—',
+    'Enviado Supervisor': s.enviadoSupervisor ? 'Sim' : 'Não',
+  }));
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, nomeAba);
+  const hoje = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `${nomeArquivo}_${hoje}.xlsx`);
+};      
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -625,6 +645,25 @@ const PlacasTab = () => {
               )}
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500', whiteSpace: 'nowrap' }}>
                 {filtrados.length} {filtrados.length === 1 ? 'serviço' : 'serviços'}
+                <button
+  onClick={() => exportarXLSX(filtrados, 'Pendentes', 'placas_pendentes')}
+  title="Exportar seleção para Excel"
+  style={{
+    display: 'flex', alignItems: 'center', gap: 5,
+    padding: '4px 9px', borderRadius: 7, border: '1px solid #e2e8f0',
+    background: '#f8fafc', color: '#64748b', cursor: 'pointer',
+    fontSize: 11, fontWeight: 500, fontFamily: 'inherit',
+  }}
+  onMouseEnter={e => { e.currentTarget.style.background='#f0fdf4'; e.currentTarget.style.borderColor='#bbf7d0'; e.currentTarget.style.color='#15803d'; }}
+  onMouseLeave={e => { e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.color='#64748b'; }}
+>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+  .xlsx
+</button>
               </div>
             </div>
           </div>

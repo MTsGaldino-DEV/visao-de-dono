@@ -505,7 +505,7 @@ const PainelTab = () => {
               const urgente = (s.diasSem || 0) >= 30;
               // Número do serviço: campo id (ex: VD0016) + numOS/numServico (ex: 241115952)
               const idServico  = s.id || '—';
-              const numOS      = s.numOS || s.numServico || s.nServico || '';
+              const numOS = s.numServ || '';
               return (
                 <div key={s._docId} style={{
                   padding: '10px 20px',
