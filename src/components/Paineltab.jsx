@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
+
+// ── Animação pulse (bolinha alerta) ──────────────────────────────────────────
+const pulseStyle = `
+  @keyframes alertPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(194,65,12,0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(194,65,12,0); }
+    100% { box-shadow: 0 0 0 0 rgba(194,65,12,0); }
+  }
+`;
 
 // ── Constantes de domínio ────────────────────────────────────────────────────
 const POSTOS = {
@@ -153,6 +163,33 @@ const Badge = ({ status }) => {
       whiteSpace: 'nowrap',
     }}>{cfg.label}</span>
   );
+};
+
+// Injeta keyframe no documento uma única vez
+if (typeof document !== 'undefined' && !document.getElementById('__alertPulseStyle')) {
+  const el = document.createElement('style');
+  el.id = '__alertPulseStyle';
+  el.textContent = pulseStyle;
+  document.head.appendChild(el);
+}
+
+// ── Exportar alertas para Excel ───────────────────────────────────────────────
+const exportarAlertasXLSX = (alertas) => {
+  const linhas = alertas.map(s => ({
+    'ID':            s.id || '—',
+    'Nº OS':         s.numOS || s.numServico || s.nServico || '—',
+    'Status':        'Pendente',
+    'Localidade':    s.local || '—',
+    'Posto':         postoDeLocalidade(s.local),
+    'Tipo':          s.tipo || '—',
+    'Descrição':     s.desc || '—',
+    'Dias s/ mover': s.diasSem ?? '—',
+  }));
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Alertas Pendentes');
+  const hoje = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `alertas_pendentes_${hoje}.xlsx`);
 };
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -411,12 +448,16 @@ const PainelTab = () => {
           </div>
         </div>
 
-        {/* ── FIX 1: Alertas — apenas pendentes, exibe nº do serviço ─────── */}
+        {/* ── Alertas — apenas pendentes ───────────────────────────────────── */}
         <div style={{ ...card, overflow: 'hidden' }}>
           <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#c2410c', boxShadow: '0 0 0 3px #fff7ed' }} />
+                {/* Bolinha pulsante */}
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%', background: '#c2410c', flexShrink: 0,
+                  animation: 'alertPulse 1.8s ease-out infinite',
+                }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Alertas — Pendentes</span>
                 {alertasPendentes.length > 0 && (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
@@ -426,6 +467,31 @@ const PainelTab = () => {
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Notas pendentes sem movimentação há +{DIAS_ALERTA} dias</div>
             </div>
+
+            {/* Botão exportar — sutil */}
+            {alertasPendentes.length > 0 && (
+              <button
+                onClick={() => exportarAlertasXLSX(alertasPendentes)}
+                title="Exportar alertas para Excel"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 9px', borderRadius: 7, border: '1px solid #e2e8f0',
+                  background: '#f8fafc', color: '#64748b', cursor: 'pointer',
+                  fontSize: 11, fontWeight: 500, fontFamily: 'inherit',
+                  transition: 'all 0.15s', flexShrink: 0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; e.currentTarget.style.color = '#15803d'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+              >
+                {/* Ícone download/xlsx */}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                .xlsx
+              </button>
+            )}
           </div>
 
           <div style={{ maxHeight: 210, overflowY: 'auto' }}>
@@ -437,8 +503,9 @@ const PainelTab = () => {
             ) : alertasPendentes.map((s, i) => {
               const postoCfg = POSTO_CFG[postoDeLocalidade(s.local)] || POSTO_CFG['Não mapeado'];
               const urgente = (s.diasSem || 0) >= 30;
-              // Nº do serviço: campo `numServico` ou `nServico` ou `id`
-              const numServico = s.numServico || s.nServico || s.id || '—';
+              // Número do serviço: campo id (ex: VD0016) + numOS/numServico (ex: 241115952)
+              const idServico  = s.id || '—';
+              const numOS      = s.numOS || s.numServico || s.nServico || '';
               return (
                 <div key={s._docId} style={{
                   padding: '10px 20px',
@@ -455,19 +522,29 @@ const PainelTab = () => {
                   }}>{s.diasSem}d</div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      {/* Nº do serviço em destaque */}
+                    {/* Linha principal: ID · NumOS · Badge Pendente */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'wrap' }}>
                       <span style={{
                         fontSize: 11, fontWeight: 800, color: '#c2410c',
                         background: '#fff7ed', border: '1px solid #fed7aa',
                         padding: '1px 7px', borderRadius: 5, letterSpacing: '0.03em', flexShrink: 0,
-                      }}>
-                        {numServico}
-                      </span>
+                      }}>{idServico}</span>
+                      {numOS && (
+                        <>
+                          <span style={{ fontSize: 10, color: '#cbd5e1', flexShrink: 0 }}>·</span>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, color: '#475569',
+                            background: '#f1f5f9', border: '1px solid #e2e8f0',
+                            padding: '1px 7px', borderRadius: 5, letterSpacing: '0.02em', flexShrink: 0,
+                          }}>{numOS}</span>
+                        </>
+                      )}
+                      <span style={{ fontSize: 10, color: '#cbd5e1', flexShrink: 0 }}>·</span>
                       <Badge status={s.status} />
                     </div>
+                    {/* Linha secundária: localidade · descrição */}
                     <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {s.local} · {s.desc?.slice(0, 45)}{s.desc?.length > 45 ? '…' : ''}
+                      {s.local} · {s.desc?.slice(0, 40)}{s.desc?.length > 40 ? '…' : ''}
                     </div>
                   </div>
 
