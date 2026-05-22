@@ -12,7 +12,9 @@ const STATUS_CONFIG = {
   cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
 
-const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
+// STATUS_ORDER sem 'cancelado' para o popup StatusDono
+const STATUS_ORDER         = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
+const STATUS_ORDER_SEM_CANCEL = ['cadastrado', 'enviado', 'pendente', 'concluido'];
 
 const NEXT_STATUS = {
   cadastrado: { next: 'enviado',   msg: 'Enviado à CEMIG',       label: 'Enviar',   color: '#7c3aed' },
@@ -20,7 +22,7 @@ const NEXT_STATUS = {
   pendente:   { next: 'concluido', msg: 'Serviço concluído',      label: 'Concluir', color: '#15803d' },
 };
 
-// ── Localidades (replicado do CadastroForm) ──────────────────────────────────
+// ── Localidades ───────────────────────────────────────────────────────────────
 const POSTOS = {
   'Posto 1 — Pedro': [
     'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
@@ -57,7 +59,6 @@ const POSTO_COLORS = {
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// ── Paginação: 50 registros por página ──────────────────────────────────────
 const PAGE_SIZE = 50;
 
 const fmtDt = (iso) => {
@@ -110,7 +111,7 @@ const Badge = ({ status }) => {
   );
 };
 
-// ── [NOVO] Select pesquisável de localidade (igual ao CadastroForm) ──────────
+// ── Select pesquisável de localidade ─────────────────────────────────────────
 const LocalidadeSelect = ({ value, onChange }) => {
   const [query, setQuery]             = useState('');
   const [open, setOpen]               = useState(false);
@@ -353,7 +354,7 @@ const NumServPopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
-// ── [NOVO] Popup cancelamento com observação obrigatória ─────────────────────
+// ── Popup cancelamento com observação obrigatória ─────────────────────────────
 const CancelPopup = ({ servico, onConfirm, onCancel }) => {
   const [obs, setObs] = useState('');
 
@@ -361,18 +362,10 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
     <div style={POPUP_OVERLAY}>
       <div style={POPUP_BOX}>
         <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-          <div style={{
-            width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0,
-            background: '#fef2f2', border: '1px solid #fecaca',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
             </svg>
           </div>
           <div>
@@ -380,60 +373,32 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
             <div style={{ fontSize: '12px', color: '#64748b' }}>{servico.id}</div>
           </div>
         </div>
-
         <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px', lineHeight: '1.6' }}>
           Informe o motivo do cancelamento. Esta observação ficará registrada no histórico.
         </div>
-
         <div style={{ marginBottom: '16px' }}>
           <label style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
             Motivo do cancelamento <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <textarea
-            autoFocus
-            value={obs}
-            onChange={e => setObs(e.target.value)}
+            autoFocus value={obs} onChange={e => setObs(e.target.value)}
             placeholder="Ex: Serviço duplicado, cliente desistiu, erro de cadastro..."
             rows={4}
-            style={{
-              ...inputStyle,
-              padding: '10px 12px', fontSize: '13px', resize: 'vertical', lineHeight: '1.6',
-              border: obs.trim() ? '1px solid #f87171' : '1px solid #fca5a5',
-              boxShadow: obs.trim() ? '0 0 0 3px rgba(239,68,68,0.08)' : '0 0 0 3px rgba(239,68,68,0.04)',
-            }}
+            style={{ ...inputStyle, padding: '10px 12px', fontSize: '13px', resize: 'vertical', lineHeight: '1.6', border: obs.trim() ? '1px solid #f87171' : '1px solid #fca5a5', boxShadow: obs.trim() ? '0 0 0 3px rgba(239,68,68,0.08)' : '0 0 0 3px rgba(239,68,68,0.04)' }}
           />
           {!obs.trim() && (
-            <div style={{ fontSize: '11px', color: '#f87171', marginTop: '4px' }}>
-              Informe um motivo para registrar o cancelamento.
-            </div>
+            <div style={{ fontSize: '11px', color: '#f87171', marginTop: '4px' }}>Informe um motivo para registrar o cancelamento.</div>
           )}
         </div>
-
-        {/* Aviso */}
-        <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px',
-          padding: '10px 12px', marginBottom: '20px', fontSize: '12px', color: '#b91c1c', lineHeight: '1.5',
-        }}>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', marginBottom: '20px', fontSize: '12px', color: '#b91c1c', lineHeight: '1.5' }}>
           ⚠️ O status será alterado para <strong>Cancelado</strong>. O serviço continuará visível com estilo riscado.
         </div>
-
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={BTN_CANCEL}>Voltar</button>
-          <button
-            onClick={() => obs.trim() && onConfirm(obs.trim())}
-            disabled={!obs.trim()}
-            style={{
-              ...BTN_PRIMARY,
-              background: obs.trim() ? 'linear-gradient(135deg, #991b1b, #b91c1c)' : '#94a3b8',
-              opacity: obs.trim() ? 1 : 0.6,
-              cursor: obs.trim() ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}
-          >
+          <button onClick={() => obs.trim() && onConfirm(obs.trim())} disabled={!obs.trim()}
+            style={{ ...BTN_PRIMARY, background: obs.trim() ? 'linear-gradient(135deg, #991b1b, #b91c1c)' : '#94a3b8', opacity: obs.trim() ? 1 : 0.6, cursor: obs.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
             </svg>
             Confirmar cancelamento
           </button>
@@ -443,24 +408,17 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
-// ── [NOVO] Popup alterar localidade com select pesquisável ───────────────────
+// ── Popup alterar localidade ──────────────────────────────────────────────────
 const AlterarLocalidadePopup = ({ servico, onConfirm, onCancel }) => {
   const [novaLocal, setNovaLocal] = useState(servico.local || '');
-
   return (
     <div style={POPUP_OVERLAY}>
       <div style={{ ...POPUP_BOX, maxWidth: '440px' }}>
         <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <div style={{
-            width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0,
-            background: '#eff6ff', border: '1px solid #bfdbfe',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
             </svg>
           </div>
           <div>
@@ -468,30 +426,20 @@ const AlterarLocalidadePopup = ({ servico, onConfirm, onCancel }) => {
             <div style={{ fontSize: '12px', color: '#64748b' }}>{servico.id}</div>
           </div>
         </div>
-
         <label style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
           Localidade atual: <span style={{ color: '#0f2544', textTransform: 'none', letterSpacing: 0 }}>{servico.local || '—'}</span>
         </label>
-
         <LocalidadeSelect value={novaLocal} onChange={setNovaLocal} />
-
         {novaLocal && novaLocal !== servico.local && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px', marginTop: '12px', fontSize: '12px', color: '#1d4ed8' }}>
             Nova localidade: <strong>{novaLocal}</strong>
           </div>
         )}
-
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
           <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
-          <button
-            onClick={() => novaLocal && novaLocal !== servico.local && onConfirm(novaLocal)}
+          <button onClick={() => novaLocal && novaLocal !== servico.local && onConfirm(novaLocal)}
             disabled={!novaLocal || novaLocal === servico.local}
-            style={{
-              ...BTN_PRIMARY,
-              opacity: (!novaLocal || novaLocal === servico.local) ? 0.5 : 1,
-              cursor: (!novaLocal || novaLocal === servico.local) ? 'not-allowed' : 'pointer',
-            }}
-          >
+            style={{ ...BTN_PRIMARY, opacity: (!novaLocal || novaLocal === servico.local) ? 0.5 : 1, cursor: (!novaLocal || novaLocal === servico.local) ? 'not-allowed' : 'pointer' }}>
             Salvar
           </button>
         </div>
@@ -500,7 +448,7 @@ const AlterarLocalidadePopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
-// ── Gera mensagem NSIS para CEMIG ────────────────────────────────────────────
+// ── Gera mensagem NSIS ────────────────────────────────────────────────────────
 const gerarMensagemNSIS = (s) => {
   const equip = s.equip || '—';
   const local = s.local || '—';
@@ -510,53 +458,31 @@ const gerarMensagemNSIS = (s) => {
   const servicoExec = coordFormatado !== '—'
     ? `${descBase} nas coordenadas ${coordFormatado}`
     : descBase;
-
-  return `Gentileza, gerar serviço:
-
-Equipamento: ${equip}
-Coordenadas: ${coordFormatado}
-Localidade: ${local}
-
-Serviço a ser executado:
-${servicoExec}
-
-Observação:
-dúvidas ligar para Matheus ENGELMIG 31 99914-8716`;
+  return `Gentileza, gerar serviço:\n\nEquipamento: ${equip}\nCoordenadas: ${coordFormatado}\nLocalidade: ${local}\n\nServiço a ser executado:\n${servicoExec}\n\nObservação:\ndúvidas ligar para Matheus ENGELMIG 31 99914-8716`;
 };
 
-// ── Popup mensagem automática para CEMIG ─────────────────────────────────────
+// ── Popup mensagem CEMIG ──────────────────────────────────────────────────────
 const MensagemCemigPopup = ({ servico, onClose }) => {
   const [texto, setTexto] = useState(() => gerarMensagemNSIS(servico));
   const [copiado, setCopiado] = useState(false);
   const editado = texto !== gerarMensagemNSIS(servico);
 
   const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(texto);
-    } catch {
+    try { await navigator.clipboard.writeText(texto); }
+    catch {
       const ta = document.createElement('textarea');
-      ta.value = texto;
-      ta.style.cssText = 'position:fixed;opacity:0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+      ta.value = texto; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     }
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
+    setCopiado(true); setTimeout(() => setCopiado(false), 2500);
   };
 
   return (
     <div style={POPUP_OVERLAY}>
       <div style={{ ...POPUP_BOX, maxWidth: '540px' }}>
         <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-          <div style={{
-            width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0,
-            background: 'linear-gradient(135deg, #7c3aed22, #7c3aed11)',
-            border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: 'linear-gradient(135deg, #7c3aed22, #7c3aed11)', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
@@ -575,57 +501,37 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
             </a>
           )}
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: '600', background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
             Enviado CEMIG — {servico.id}
           </div>
           {editado && (
             <button onClick={() => setTexto(gerarMensagemNSIS(servico))}
               style={{ fontSize: '11px', color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
               </svg>
               Restaurar original
             </button>
           )}
         </div>
-
         <div style={{ marginBottom: '16px' }}>
           <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
             Mensagem {editado ? '(editada)' : 'pronta'}
           </div>
-          <textarea
-            value={texto}
-            onChange={e => setTexto(e.target.value)}
-            rows={14}
-            style={{
-              width: '100%', boxSizing: 'border-box', padding: '12px 14px',
-              border: editado ? '1px solid #a78bfa' : '1px solid #e2e8f0',
-              borderRadius: '10px', background: editado ? '#faf5ff' : '#f8fafc',
-              fontFamily: "'Segoe UI', system-ui, sans-serif", fontSize: '12px', color: '#1e293b',
-              lineHeight: '1.75', resize: 'vertical', outline: 'none',
-            }}
+          <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={14}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', border: editado ? '1px solid #a78bfa' : '1px solid #e2e8f0', borderRadius: '10px', background: editado ? '#faf5ff' : '#f8fafc', fontFamily: "'Segoe UI', system-ui, sans-serif", fontSize: '12px', color: '#1e293b', lineHeight: '1.75', resize: 'vertical', outline: 'none' }}
           />
         </div>
-
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={BTN_CANCEL}>Fechar</button>
           <button onClick={copiar}
-            style={{
-              ...BTN_PRIMARY,
-              background: copiado ? 'linear-gradient(135deg, #15803d, #16a34a)' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-              display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s',
-            }}>
-            {copiado ? (
-              <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copiado!</>
-            ) : (
-              <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar mensagem</>
-            )}
+            style={{ ...BTN_PRIMARY, background: copiado ? 'linear-gradient(135deg, #15803d, #16a34a)' : 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s' }}>
+            {copiado
+              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copiado!</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar mensagem</>
+            }
           </button>
         </div>
       </div>
@@ -633,9 +539,9 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
   );
 };
 
-// ── Popup status Dono ─────────────────────────────────────────────────────────
+// ── Popup status Dono — SEM a opção "Cancelado" ───────────────────────────────
 const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
-  const [novoStatus, setNovoStatus] = useState(servico.status);
+  const [novoStatus, setNovoStatus] = useState(servico.status === 'cancelado' ? 'cadastrado' : servico.status);
   return (
     <div style={POPUP_OVERLAY}>
       <div style={POPUP_BOX}>
@@ -644,7 +550,7 @@ const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
           Novo status para <strong style={{ color: '#0f2544' }}>{servico.id}</strong>:
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '22px' }}>
-          {STATUS_ORDER.map(s => {
+          {STATUS_ORDER_SEM_CANCEL.map(s => {
             const cfg  = STATUS_CONFIG[s];
             const ativo = novoStatus === s;
             return (
@@ -672,7 +578,7 @@ const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
-// ── Dropdown multi-select ─────────────────────────────────────────────────────
+// ── MultiSelect ───────────────────────────────────────────────────────────────
 const MultiSelect = ({ label, options, selected, onChange }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -718,9 +624,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
               width: '100%', padding: '8px 12px', border: 'none', borderBottom: '1px solid #f1f5f9',
               background: '#f8fafc', color: '#64748b', cursor: 'pointer', fontSize: '11px',
               fontFamily: 'inherit', textAlign: 'left', fontWeight: '600',
-            }}>
-              Limpar seleção
-            </button>
+            }}>Limpar seleção</button>
           )}
           {options.map(({ value, label, badge }) => {
             const sel = selected.includes(value);
@@ -730,11 +634,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
                 background: sel ? '#f0f7ff' : '#fff', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit',
               }}>
-                <div style={{
-                  width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
-                  border: sel ? '4px solid #1d4ed8' : '1.5px solid #cbd5e1',
-                  background: sel ? '#1d4ed8' : '#fff', transition: 'all 0.1s',
-                }} />
+                <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, border: sel ? '4px solid #1d4ed8' : '1.5px solid #cbd5e1', background: sel ? '#1d4ed8' : '#fff', transition: 'all 0.1s' }} />
                 {badge ? (
                   <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', fontWeight: '600', background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{label}</span>
                 ) : (
@@ -749,90 +649,60 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
   );
 };
 
-// ── [NOVO] Exportar dados para Excel (CSV UTF-8 BOM) ─────────────────────────
+// ── Exportar CSV ──────────────────────────────────────────────────────────────
 const exportarExcel = (dados) => {
   const colunas = ['ID','Data','Localidade','Descrição','Tipo','Equipamento','Status','Nº Serviço','Técnico Origem','Coordenada','Observação','Obs. Cancelamento','Placa Montada'];
-
   const esc = (val) => {
     if (val === null || val === undefined) return '';
     const str = String(val);
-    if (str.includes(';') || str.includes('"') || str.includes('\n'))
-      return `"${str.replace(/"/g, '""')}"`;
+    if (str.includes(';') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
     return str;
   };
-
   const linhas = [
     colunas.join(';'),
     ...dados.map(s => [
-      esc(s.id),
-      esc(fmtDt(s.data)),
-      esc(s.local),
-      esc(s.desc),
-      esc(s.tipo),
-      esc(s.equip),
-      esc(STATUS_CONFIG[s.status]?.label || s.status),
-      esc(s.numServ),
-      esc(s.orig),
-      esc(s.coord),
-      esc(s.obs),
-      esc(s.obsCancelamento),
-      esc(s.placaMontada ? 'Sim' : 'Não'),
+      esc(s.id), esc(fmtDt(s.data)), esc(s.local), esc(s.desc), esc(s.tipo), esc(s.equip),
+      esc(STATUS_CONFIG[s.status]?.label || s.status), esc(s.numServ), esc(s.orig), esc(s.coord),
+      esc(s.obs), esc(s.obsCancelamento), esc(s.placaMontada ? 'Sim' : 'Não'),
     ].join(';'))
   ];
-
-  const bom  = '\uFEFF';
-  const csv  = bom + linhas.join('\r\n');
+  const bom = '\uFEFF';
+  const csv = bom + linhas.join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `servicos_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `servicos_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
 };
 
-// ── [NOVO] Importar dados de Excel/CSV ───────────────────────────────────────
+// ── Importar CSV ──────────────────────────────────────────────────────────────
 const importarExcel = (file, onSuccess, onError) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const text = e.target.result;
-      // Remove BOM se existir
       const clean = text.replace(/^\uFEFF/, '');
       const lines = clean.split(/\r?\n/).filter(l => l.trim());
       if (lines.length < 2) { onError('Arquivo vazio ou sem dados.'); return; }
-
-      // Detecta separador (ponto-e-vírgula ou vírgula)
       const sep = lines[0].includes(';') ? ';' : ',';
       const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-
       const parseCell = (val) => (val || '').replace(/^"|"$/g, '').trim();
-
       const rows = lines.slice(1).map(line => {
-        // Parsing básico respeitando aspas
-        const cells = [];
-        let cur = '', inQ = false;
+        const cells = []; let cur = '', inQ = false;
         for (let c of line) {
-          if (c === '"') { inQ = !inQ; }
-          else if (c === sep && !inQ) { cells.push(cur); cur = ''; }
-          else { cur += c; }
+          if (c === '"') { inQ = !inQ; } else if (c === sep && !inQ) { cells.push(cur); cur = ''; } else { cur += c; }
         }
         cells.push(cur);
-        const obj = {};
-        headers.forEach((h, i) => { obj[h] = parseCell(cells[i]); });
-        return obj;
+        const obj = {}; headers.forEach((h, i) => { obj[h] = parseCell(cells[i]); }); return obj;
       }).filter(r => Object.values(r).some(v => v));
-
       onSuccess(rows, headers);
-    } catch (err) {
-      onError('Erro ao processar arquivo: ' + err.message);
-    }
+    } catch (err) { onError('Erro ao processar arquivo: ' + err.message); }
   };
   reader.readAsText(file, 'UTF-8');
 };
 
-// ── [NOVO] Popup de importação ────────────────────────────────────────────────
+// ── Popup de importação ───────────────────────────────────────────────────────
 const ImportPopup = ({ onClose }) => {
   const [preview, setPreview] = useState(null);
   const [headers, setHeaders] = useState([]);
@@ -842,27 +712,18 @@ const ImportPopup = ({ onClose }) => {
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setFileName(file.name);
-    setErro('');
-    setPreview(null);
-    importarExcel(
-      file,
-      (rows, hdrs) => { setPreview(rows.slice(0, 5)); setHeaders(hdrs); },
-      (msg) => setErro(msg)
-    );
+    setFileName(file.name); setErro(''); setPreview(null);
+    importarExcel(file, (rows, hdrs) => { setPreview(rows.slice(0, 5)); setHeaders(hdrs); }, (msg) => setErro(msg));
   };
 
   return (
     <div style={POPUP_OVERLAY}>
       <div style={{ ...POPUP_BOX, maxWidth: '560px' }}>
         <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
           <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </div>
           <div>
@@ -870,51 +731,23 @@ const ImportPopup = ({ onClose }) => {
             <div style={{ fontSize: '12px', color: '#64748b' }}>Selecione um arquivo .csv exportado por esta tabela</div>
           </div>
         </div>
-
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
-          border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer',
-          background: '#f0fdf4', marginBottom: '14px', transition: 'all 0.15s',
-        }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer', background: '#f0fdf4', marginBottom: '14px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
           </svg>
           <span style={{ fontSize: '13px', color: fileName ? '#15803d' : '#64748b', fontWeight: fileName ? '600' : '400' }}>
             {fileName || 'Clique para selecionar arquivo .csv'}
           </span>
           <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: 'none' }} />
         </label>
-
-        {erro && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#b91c1c' }}>
-            ⚠️ {erro}
-          </div>
-        )}
-
+        {erro && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#b91c1c' }}>⚠️ {erro}</div>}
         {preview && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Pré-visualização — {preview.length} primeiras linhas
-            </div>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>Pré-visualização — {preview.length} primeiras linhas</div>
             <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                <thead>
-                  <tr>{headers.slice(0, 6).map(h => (
-                    <th key={h} style={{ padding: '6px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  {preview.map((row, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                      {headers.slice(0, 6).map(h => (
-                        <td key={h} style={{ padding: '5px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row[h] || '—'}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
+                <thead><tr>{headers.slice(0, 6).map(h => <th key={h} style={{ padding: '6px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+                <tbody>{preview.map((row, i) => <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>{headers.slice(0, 6).map(h => <td key={h} style={{ padding: '5px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row[h] || '—'}</td>)}</tr>)}</tbody>
               </table>
             </div>
             <div style={{ marginTop: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#92400e', lineHeight: '1.5' }}>
@@ -922,17 +755,9 @@ const ImportPopup = ({ onClose }) => {
             </div>
           </div>
         )}
-
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={BTN_CANCEL}>Fechar</button>
-          {preview && (
-            <button
-              onClick={() => { alert(`${preview.length} linhas lidas com sucesso. Use o cadastro para importar registros oficialmente.`); }}
-              style={{ ...BTN_PRIMARY, background: 'linear-gradient(135deg, #15803d, #16a34a)' }}
-            >
-              Confirmar leitura
-            </button>
-          )}
+          {preview && <button onClick={() => { alert(`${preview.length} linhas lidas com sucesso.`); }} style={{ ...BTN_PRIMARY, background: 'linear-gradient(135deg, #15803d, #16a34a)' }}>Confirmar leitura</button>}
         </div>
       </div>
     </div>
@@ -951,23 +776,23 @@ const ServicosTable = () => {
   const [busca, setBusca]                       = useState('');
   const [statusFilter, setStatusFilter]         = useState([]);
   const [tipoFilter, setTipoFilter]             = useState([]);
-  const [localidadeFilter, setLocalidadeFilter] = useState('');   // [NOVO] filtro localidade
-  const [postoFilter, setPostoFilter]           = useState([]);   // [NOVO] filtro posto
-  const [dataInicio, setDataInicio]             = useState('');   // [NOVO] filtro data início
-  const [dataFim, setDataFim]                   = useState('');   // [NOVO] filtro data fim
+  const [localidadeFilter, setLocalidadeFilter] = useState('');
+  const [postoFilter, setPostoFilter]           = useState([]);
+  const [dataInicio, setDataInicio]             = useState('');
+  const [dataFim, setDataFim]                   = useState('');
+  // ── [NOVO] Filtro placa montada: 'todos' | 'montada' | 'nao_montada'
+  const [placaFilter, setPlacaFilter]           = useState('todos');
   const [sortCol, setSortCol]                   = useState('id');
   const [sortDir, setSortDir]                   = useState('desc');
-
-  // [NOVO] paginação
   const [currentPage, setCurrentPage]           = useState(1);
-  const [importPopupOpen, setImportPopupOpen]   = useState(false); // [NOVO]
+  const [importPopupOpen, setImportPopupOpen]   = useState(false);
 
-  const [confirmPending, setConfirmPending]               = useState(null);
-  const [numServPending, setNumServPending]               = useState(null);
-  const [statusDonoPending, setStatusDonoPending]         = useState(null);
-  const [mensagemCemigServico, setMensagemCemigServico]   = useState(null);
-  const [cancelPending, setCancelPending]                 = useState(null);       // [NOVO]
-  const [alterarLocalPending, setAlterarLocalPending]     = useState(null);       // [NOVO]
+  const [confirmPending, setConfirmPending]             = useState(null);
+  const [numServPending, setNumServPending]             = useState(null);
+  const [statusDonoPending, setStatusDonoPending]       = useState(null);
+  const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
+  const [cancelPending, setCancelPending]               = useState(null);
+  const [alterarLocalPending, setAlterarLocalPending]   = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -976,8 +801,7 @@ const ServicosTable = () => {
     return () => unsub();
   }, []);
 
-  // Reseta página ao mudar filtros ou ordenação
-  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir]);
+  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, sortCol, sortDir]);
 
   useEffect(() => {
     let lista = [...services];
@@ -987,102 +811,74 @@ const ServicosTable = () => {
       const temVirgula = /[,;]/.test(raw);
       if (temVirgula) {
         const termos = raw.split(/[,;\n]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
-        lista = lista.filter(s =>
-          termos.some(t =>
-            (s.numServ || '').toLowerCase().includes(t) ||
-            (s.id || '').toLowerCase() === t
-          )
-        );
+        lista = lista.filter(s => termos.some(t => (s.numServ || '').toLowerCase().includes(t) || (s.id || '').toLowerCase() === t));
       } else {
         const terms = raw.toLowerCase().split(/\s+/);
         lista = lista.filter(s => {
-          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs, s.obsCancelamento]
-            .join(' ').toLowerCase();
+          const haystack = [s.id, s.numServ, s.local, s.desc, s.equip, s.orig, s.tipo, s.obs, s.obsCancelamento].join(' ').toLowerCase();
           return terms.every(t => haystack.includes(t));
         });
       }
     }
 
-    // [NOVO] Filtro por localidade específica
-    if (localidadeFilter) {
-      lista = lista.filter(s => normStr(s.local || '') === normStr(localidadeFilter));
-    }
-
-    // [NOVO] Filtro por posto (multi-select)
+    if (localidadeFilter) lista = lista.filter(s => normStr(s.local || '') === normStr(localidadeFilter));
     if (postoFilter.length > 0) {
       const locsDosPostos = postoFilter.flatMap(p => POSTOS[p] || []).map(l => normStr(l));
       lista = lista.filter(s => locsDosPostos.includes(normStr(s.local || '')));
     }
-
-    // [NOVO] Filtro por data início
     if (dataInicio) {
       const ini = new Date(dataInicio + 'T00:00:00');
-      lista = lista.filter(s => {
-        const dt = s.data ? new Date(s.data) : null;
-        return dt && dt >= ini;
-      });
+      lista = lista.filter(s => { const dt = s.data ? new Date(s.data) : null; return dt && dt >= ini; });
     }
-
-    // [NOVO] Filtro por data fim
     if (dataFim) {
       const fim = new Date(dataFim + 'T23:59:59');
-      lista = lista.filter(s => {
-        const dt = s.data ? new Date(s.data) : null;
-        return dt && dt <= fim;
-      });
+      lista = lista.filter(s => { const dt = s.data ? new Date(s.data) : null; return dt && dt <= fim; });
     }
-
     if (statusFilter.length > 0) {
       lista = lista.filter(s => statusFilter.includes(s.status));
     } else {
       lista = lista.filter(s => s.status !== 'cancelado');
     }
+    if (tipoFilter.length > 0) lista = lista.filter(s => tipoFilter.includes(s.tipo));
 
-    if (tipoFilter.length > 0) {
-      lista = lista.filter(s => tipoFilter.includes(s.tipo));
-    }
+    // ── [NOVO] Filtro placa montada ─────────────────────────────────────────
+    if (placaFilter === 'montada')     lista = lista.filter(s => s.placaMontada === true);
+    if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placaMontada);
 
     lista.sort((a, b) => {
       let va, vb;
-      if (sortCol === 'id') {
-        va = idNum(a.id); vb = idNum(b.id);
-      } else if (sortCol === 'dtCadastro' || sortCol === 'data') {
+      if (sortCol === 'id') { va = idNum(a.id); vb = idNum(b.id); }
+      else if (sortCol === 'dtCadastro' || sortCol === 'data') {
         va = a[sortCol]?.seconds ?? (a[sortCol] ? new Date(a[sortCol]).getTime() / 1000 : 0);
         vb = b[sortCol]?.seconds ?? (b[sortCol] ? new Date(b[sortCol]).getTime() / 1000 : 0);
-      } else if (sortCol === 'status') {
-        va = STATUS_ORDER.indexOf(a.status); vb = STATUS_ORDER.indexOf(b.status);
-      } else {
-        va = (a[sortCol] || '').toString().toLowerCase();
-        vb = (b[sortCol] || '').toString().toLowerCase();
-      }
+      } else if (sortCol === 'status') { va = STATUS_ORDER.indexOf(a.status); vb = STATUS_ORDER.indexOf(b.status); }
+      else { va = (a[sortCol] || '').toString().toLowerCase(); vb = (b[sortCol] || '').toString().toLowerCase(); }
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
 
     setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir]);
+  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, sortCol, sortDir]);
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(col); setSortDir('asc'); }
   };
 
-  // ── Paginação ────────────────────────────────────────────────────────────────
   const totalPages   = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
   const safePage     = Math.min(currentPage, totalPages);
   const pageStart    = (safePage - 1) * PAGE_SIZE;
   const pageEnd      = pageStart + PAGE_SIZE;
   const pageServices = filteredServices.slice(pageStart, pageEnd);
 
-  // Janela de páginas visíveis (±3 da atual)
   const visiblePages = (() => {
     const pages = [];
     for (let i = Math.max(1, safePage - 3); i <= Math.min(totalPages, safePage + 3); i++) pages.push(i);
     return pages;
   })();
 
-  // ── Ações Firebase ──────────────────────────────────────────────────────────
+  // ── Ações Firebase ────────────────────────────────────────────────────────
   const atualizarStatus = async (docId, novoStatus, mensagem, extra = {}) => {
     try {
       const atual = services.find(s => s._docId === docId);
@@ -1117,15 +913,12 @@ const ServicosTable = () => {
     if (novoStatus === 'enviado') setMensagemCemigServico(s);
   };
 
-  // [NOVO] Cancelamento com motivo
   const confirmarCancelamento = async (motivo) => {
     const s = cancelPending;
-    const msg = `Cancelado — Motivo: ${motivo}`;
-    await atualizarStatus(s._docId, 'cancelado', msg, { obsCancelamento: motivo });
+    await atualizarStatus(s._docId, 'cancelado', `Cancelado — Motivo: ${motivo}`, { obsCancelamento: motivo });
     setCancelPending(null);
   };
 
-  // [NOVO] Alterar localidade
   const confirmarLocalidade = async (novaLocal) => {
     const s = alterarLocalPending;
     try {
@@ -1156,28 +949,35 @@ const ServicosTable = () => {
 
   const statusOptions = STATUS_ORDER.map(s => ({ value: s, label: STATUS_CONFIG[s].label, badge: STATUS_CONFIG[s] }));
   const tipoOptions   = ['NSIS','NSMP','RC02','INBE','NSCP'].map(t => ({ value: t, label: t }));
-  const postoOptions  = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p })); // [NOVO]
+  const postoOptions  = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p }));
+
+  // Contagens para o filtro de placa
+  const totalPlacas      = filteredServices.filter(s => {
+    const n = (s.desc || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return n.includes('PLACA');
+  });
+  const qtdMontadas    = services.filter(s => s.placaMontada === true && s.status !== 'cancelado').length;
+  const qtdNaoMontadas = services.filter(s => !s.placaMontada && s.status !== 'cancelado').length;
+
+  const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos';
 
   return (
     <div>
       {/* Popups */}
-      {importPopupOpen        && <ImportPopup                                                                onClose={() => setImportPopupOpen(false)} />}
-      {confirmPending       && <ConfirmPopup           servico={confirmPending.servico}    novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}      onCancel={() => setConfirmPending(null)} />}
-      {numServPending       && <NumServPopup            servico={numServPending}             onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
-      {statusDonoPending    && <StatusDonoPopup         servico={statusDonoPending}          onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
-      {mensagemCemigServico && <MensagemCemigPopup      servico={mensagemCemigServico}       onClose={() => setMensagemCemigServico(null)} />}
-      {cancelPending        && <CancelPopup             servico={cancelPending}              onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
-      {alterarLocalPending  && <AlterarLocalidadePopup  servico={alterarLocalPending}        onConfirm={confirmarLocalidade}        onCancel={() => setAlterarLocalPending(null)} />}
+      {importPopupOpen        && <ImportPopup                                                            onClose={() => setImportPopupOpen(false)} />}
+      {confirmPending       && <ConfirmPopup      servico={confirmPending.servico} novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}    onCancel={() => setConfirmPending(null)} />}
+      {numServPending       && <NumServPopup       servico={numServPending}          onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
+      {statusDonoPending    && <StatusDonoPopup    servico={statusDonoPending}        onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
+      {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico}     onClose={() => setMensagemCemigServico(null)} />}
+      {cancelPending        && <CancelPopup        servico={cancelPending}            onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
+      {alterarLocalPending  && <AlterarLocalidadePopup servico={alterarLocalPending}  onConfirm={confirmarLocalidade}        onCancel={() => setAlterarLocalPending(null)} />}
 
-      {/* Filtros */}
+      {/* ── Filtros ── */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '14px 16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-          Filtros
-        </div>
+        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Filtros</div>
 
-        {/* Linha 1: Busca + Status + Tipo + Posto */}
+        {/* Linha 1 */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '10px', alignItems: 'end', marginBottom: '10px' }}>
-          {/* Busca */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Busca — palavra-chave ou nº serviços (vírgula)</label>
             <div style={{ position: 'relative' }}>
@@ -1185,45 +985,34 @@ const ServicosTable = () => {
                 style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input type="text"
-                placeholder="ID, localidade, descrição, equipamento..."
-                value={busca} onChange={e => setBusca(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: '30px' }} />
+              <input type="text" placeholder="ID, localidade, descrição, equipamento..."
+                value={busca} onChange={e => setBusca(e.target.value)} style={{ ...inputStyle, paddingLeft: '30px' }} />
             </div>
             {/[,;]/.test(busca) && busca.trim() && (() => {
               const termos = busca.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
               return termos.length > 0 ? (
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {termos.map(t => (
-                    <span key={t} style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>{t}</span>
-                  ))}
+                  {termos.map(t => <span key={t} style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: '600' }}>{t}</span>)}
                 </div>
               ) : null;
             })()}
           </div>
-
-          {/* Multi status */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Status</label>
             <MultiSelect options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
           </div>
-
-          {/* Multi tipo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Tipo</label>
             <MultiSelect options={tipoOptions} selected={tipoFilter} onChange={setTipoFilter} />
           </div>
-
-          {/* [NOVO] Filtro Posto */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Posto</label>
             <MultiSelect options={postoOptions} selected={postoFilter} onChange={(val) => { setPostoFilter(val); setLocalidadeFilter(''); }} />
           </div>
         </div>
 
-        {/* Linha 2: Localidade + Datas */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
-          {/* [NOVO] Filtro Localidade */}
+        {/* Linha 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', alignItems: 'end', marginBottom: '10px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Localidade
@@ -1231,30 +1020,66 @@ const ServicosTable = () => {
             </label>
             <LocalidadeSelect value={localidadeFilter} onChange={setLocalidadeFilter} />
           </div>
-
-          {/* [CORRIGIDO] Data de */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>De</label>
             <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
           </div>
-
-          {/* [CORRIGIDO] Data até */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Até</label>
             <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inputStyle} />
           </div>
         </div>
+
+        {/* ── [NOVO] Linha 3 — Filtro placa montada ── */}
+        <div>
+          <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+            Placa montada
+          </label>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {[
+              { key: 'todos',       label: 'Todos'      },
+              { key: 'montada',     label: 'Montada',     cor: '#15803d' },
+              { key: 'nao_montada', label: 'Não montada', cor: '#c2410c' },
+            ].map(({ key, label, cor }) => {
+              const ativo = placaFilter === key;
+              const corBase = cor || '#475569';
+              return (
+                <button key={key} onClick={() => setPlacaFilter(key)} style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
+                  border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
+                  background: ativo ? `${corBase}10` : '#f8fafc',
+                  color: ativo ? corBase : '#64748b',
+                  fontSize: '11px', fontWeight: ativo ? '700' : '500',
+                  transition: 'all 0.12s',
+                }}>
+                  {key === 'montada' && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
+                    </svg>
+                  )}
+                  {key === 'nao_montada' && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    </svg>
+                  )}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Tabela */}
+      {/* ── Tabela ── */}
       <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
 
         {/* Header */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {(statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim) && (
-              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); }}
+            {temFiltroAtivo && (
+              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); setPlacaFilter('todos'); }}
                 style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -1262,51 +1087,24 @@ const ServicosTable = () => {
                 Limpar filtros
               </button>
             )}
-
-            {/* [NOVO] Botão Importar Excel */}
-            <button
-              onClick={() => setImportPopupOpen(true)}
-              title="Importar dados de arquivo CSV/Excel"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '5px 12px', borderRadius: '8px', cursor: 'pointer',
-                fontSize: '11px', fontWeight: '600', fontFamily: 'inherit',
-                border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8',
-                transition: 'all 0.15s',
-              }}
+            <button onClick={() => setImportPopupOpen(true)} title="Importar dados de arquivo CSV/Excel"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', fontFamily: 'inherit', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-            >
+              onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               Importar
             </button>
-
-            {/* [EXISTENTE] Botão Exportar Excel */}
-            <button
-              onClick={() => exportarExcel(filteredServices)}
-              title={`Exportar ${filteredServices.length} registros para Excel`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '5px 12px', borderRadius: '8px', cursor: 'pointer',
-                fontSize: '11px', fontWeight: '600', fontFamily: 'inherit',
-                border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d',
-                transition: 'all 0.15s',
-              }}
+            <button onClick={() => exportarExcel(filteredServices)} title={`Exportar ${filteredServices.length} registros`}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', fontFamily: 'inherit', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}
-            >
+              onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
               Exportar Excel
             </button>
-
             <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500' }}>
               {filteredServices.length} {filteredServices.length === 1 ? 'registro' : 'registros'}
             </div>
@@ -1316,11 +1114,19 @@ const ServicosTable = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <thead>
             <tr>
-              <th style={{ ...thBase, width: '32px' }} />                                        {/* Ver detalhes */}
-              <th style={{ ...thBase, width: '32px' }} />                                        {/* Status dono */}
-              <th style={{ ...thBase, width: '32px' }} title="Alterar localidade" />             {/* [NOVO] Localidade */}
-              <th style={{ ...thBase, width: '32px' }} title="Cancelar serviço" />               {/* [NOVO] Cancelar */}
-              <th style={{ ...thBase, width: '32px' }} title="Placa montada" />                  {/* Placa */}
+              <th style={{ ...thBase, width: '32px' }} />
+              <th style={{ ...thBase, width: '32px' }} />
+              <th style={{ ...thBase, width: '32px' }} />
+              <th style={{ ...thBase, width: '32px' }} />
+              {/* ── [NOVO] Coluna placa — título de duas linhas para encaixar */}
+              <th style={{ ...thBase, width: '42px', textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  </svg>
+                  <span style={{ fontSize: '8px', letterSpacing: '0.03em' }}>PLACA</span>
+                </div>
+              </th>
               <th style={{ ...thClick('id'),      width: '80px'  }} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
               <th style={{ ...thClick('data'),    width: '150px' }} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
               <th style={{ ...thClick('local'),   width: '120px' }} onClick={() => toggleSort('local')}>Localidade <SortIcon col="local" /></th>
@@ -1334,9 +1140,20 @@ const ServicosTable = () => {
           </thead>
           <tbody>
             {pageServices.map((s, i) => {
-              const nextInfo    = NEXT_STATUS[s.status];
-              const placaMontada = s.placaMontada === true;
-              const globalIdx   = pageStart + i;
+              const nextInfo      = NEXT_STATUS[s.status];
+              const placaMontada  = s.placaMontada === true;
+              const enviadoSup    = s.enviadoSupervisor === true;
+              const globalIdx     = pageStart + i;
+
+              // Aparência do checkbox de placa:
+              // · Não montada  → quadrado vazio cinza
+              // · Montada, não enviada → quadrado verde com check
+              // · Montada + enviada ao supervisor → quadrado roxo com check
+              const placaColor  = !placaMontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
+              const placaBg     = !placaMontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
+              const placaBorder = !placaMontada ? '#cbd5e1' : enviadoSup ? '#ddd6fe' : '#bbf7d0';
+              const placaTip    = !placaMontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
+
               return (
                 <tr key={s._docId} style={{
                   opacity: s.status === 'cancelado' ? 0.4 : 1,
@@ -1351,22 +1168,20 @@ const ServicosTable = () => {
                     <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
                       style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-                    >
+                      onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                       </svg>
                     </button>
                   </td>
 
-                  {/* Alterar status — Dono */}
+                  {/* Alterar status Dono */}
                   <td style={td}>
                     {isDono && (
                       <button onClick={() => setStatusDonoPending(s)} title="Alterar status (Dono)"
                         style={{ width: '26px', height: '26px', border: '1px solid #fde68a', borderRadius: '6px', background: '#fffbeb', color: '#92400e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.borderColor = '#fbbf24'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}
-                      >
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1375,49 +1190,40 @@ const ServicosTable = () => {
                     )}
                   </td>
 
-                  {/* [NOVO] Alterar localidade */}
+                  {/* Alterar localidade */}
                   <td style={td}>
                     {isDono && s.status !== 'cancelado' && (
                       <button onClick={() => setAlterarLocalPending(s)} title="Alterar localidade"
                         style={{ width: '26px', height: '26px', border: '1px solid #bfdbfe', borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-                      >
+                        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                          <circle cx="12" cy="10" r="3"/>
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                         </svg>
                       </button>
                     )}
                   </td>
 
-                  {/* [NOVO] Cancelar serviço */}
+                  {/* Cancelar */}
                   <td style={td}>
                     {isDono && s.status !== 'cancelado' && (
                       <button onClick={() => setCancelPending(s)} title="Cancelar serviço"
                         style={{ width: '26px', height: '26px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}
-                      >
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10"/>
-                          <line x1="15" y1="9" x2="9" y2="15"/>
-                          <line x1="9" y1="9" x2="15" y2="15"/>
+                          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
                         </svg>
                       </button>
                     )}
                   </td>
 
-                  {/* Ícone placa montada */}
-                  <td style={{ ...td, textAlign: 'center' }}>
-                    <span title={placaMontada ? 'Placa montada' : 'Placa não montada'} style={{ fontSize: '14px', opacity: placaMontada ? 1 : 0.2 }}>
-                      {placaMontada ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  {/* ── [NOVO] Checkbox de placa — verde = montada, roxo = enviada ao supervisor ── */}
+                  <td style={{ ...td, textAlign: 'center', padding: '10px 6px' }}>
+                    <span title={placaTip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '5px', border: `1.5px solid ${placaBorder}`, background: placaBg, transition: 'all 0.15s', flexShrink: 0 }}>
+                      {placaMontada && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={placaColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
                         </svg>
                       )}
                     </span>
@@ -1435,13 +1241,12 @@ const ServicosTable = () => {
                   <td style={{ ...td, color: '#64748b' }}>{s.equip || '—'}</td>
                   <td style={td}><Badge status={s.status} /></td>
 
-                  {/* Nº serviço clicável */}
+                  {/* Nº serviço */}
                   <td style={td}>
                     <button onClick={() => setNumServPending(s)} title="Editar Nº do serviço"
                       style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer', color: s.numServ ? '#0f2544' : '#94a3b8', fontSize: '12px', fontFamily: 'inherit', fontWeight: s.numServ ? '600' : '400', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1d4ed8'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = s.numServ ? '#0f2544' : '#94a3b8'; }}
-                    >
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = s.numServ ? '#0f2544' : '#94a3b8'; }}>
                       {s.numServ || '—'}
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -1457,8 +1262,7 @@ const ServicosTable = () => {
                         onClick={() => setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg })}
                         style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s' }}
                         onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}
-                      >
+                        onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
                         {nextInfo.label}
                       </button>
                     )}
@@ -1476,76 +1280,37 @@ const ServicosTable = () => {
           </tbody>
         </table>
 
-        {/* [NOVO] Paginação */}
+        {/* Paginação */}
         {totalPages > 1 && (
-          <div style={{
-            padding: '12px 16px', borderTop: '1px solid #f1f5f9',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: '#fafbfc', borderRadius: '0 0 12px 12px',
-          }}>
-            {/* Info registros */}
+          <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafbfc', borderRadius: '0 0 12px 12px' }}>
             <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Exibindo{' '}
-              <strong style={{ color: '#0f2544' }}>{pageStart + 1}–{Math.min(pageEnd, filteredServices.length)}</strong>
-              {' '}de{' '}
-              <strong style={{ color: '#0f2544' }}>{filteredServices.length}</strong> registros
+              Exibindo <strong style={{ color: '#0f2544' }}>{pageStart + 1}–{Math.min(pageEnd, filteredServices.length)}</strong> de <strong style={{ color: '#0f2544' }}>{filteredServices.length}</strong> registros
             </div>
-
-            {/* Controles de página */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-
-              {/* Anterior */}
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={safePage === 1}
-                style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === 1 ? '#f8fafc' : '#fff', color: safePage === 1 ? '#cbd5e1' : '#475569', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === 1 ? '#f8fafc' : '#fff', color: safePage === 1 ? '#cbd5e1' : '#475569', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
-
-              {/* Primeira página se não visível */}
               {visiblePages[0] > 1 && (
                 <>
-                  <button onClick={() => setCurrentPage(1)}
-                    style={{ minWidth: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: '#fff', color: '#475569', cursor: 'pointer', fontSize: '12px', fontFamily: 'inherit', fontWeight: '500', padding: '0 6px' }}>
-                    1
-                  </button>
+                  <button onClick={() => setCurrentPage(1)} style={{ minWidth: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: '#fff', color: '#475569', cursor: 'pointer', fontSize: '12px', fontFamily: 'inherit', fontWeight: '500', padding: '0 6px' }}>1</button>
                   {visiblePages[0] > 2 && <span style={{ color: '#94a3b8', fontSize: '12px', padding: '0 2px' }}>…</span>}
                 </>
               )}
-
-              {/* Páginas visíveis */}
               {visiblePages.map(p => (
                 <button key={p} onClick={() => setCurrentPage(p)}
-                  style={{
-                    minWidth: '30px', height: '30px', borderRadius: '7px', fontFamily: 'inherit',
-                    fontSize: '12px', padding: '0 6px', cursor: 'pointer',
-                    fontWeight: p === safePage ? '700' : '500',
-                    border: p === safePage ? '2px solid #1d4ed8' : '1px solid #e2e8f0',
-                    background: p === safePage ? '#eff6ff' : '#fff',
-                    color: p === safePage ? '#1d4ed8' : '#475569',
-                  }}>
+                  style={{ minWidth: '30px', height: '30px', borderRadius: '7px', fontFamily: 'inherit', fontSize: '12px', padding: '0 6px', cursor: 'pointer', fontWeight: p === safePage ? '700' : '500', border: p === safePage ? '2px solid #1d4ed8' : '1px solid #e2e8f0', background: p === safePage ? '#eff6ff' : '#fff', color: p === safePage ? '#1d4ed8' : '#475569' }}>
                   {p}
                 </button>
               ))}
-
-              {/* Última página se não visível */}
               {visiblePages[visiblePages.length - 1] < totalPages && (
                 <>
                   {visiblePages[visiblePages.length - 1] < totalPages - 1 && <span style={{ color: '#94a3b8', fontSize: '12px', padding: '0 2px' }}>…</span>}
-                  <button onClick={() => setCurrentPage(totalPages)}
-                    style={{ minWidth: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: '#fff', color: '#475569', cursor: 'pointer', fontSize: '12px', fontFamily: 'inherit', fontWeight: '500', padding: '0 6px' }}>
-                    {totalPages}
-                  </button>
+                  <button onClick={() => setCurrentPage(totalPages)} style={{ minWidth: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: '#fff', color: '#475569', cursor: 'pointer', fontSize: '12px', fontFamily: 'inherit', fontWeight: '500', padding: '0 6px' }}>{totalPages}</button>
                 </>
               )}
-
-              {/* Próxima */}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={safePage === totalPages}
-                style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === totalPages ? '#f8fafc' : '#fff', color: safePage === totalPages ? '#cbd5e1' : '#475569', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === totalPages ? '#f8fafc' : '#fff', color: safePage === totalPages ? '#cbd5e1' : '#475569', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             </div>
@@ -1553,11 +1318,6 @@ const ServicosTable = () => {
         )}
       </div>
 
-      {/*
-        DetalheModal recebe a prop extra onAlterarLocalidade para abrir o popup
-        de localidade direto a partir dos detalhes da nota.
-        Adicione essa prop no seu DetalheModal se quiser o botão lá também.
-      */}
       <DetalheModal
         service={selectedService}
         isOpen={modalOpen}
