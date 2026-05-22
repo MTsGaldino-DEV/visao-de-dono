@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
 import { collection, onSnapshot, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
+import LotesPlacas from './LotesPlacas';
 
 const POSTOS = {
   'Posto 1 — Pedro': [
@@ -293,19 +294,8 @@ const PlacasTab = () => {
   const [buscaEquip, setBuscaEquip]           = useState('');
   const [expandidoLoc, setExpandidoLoc]       = useState({});
 
-  // Paginação
-  const [pagePendentes, setPagePendentes]     = useState(1);
-  const [pageMontadas,  setPageMontadas]      = useState(1);
-
-  // Filtros seção montadas
-  const [buscaMontadas,  setBuscaMontadas]    = useState('');
-  const [postoMontadas,  setPostoMontadas]    = useState('');
-  const [envioFilter,    setEnvioFilter]      = useState('todos'); // 'todos' | 'enviado' | 'nao_enviado'
-  const [statusMontadas, setStatusMontadas]   = useState([]);     // multiselect status da nota
-
-  const statusOptions = Object.entries(STATUS_CONFIG).map(([value, cfg]) => ({
-    value, label: cfg.label, badge: cfg,
-  }));
+  // Paginação pendentes
+  const [pagePendentes, setPagePendentes] = useState(1);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -324,9 +314,8 @@ const PlacasTab = () => {
     load();
   }, []);
 
-  // Reseta páginas ao mudar filtros
+  // Reseta página ao mudar filtros
   useEffect(() => { setPagePendentes(1); }, [postoFilter, buscaEquip]);
-  useEffect(() => { setPageMontadas(1);  }, [buscaMontadas, postoMontadas, envioFilter, statusMontadas]);
 
   const salvarEstoque = async () => {
     setSavingEstoque(true);
@@ -339,7 +328,7 @@ const PlacasTab = () => {
   };
 
   const todasPlacas        = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
-  const pendentesMontagem = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
+  const pendentesMontagem  = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
   const todasMontadas      = todasPlacas.filter(s => s.placaMontada);
 
   const equipTermos = buscaEquip.trim()
@@ -359,23 +348,6 @@ const PlacasTab = () => {
 
   const safePendentesPage = Math.min(pagePendentes, Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE)));
   const filtradosPage     = filtrados.slice((safePendentesPage - 1) * PAGE_SIZE, safePendentesPage * PAGE_SIZE);
-
-  // ── Filtros montadas ──────────────────────────────────────────────────────
-  const montadasFiltradas = todasMontadas.filter(s => {
-    if (postoMontadas && postoDeLocalidade(s.local) !== postoMontadas) return false;
-    if (envioFilter === 'enviado'     && !s.enviadoSupervisor) return false;
-    if (envioFilter === 'nao_enviado' &&  s.enviadoSupervisor) return false;
-    if (statusMontadas.length > 0 && !statusMontadas.includes(s.status)) return false;
-    if (buscaMontadas.trim()) {
-      const terms = buscaMontadas.toLowerCase().split(/\s+/);
-      const hay   = [s.id, s.equip, s.local, s.desc, s.numServ].join(' ').toLowerCase();
-      if (!terms.every(t => hay.includes(t))) return false;
-    }
-    return true;
-  });
-
-  const safeMontadasPage = Math.min(pageMontadas, Math.max(1, Math.ceil(montadasFiltradas.length / PAGE_SIZE)));
-  const montadasPage     = montadasFiltradas.slice((safeMontadasPage - 1) * PAGE_SIZE, safeMontadasPage * PAGE_SIZE);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const dashPlacas    = dashPosto ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto) : todasPlacas;
@@ -404,8 +376,6 @@ const PlacasTab = () => {
   const qtdEnviados    = todasMontadas.filter(s =>  s.enviadoSupervisor).length;
   const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadoSupervisor).length;
 
-  const temFiltroMontadas = buscaMontadas || postoMontadas || envioFilter !== 'todos' || statusMontadas.length > 0;
-
   // ── Ações Firebase ────────────────────────────────────────────────────────
   const marcarMontada = async (s) => {
     try {
@@ -419,32 +389,6 @@ const PlacasTab = () => {
       await setDoc(doc(db, 'config', 'estoque'), { digitos: novoEstoque });
       setEstoque(novoEstoque);
     } catch { alert('Erro ao marcar placa como montada.'); }
-  };
-
-  const desmarcarMontada = async (s) => {
-    if (!window.confirm(`Reverter a montagem da placa do serviço ${s.id}?`)) return;
-    try {
-      const novoEstoque = [...estoque];
-      const d = digitosDeEquip(s.equip);
-      for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] += d[i]; }
-      await updateDoc(doc(db, 'servicos', s._docId), {
-        placaMontada: false, enviadoSupervisor: false,
-        hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Montagem da placa revertida.' }],
-      });
-      await setDoc(doc(db, 'config', 'estoque'), { digitos: novoEstoque });
-      setEstoque(novoEstoque);
-    } catch { alert('Erro ao reverter montagem.'); }
-  };
-
-  const toggleEnviadoSupervisor = async (s) => {
-    const novoValor = !s.enviadoSupervisor;
-    const msg = novoValor ? 'Placa marcada como enviada ao supervisor.' : 'Envio ao supervisor desmarcado.';
-    try {
-      await updateDoc(doc(db, 'servicos', s._docId), {
-        enviadoSupervisor: novoValor,
-        hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg }],
-      });
-    } catch { alert('Erro ao atualizar envio ao supervisor.'); }
   };
 
   const temEstoque = (s) => {
@@ -670,7 +614,6 @@ const PlacasTab = () => {
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500', whiteSpace: 'nowrap' }}>
                 {filtrados.length} {filtrados.length === 1 ? 'serviço' : 'serviços'}
               </div>
-              {/* ── Botão exportar pendentes ── */}
               {filtrados.length > 0 && (
                 <BotaoExportar
                   onClick={() => exportarXLSX(filtrados, 'Pendentes Montagem', 'placas_pendentes')}
@@ -761,183 +704,9 @@ const PlacasTab = () => {
         <Paginacao totalItems={filtrados.length} currentPage={safePendentesPage} onPageChange={setPagePendentes} />
       </div>
 
-      {/* ── Placas montadas ── */}
-      {todasMontadas.length > 0 && (
-        <div style={card}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>Placas montadas</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Gerencie o envio ao supervisor e reverta montagens se necessário</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {temFiltroMontadas && (
-                  <button onClick={() => { setBuscaMontadas(''); setPostoMontadas(''); setEnvioFilter('todos'); setStatusMontadas([]); }}
-                    style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Limpar filtros
-                  </button>
-                )}
-                <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500' }}>
-                  {montadasFiltradas.length} {montadasFiltradas.length === 1 ? 'registro' : 'registros'}
-                </div>
-                {/* ── Botão exportar montadas ── */}
-                {montadasFiltradas.length > 0 && (
-                  <BotaoExportar
-                    onClick={() => exportarXLSX(montadasFiltradas, 'Placas Montadas', 'placas_montadas')}
-                  />
-                )}
-              </div>
-            </div>
+      {/* ── Lotes de envio ao supervisor ── */}
+      <LotesPlacas servicos={servicos} />
 
-            {/* ── Filtros montadas: linha 1 ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-              {/* Busca */}
-              <div>
-                <label style={labelUp}>Busca</label>
-                <div style={{ position: 'relative' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
-                    style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  <input type="text" placeholder="ID, equipamento, localidade..."
-                    value={buscaMontadas} onChange={e => setBuscaMontadas(e.target.value)}
-                    style={{ ...inputStyle, paddingLeft: '30px' }} />
-                </div>
-              </div>
-
-              {/* Posto */}
-              <div>
-                <label style={labelUp}>Posto</label>
-                <select value={postoMontadas} onChange={e => setPostoMontadas(e.target.value)} style={inputStyle}>
-                  <option value="">Todos os postos</option>
-                  {Object.keys(POSTOS).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-
-              {/* Status da nota — MultiSelect */}
-              <div>
-                <label style={labelUp}>Status da nota</label>
-                <MultiSelect options={statusOptions} selected={statusMontadas} onChange={setStatusMontadas} />
-              </div>
-            </div>
-
-            {/* ── Filtros montadas: linha 2 — Envio supervisor ── */}
-            <div>
-              <label style={labelUp}>Envio ao supervisor</label>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[
-                  { key: 'todos',       label: 'Todos',       count: todasMontadas.length },
-                  { key: 'nao_enviado', label: 'Não enviado', count: qtdNaoEnviados },
-                  { key: 'enviado',     label: 'Enviado',     count: qtdEnviados },
-                ].map(({ key, label, count }) => {
-                  const ativo = envioFilter === key;
-                  const cor   = key === 'enviado' ? '#7c3aed' : key === 'nao_enviado' ? '#c2410c' : '#475569';
-                  return (
-                    <button key={key} onClick={() => setEnvioFilter(key)} style={{
-                      padding: '6px 16px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
-                      border: ativo ? `2px solid ${cor}` : '1px solid #e2e8f0',
-                      background: ativo ? `${cor}10` : '#f8fafc',
-                      color: ativo ? cor : '#64748b',
-                      fontSize: '11px', fontWeight: ativo ? '700' : '500',
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      transition: 'all 0.12s',
-                    }}>
-                      {label}
-                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '1px 6px', borderRadius: '20px', background: ativo ? `${cor}20` : '#e2e8f0', color: ativo ? cor : '#475569' }}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, width: '80px'  }}>ID</th>
-                  <th style={{ ...th, width: '120px' }}>Localidade</th>
-                  <th style={{ ...th, width: '100px' }}>Posto</th>
-                  <th style={{ ...th, width: '110px' }}>Equipamento</th>
-                  <th style={th}>Descrição</th>
-                  <th style={{ ...th, width: '120px' }}>Status nota</th>
-                  <th style={{ ...th, width: '160px' }}>Envio supervisor</th>
-                  <th style={{ ...th, width: '90px'  }}>Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {montadasPage.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>Nenhuma placa encontrada com esses filtros.</td></tr>
-                )}
-                {montadasPage.map((s, i) => {
-                  const enviado = !!s.enviadoSupervisor;
-                  const scfg   = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
-                  return (
-                    <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc', opacity: 0.92 }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
-                      onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
-                    >
-                      <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
-                      <td style={td}>{s.local || '—'}</td>
-                      <td style={{ ...td, fontSize: '11px', color: '#64748b' }}>
-                        {postoDeLocalidade(s.local)?.split('—')[0].trim() || <span style={{ color: '#ef4444' }}>Não mapeado</span>}
-                      </td>
-                      <td style={{ ...td, fontWeight: '600' }}>{s.equip || '—'}</td>
-                      <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</td>
-
-                      {/* Status da nota */}
-                      <td style={td}>
-                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 9px', borderRadius: '20px', background: scfg.bg, color: scfg.color, border: `1px solid ${scfg.border}` }}>
-                          {scfg.label}
-                        </span>
-                      </td>
-
-                      {/* Envio supervisor */}
-                      <td style={td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            fontSize: '10px', fontWeight: '700', padding: '3px 9px', borderRadius: '20px', whiteSpace: 'nowrap',
-                            background: enviado ? '#faf5ff' : '#f1f5f9',
-                            color:      enviado ? '#7c3aed' : '#64748b',
-                            border:     `1px solid ${enviado ? '#ddd6fe' : '#e2e8f0'}`,
-                          }}>
-                            {enviado ? '✓ Enviado' : 'Não enviado'}
-                          </span>
-                          <button onClick={() => toggleEnviadoSupervisor(s)}
-                            title={enviado ? 'Desmarcar envio' : 'Marcar como enviado ao supervisor'}
-                            style={{
-                              fontSize: '10px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
-                              fontFamily: 'inherit', fontWeight: '600', whiteSpace: 'nowrap',
-                              border:     enviado ? '1px solid #fecaca' : '1px solid #ddd6fe',
-                              background: enviado ? '#fef2f2'           : '#faf5ff',
-                              color:      enviado ? '#b91c1c'           : '#7c3aed',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
-                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
-                            {enviado ? 'Desmarcar' : 'Enviar'}
-                          </button>
-                        </div>
-                      </td>
-
-                      <td style={td}>
-                        <button onClick={() => desmarcarMontada(s)}
-                          style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '500' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}>
-                          Reverter
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <Paginacao totalItems={montadasFiltradas.length} currentPage={safeMontadasPage} onPageChange={setPageMontadas} />
-        </div>
-      )}
     </div>
   );
 };
