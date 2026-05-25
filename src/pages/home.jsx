@@ -4,6 +4,7 @@ import CadastroForm from '../components/CadastroForm';
 import ServicosTable from '../components/ServicosTable';
 import PlacasTab from '../components/PlacasTab';
 import PainelTab from '../components/PainelTab';
+import FaturamentoTab from '../components/Faturamentotab';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
@@ -16,6 +17,7 @@ const Home = () => {
     { key: 'servicos',  label: 'Serviços'  },
     { key: 'placas',    label: 'Placas'    },
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
+    ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
   ];
 
   if (loading) {
@@ -150,6 +152,10 @@ const Home = () => {
 
         <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
           <PainelTab />
+        </div>
+
+        <div style={{ display: activeTab === 'faturamento' ? 'block' : 'none' }}>
+          <FaturamentoTab />
         </div>
       </main>
     </div>
