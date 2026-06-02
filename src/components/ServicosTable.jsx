@@ -10,11 +10,12 @@ const STATUS_CONFIG = {
   pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
   concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
   cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+  reprovado:  { bg: '#fff1f2', color: '#dc2626', border: '#fecdd3', label: 'Reprovado' },
 };
 
 // STATUS_ORDER sem 'cancelado' para o popup StatusDono
-const STATUS_ORDER         = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
-const STATUS_ORDER_SEM_CANCEL = ['cadastrado', 'enviado', 'pendente', 'concluido'];
+const STATUS_ORDER             = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
+const STATUS_ORDER_SEM_CANCEL  = ['cadastrado', 'enviado', 'pendente', 'concluido'];
 
 const NEXT_STATUS = {
   cadastrado: { next: 'enviado',   msg: 'Enviado à CEMIG',       label: 'Enviar',   color: '#7c3aed' },
@@ -348,6 +349,60 @@ const NumServPopup = ({ servico, onConfirm, onCancel }) => {
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
           <button onClick={() => num.trim() && onConfirm(num.trim())} style={BTN_PRIMARY}>Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Popup reprovação com motivo obrigatório ──────────────────────────────────
+const ReprovadoPopup = ({ servico, onConfirm, onCancel }) => {
+  const [motivo, setMotivo] = useState('');
+
+  return (
+    <div style={POPUP_OVERLAY}>
+      <div style={POPUP_BOX}>
+        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#fff1f2', border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Reprovar serviço</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>{servico.id}</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px', lineHeight: '1.6' }}>
+          Informe o motivo da reprovação. Esta observação ficará registrada no histórico.
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+            Motivo da reprovação <span style={{ color: '#ef4444' }}>*</span>
+          </label>
+          <textarea
+            autoFocus value={motivo} onChange={e => setMotivo(e.target.value)}
+            placeholder="Ex: Serviço não executado pela equipe da CEMIG, acesso bloqueado..."
+            rows={4}
+            style={{ ...inputStyle, padding: '10px 12px', fontSize: '13px', resize: 'vertical', lineHeight: '1.6', border: motivo.trim() ? '1px solid #fca5a5' : '1px solid #fecdd3', boxShadow: motivo.trim() ? '0 0 0 3px rgba(220,38,38,0.08)' : '0 0 0 3px rgba(220,38,38,0.04)' }}
+          />
+          {!motivo.trim() && (
+            <div style={{ fontSize: '11px', color: '#f87171', marginTop: '4px' }}>Informe um motivo para reprovar o serviço.</div>
+          )}
+        </div>
+        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '8px', padding: '10px 12px', marginBottom: '20px', fontSize: '12px', color: '#dc2626', lineHeight: '1.5' }}>
+          ⚠️ O status será alterado para <strong>Reprovado</strong>. Esta ação é definitiva e equivale ao encerramento do serviço.
+        </div>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={BTN_CANCEL}>Voltar</button>
+          <button onClick={() => motivo.trim() && onConfirm(motivo.trim())} disabled={!motivo.trim()}
+            style={{ ...BTN_PRIMARY, background: motivo.trim() ? 'linear-gradient(135deg, #991b1b, #dc2626)' : '#94a3b8', opacity: motivo.trim() ? 1 : 0.6, cursor: motivo.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            </svg>
+            Confirmar reprovação
+          </button>
         </div>
       </div>
     </div>
@@ -787,12 +842,16 @@ const ServicosTable = () => {
   const [currentPage, setCurrentPage]           = useState(1);
   const [importPopupOpen, setImportPopupOpen]   = useState(false);
 
+  const [enviadoSupFilter, setEnviadoSupFilter]         = useState('todos');
+
   const [confirmPending, setConfirmPending]             = useState(null);
   const [numServPending, setNumServPending]             = useState(null);
   const [statusDonoPending, setStatusDonoPending]       = useState(null);
   const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
   const [cancelPending, setCancelPending]               = useState(null);
   const [alterarLocalPending, setAlterarLocalPending]   = useState(null);
+  const [reprovadoPending, setReprovadoPending]         = useState(null);
+  const [concluirDropdownId, setConcluirDropdownId]     = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -801,7 +860,7 @@ const ServicosTable = () => {
     return () => unsub();
   }, []);
 
-  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, sortCol, sortDir]);
+  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
 
   useEffect(() => {
     let lista = [...services];
@@ -837,13 +896,17 @@ const ServicosTable = () => {
     if (statusFilter.length > 0) {
       lista = lista.filter(s => statusFilter.includes(s.status));
     } else {
-      lista = lista.filter(s => s.status !== 'cancelado');
+      lista = lista.filter(s => s.status !== 'cancelado' && s.status !== 'reprovado');
     }
     if (tipoFilter.length > 0) lista = lista.filter(s => tipoFilter.includes(s.tipo));
 
-    // ── [NOVO] Filtro placa montada ─────────────────────────────────────────
+    // Filtro placa montada
     if (placaFilter === 'montada')     lista = lista.filter(s => s.placaMontada === true);
     if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placaMontada);
+
+    // Filtro placa enviada ao supervisor
+    if (enviadoSupFilter === 'sim') lista = lista.filter(s => s.enviadoSupervisor === true);
+    if (enviadoSupFilter === 'nao') lista = lista.filter(s => s.placaMontada && !s.enviadoSupervisor);
 
     lista.sort((a, b) => {
       let va, vb;
@@ -859,7 +922,7 @@ const ServicosTable = () => {
     });
 
     setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, sortCol, sortDir]);
+  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -919,6 +982,12 @@ const ServicosTable = () => {
     setCancelPending(null);
   };
 
+  const confirmarReprovado = async (motivo) => {
+    const s = reprovadoPending;
+    await atualizarStatus(s._docId, 'reprovado', `Serviço reprovado: ${motivo}`, { motivoReprovacao: motivo });
+    setReprovadoPending(null);
+  };
+
   const confirmarLocalidade = async (novaLocal) => {
     const s = alterarLocalPending;
     try {
@@ -959,7 +1028,10 @@ const ServicosTable = () => {
   const qtdMontadas    = services.filter(s => s.placaMontada === true && s.status !== 'cancelado').length;
   const qtdNaoMontadas = services.filter(s => !s.placaMontada && s.status !== 'cancelado').length;
 
-  const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos';
+  const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos' || enviadoSupFilter !== 'todos';
+
+  // Há serviços com placa montada no conjunto filtrado? (para exibir filtro de supervisor)
+  const temPlacaMontadaFiltrada = filteredServices.some(s => s.placaMontada === true);
 
   return (
     <div>
@@ -971,6 +1043,7 @@ const ServicosTable = () => {
       {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico}     onClose={() => setMensagemCemigServico(null)} />}
       {cancelPending        && <CancelPopup        servico={cancelPending}            onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
       {alterarLocalPending  && <AlterarLocalidadePopup servico={alterarLocalPending}  onConfirm={confirmarLocalidade}        onCancel={() => setAlterarLocalPending(null)} />}
+      {reprovadoPending     && <ReprovadoPopup     servico={reprovadoPending}         onConfirm={confirmarReprovado}         onCancel={() => setReprovadoPending(null)} />}
 
       {/* ── Filtros ── */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '14px 16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -1030,44 +1103,78 @@ const ServicosTable = () => {
           </div>
         </div>
 
-        {/* ── [NOVO] Linha 3 — Filtro placa montada ── */}
-        <div>
-          <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-            Placa montada
-          </label>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {[
-              { key: 'todos',       label: 'Todos'      },
-              { key: 'montada',     label: 'Montada',     cor: '#15803d' },
-              { key: 'nao_montada', label: 'Não montada', cor: '#c2410c' },
-            ].map(({ key, label, cor }) => {
-              const ativo = placaFilter === key;
-              const corBase = cor || '#475569';
-              return (
-                <button key={key} onClick={() => setPlacaFilter(key)} style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
-                  border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
-                  background: ativo ? `${corBase}10` : '#f8fafc',
-                  color: ativo ? corBase : '#64748b',
-                  fontSize: '11px', fontWeight: ativo ? '700' : '500',
-                  transition: 'all 0.12s',
-                }}>
-                  {key === 'montada' && (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
-                    </svg>
-                  )}
-                  {key === 'nao_montada' && (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    </svg>
-                  )}
-                  {label}
-                </button>
-              );
-            })}
+        {/* Linha 3 — Filtros de placa */}
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          {/* Filtro placa montada */}
+          <div>
+            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+              Placa montada
+            </label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[
+                { key: 'todos',       label: 'Todos'      },
+                { key: 'montada',     label: 'Montada',     cor: '#15803d' },
+                { key: 'nao_montada', label: 'Não montada', cor: '#c2410c' },
+              ].map(({ key, label, cor }) => {
+                const ativo = placaFilter === key;
+                const corBase = cor || '#475569';
+                return (
+                  <button key={key} onClick={() => setPlacaFilter(key)} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
+                    border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
+                    background: ativo ? `${corBase}10` : '#f8fafc',
+                    color: ativo ? corBase : '#64748b',
+                    fontSize: '11px', fontWeight: ativo ? '700' : '500',
+                    transition: 'all 0.12s',
+                  }}>
+                    {key === 'montada' && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
+                      </svg>
+                    )}
+                    {key === 'nao_montada' && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      </svg>
+                    )}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Filtro placa enviada ao supervisor — exibido somente se há placas montadas no conjunto */}
+          {temPlacaMontadaFiltrada && (
+            <div>
+              <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                Placa enviada ao supervisor
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { key: 'todos', label: 'Todos' },
+                  { key: 'sim',   label: 'Sim', cor: '#7c3aed' },
+                  { key: 'nao',   label: 'Não', cor: '#c2410c' },
+                ].map(({ key, label, cor }) => {
+                  const ativo = enviadoSupFilter === key;
+                  const corBase = cor || '#475569';
+                  return (
+                    <button key={key} onClick={() => setEnviadoSupFilter(key)} style={{
+                      padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
+                      border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
+                      background: ativo ? `${corBase}10` : '#f8fafc',
+                      color: ativo ? corBase : '#64748b',
+                      fontSize: '11px', fontWeight: ativo ? '700' : '500',
+                      transition: 'all 0.12s',
+                    }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1079,7 +1186,7 @@ const ServicosTable = () => {
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {temFiltroAtivo && (
-              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); setPlacaFilter('todos'); }}
+              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); setPlacaFilter('todos'); setEnviadoSupFilter('todos'); }}
                 style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -1156,12 +1263,13 @@ const ServicosTable = () => {
 
               return (
                 <tr key={s._docId} style={{
-                  opacity: s.status === 'cancelado' ? 0.4 : 1,
-                  textDecoration: s.status === 'cancelado' ? 'line-through' : 'none',
+                  opacity: (s.status === 'cancelado' || s.status === 'reprovado') ? 0.5 : 1,
+                  textDecoration: (s.status === 'cancelado' || s.status === 'reprovado') ? 'line-through' : 'none',
                   background: globalIdx % 2 === 0 ? '#fff' : '#fafbfc', transition: 'background 0.1s',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = globalIdx % 2 === 0 ? '#fff' : '#fafbfc'; }}
+                  onClick={() => { if (concluirDropdownId) setConcluirDropdownId(null); }}
                 >
                   {/* Ver detalhes */}
                   <td style={td}>
@@ -1190,19 +1298,7 @@ const ServicosTable = () => {
                     )}
                   </td>
 
-                  {/* Alterar localidade */}
-                  <td style={td}>
-                    {isDono && s.status !== 'cancelado' && (
-                      <button onClick={() => setAlterarLocalPending(s)} title="Alterar localidade"
-                        style={{ width: '26px', height: '26px', border: '1px solid #bfdbfe', borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                        </svg>
-                      </button>
-                    )}
-                  </td>
+                  {/* Alterar localidade — removido da tabela (disponível no DetalheModal) */}
 
                   {/* Cancelar */}
                   <td style={td}>
@@ -1256,15 +1352,49 @@ const ServicosTable = () => {
                   </td>
 
                   {/* Ação de avanço */}
-                  <td style={td}>
-                    {nextInfo && s.status !== 'cancelado' && (
-                      <button
-                        onClick={() => setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg })}
-                        style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
-                        {nextInfo.label}
-                      </button>
+                  <td style={{ ...td, position: 'relative' }}>
+                    {nextInfo && s.status !== 'cancelado' && s.status !== 'reprovado' && (
+                      nextInfo.next === 'concluido' ? (
+                        // Dropdown para status pendente: Executado ou Reprovado
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <button
+                            onClick={() => setConcluirDropdownId(concluirDropdownId === s._docId ? null : s._docId)}
+                            style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
+                            {nextInfo.label}
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirDropdownId === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                          </button>
+                          {concluirDropdownId === s._docId && (
+                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 250, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '150px', overflow: 'hidden' }}>
+                              <button
+                                onClick={() => { setConcluirDropdownId(null); setConfirmPending({ servico: s, novoStatus: 'concluido', mensagem: 'Serviço concluído' }); }}
+                                style={{ width: '100%', padding: '9px 14px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#15803d', fontWeight: '600', textAlign: 'left' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                Executado
+                              </button>
+                              <button
+                                onClick={() => { setConcluirDropdownId(null); setReprovadoPending(s); }}
+                                style={{ width: '100%', padding: '9px 14px', border: 'none', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#dc2626', fontWeight: '600', textAlign: 'left' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                                Reprovado
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmPending({ servico: s, novoStatus: nextInfo.next, mensagem: nextInfo.msg })}
+                          style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
+                          {nextInfo.label}
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>

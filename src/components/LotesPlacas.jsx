@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
 import {
   collection, onSnapshot, doc, updateDoc, addDoc, getDoc, setDoc,
-  query, orderBy,
+  query, orderBy, getDocs, limit
 } from 'firebase/firestore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -171,12 +171,13 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
 
   if (!isOpen) return null;
 
-  // Placas montadas disponíveis (não canceladas, com desc PLACA, placaMontada)
+  // Placas montadas disponíveis (não canceladas, com desc PLACA, placaMontada e sem lote atribuído ou atribuído a este lote)
   const placasMontadas = servicos.filter(
     (s) =>
       s.status !== 'cancelado' &&
       norm(s.desc).includes('PLACA') &&
-      s.placaMontada
+      s.placaMontada &&
+      (!s.loteId || s.loteId === lote?.id)
   );
 
   // Resultados de busca — por equip, id ou numServ
@@ -210,7 +211,21 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
     if (!nome.trim()) { alert('Informe um nome para o lote.'); return; }
     setSaving(true);
     try {
+      let novoId = lote?.id;
+      if (!isEdit) {
+        const snap = await getDocs(query(collection(db, 'lotes'), orderBy('id', 'desc'), limit(1)));
+        let next = 1;
+        if (!snap.empty) {
+          const last = snap.docs[0].data().id;
+          if (last && last.startsWith('LT')) {
+            next = parseInt(last.replace('LT', ''), 10) + 1;
+          }
+        }
+        novoId = `LT${String(next).padStart(4, '0')}`;
+      }
+
       const payload = {
+        id: novoId,
         nome: nome.trim(),
         obs: obs.trim(),
         placas: placasSelecionadas,
@@ -225,15 +240,42 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
             who: user.label,
             matricula: user.matricula,
             when: new Date().toISOString(),
-            msg: isEdit ? 'Lote atualizado.' : 'Lote criado.',
+            msg: isEdit ? 'Lote atualizado.' : `Lote criado com ID ${novoId}.`,
           },
         ],
       };
+      
+      let docRefId;
       if (isEdit) {
-        await updateDoc(doc(db, 'lotes', lote._docId), payload);
+        docRefId = lote._docId;
+        await updateDoc(doc(db, 'lotes', docRefId), payload);
       } else {
-        await addDoc(collection(db, 'lotes'), payload);
+        const docRef = await addDoc(collection(db, 'lotes'), payload);
+        docRefId = docRef.id;
       }
+
+      // Atualizar servicos (loteId)
+      const placasOriginais = lote?.placas || [];
+      const removidas = placasOriginais.filter(id => !placasSelecionadas.includes(id));
+      const adicionadas = placasSelecionadas.filter(id => !placasOriginais.includes(id));
+
+      await Promise.all([
+        ...removidas.map(docId => {
+          const s = servicos.find(x => x._docId === docId);
+          return updateDoc(doc(db, 'servicos', docId), {
+            loteId: null, // limpa a referência
+            hist: [...(s?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Removido do lote ${novoId}.` }]
+          });
+        }),
+        ...adicionadas.map(docId => {
+          const s = servicos.find(x => x._docId === docId);
+          return updateDoc(doc(db, 'servicos', docId), {
+            loteId: novoId,
+            hist: [...(s?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Adicionado ao lote ${novoId}.` }]
+          });
+        })
+      ]);
+
       setSaved(true);
       setTimeout(() => {
         setSaved(false);
@@ -270,8 +312,8 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
         ...(novoStatus === 'enviado' ? { enviadoEm: new Date().toISOString() } : {}),
         ...(novoStatus === 'entregue' ? { entregueEm: new Date().toISOString() } : {}),
       });
-      // Se entregue → marca todas as placas do lote como enviadoSupervisor
-      if (novoStatus === 'entregue') {
+      // Envio ao supervisor marca lote + cada serviço
+      if (novoStatus === 'enviado') {
         await Promise.all(
           (lote.placas || []).map((docId) =>
             updateDoc(doc(db, 'servicos', docId), {
@@ -282,7 +324,7 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
                   who: user.label,
                   matricula: user.matricula,
                   when: new Date().toISOString(),
-                  msg: `Placa marcada como entregue ao supervisor via lote "${lote.nome}".`,
+                  msg: `Placa marcada como enviada ao supervisor via lote ${lote.id}.`,
                 },
               ],
             })
@@ -985,9 +1027,12 @@ const LotesPlacas = ({ servicos }) => {
                   onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc')}
                 >
                   <td style={td}>
-                    <div style={{ fontWeight: '700', color: '#0f2544' }}>{lote.nome}</div>
+                    <div style={{ fontWeight: '700', color: '#0f2544' }}>
+                      {lote.id && <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', marginRight: '8px', border: '1px solid #e2e8f0' }}>{lote.id}</span>}
+                      {lote.nome}
+                    </div>
                     {lote.obs && (
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{lote.obs}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{lote.obs}</div>
                     )}
                   </td>
                   <td style={td}>

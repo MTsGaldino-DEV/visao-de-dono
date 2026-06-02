@@ -44,7 +44,7 @@ const Field = ({ label, children, fullWidth }) => (
   </div>
 );
 
-const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp }) => {
+const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarLocalidade }) => {
   const { user } = useAuth();
   // Qualquer usuário pode editar os próprios campos; dono tem acesso total
   const isDono = isDonoProp;
@@ -300,6 +300,19 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp }) => {
               Todos os campos são editáveis por qualquer usuário.
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
+              {isDono && service.status !== 'cancelado' && onAlterarLocalidade && (
+                <button onClick={() => { onAlterarLocalidade(service); onClose(); }} style={{
+                  padding: '8px 16px', border: '1px solid #bfdbfe', borderRadius: '8px',
+                  background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: '600', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                >
+                  📍 Alterar localidade
+                </button>
+              )}
               <button onClick={onClose} style={{
                 padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px',
                 background: '#fff', color: '#475569', cursor: 'pointer',

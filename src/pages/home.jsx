@@ -5,6 +5,7 @@ import ServicosTable from '../components/ServicosTable';
 import PlacasTab from '../components/PlacasTab';
 import PainelTab from '../components/PainelTab';
 import FaturamentoTab from '../components/Faturamentotab';
+import LogsTab from '../components/LogsTab';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
@@ -18,6 +19,7 @@ const Home = () => {
     { key: 'placas',    label: 'Placas'    },
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
+    ...(isDono ? [{ key: 'logs', label: 'Logs' }] : []),
   ];
 
   if (loading) {
@@ -155,7 +157,11 @@ const Home = () => {
         </div>
 
         <div style={{ display: activeTab === 'faturamento' ? 'block' : 'none' }}>
-          <FaturamentoTab />
+          {activeTab === 'faturamento' && <FaturamentoTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'logs' ? 'block' : 'none' }}>
+          {activeTab === 'logs' && <LogsTab />}
         </div>
       </main>
     </div>

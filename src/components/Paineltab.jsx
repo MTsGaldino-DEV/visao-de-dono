@@ -42,9 +42,10 @@ const STATUS_CONFIG = {
   pendente:   { label: 'Pendente',      color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' },
   concluido:  { label: 'Concluído',     color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
   cancelado:  { label: 'Cancelado',     color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
+  reprovado:  { label: 'Reprovado',     color: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
 };
 
-const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado'];
+const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
 
 const POSTO_CFG = {
   'Posto 1 — Pedro':    { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', track: '#dbeafe' },
@@ -84,6 +85,11 @@ const semanaStr = (d) => {
 const fmtSemana = (iso) => {
   const d = new Date(iso + 'T00:00:00');
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+};
+
+export const getDataEtapa = (hist, etapa) => {
+  const entrada = (hist || []).find(h => h.msg?.toLowerCase().includes(etapa.toLowerCase()));
+  return entrada?.when ? parseData(entrada.when) : null;
 };
 
 // ── Componentes UI ────────────────────────────────────────────────────────────
@@ -207,13 +213,17 @@ const PainelTab = () => {
   // ── Derivações base ────────────────────────────────────────────────────────
   const ativos     = servicos.filter(s => s.status !== 'cancelado');
   const cancelados = servicos.filter(s => s.status === 'cancelado');
+  const servicosAtivos = servicos.filter(s => ['pendente', 'concluido', 'reprovado'].includes(s.status));
 
-  const totalAtivos     = ativos.length;
+  const totalAtivos     = ativos.length; // Usado para os cards da linha 1
   const totalConcluidos = ativos.filter(s => s.status === 'concluido').length;
   const totalEnviados   = ativos.filter(s => s.status === 'enviado').length;
   const totalPendentes  = ativos.filter(s => s.status === 'pendente').length;
   const totalCadastrados= ativos.filter(s => s.status === 'cadastrado').length;
-  const pctGeral        = totalAtivos > 0 ? Math.round((totalConcluidos / totalAtivos) * 100) : 0;
+  const totalReprovados = ativos.filter(s => s.status === 'reprovado').length;
+  
+  const progressoConcluidos = servicosAtivos.filter(s => s.status === 'concluido').length;
+  const pctGeral        = servicosAtivos.length > 0 ? Math.round((progressoConcluidos / servicosAtivos.length) * 100) : 0;
 
   const totalPlacas    = ativos.filter(s => norm(s.desc).includes('PLACA')).length;
   const placasMontadas = ativos.filter(s => s.placaMontada).length;
@@ -276,16 +286,25 @@ const PainelTab = () => {
     }).length;
   });
 
+  // Pendentes por semana (quando recebeu numero cemig)
+  const pendentesPorSemana = semanas.map(sem => {
+    return servicos.filter(s => {
+      const dt = getDataEtapa(s.hist, 'número cemig recebido');
+      return dt && semanaStr(dt) === sem;
+    }).length;
+  });
+
   // Delta semana atual vs semana anterior
   const deltaCadastros  = cadastrosPorSemana[periodoTendencia-1] - (cadastrosPorSemana[periodoTendencia-2] || 0);
   const deltaConclusoes = conclusoesPorSemana[periodoTendencia-1] - (conclusoesPorSemana[periodoTendencia-2] || 0);
+  const deltaPendentes  = pendentesPorSemana[periodoTendencia-1] - (pendentesPorSemana[periodoTendencia-2] || 0);
 
   // ── Alertas — FIX 1: filtrar apenas pendentes e exibir nº do serviço ──────
   const DIAS_ALERTA = 14;
   const agora_ms = agora.getTime();
 
-  const alertasPendentes = ativos
-    .filter(s => s.status === 'pendente') // somente pendentes
+  const alertasPendentes = servicos
+    .filter(s => s.status === 'pendente') // somente pendentes (usando array original)
     .map(s => {
       const hist = s.hist || [];
       const ultima = hist.length > 0 ? parseData(hist[hist.length - 1].when) : null;
@@ -295,8 +314,7 @@ const PainelTab = () => {
       return { ...s, diasSem };
     })
     .filter(s => s.diasSem !== null && s.diasSem >= DIAS_ALERTA)
-    .sort((a, b) => (b.diasSem || 0) - (a.diasSem || 0))
-    .slice(0, 8);
+    .sort((a, b) => (b.diasSem || 0) - (a.diasSem || 0));
 
   // ── Localidades destaque ───────────────────────────────────────────────────
   const locMap = {};
@@ -317,7 +335,7 @@ const PainelTab = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
 
       {/* ══ LINHA 1: KPIs principais ═══════════════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
 
         {/* Progresso geral */}
         <div style={{ ...card, padding: '18px 20px', gridColumn: '1', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -332,8 +350,8 @@ const PainelTab = () => {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>Progresso geral</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2544', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{totalConcluidos}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>de {totalAtivos} ativos</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2544', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{progressoConcluidos}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>de {servicosAtivos.length} ativos</div>
           </div>
         </div>
 
@@ -380,6 +398,16 @@ const PainelTab = () => {
             <span style={{ color: '#94a3b8' }}>{totalPlacas - placasMontadas} pend.</span>
           </div>
         </div>
+
+        {/* Reprovados */}
+        <div style={{ ...card, padding: '18px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Reprovados</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#dc2626', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{totalReprovados}</div>
+          <div style={{ height: 6, borderRadius: 3, background: '#fff1f2', overflow: 'hidden', marginBottom: 6 }}>
+            <div style={{ height: '100%', borderRadius: 3, background: '#dc2626', width: totalAtivos > 0 ? `${Math.round((totalReprovados/totalAtivos)*100)}%` : '0%', transition: 'width 0.5s' }} />
+          </div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalReprovados/totalAtivos)*100) : 0}% do total ativo</div>
+        </div>
       </div>
 
       {/* ══ LINHA 2: Tendência + Alertas ══════════════════════════════════════ */}
@@ -409,9 +437,11 @@ const PainelTab = () => {
             {semanas.map((sem, i) => {
               const cad = cadastrosPorSemana[i];
               const conc = conclusoesPorSemana[i];
-              const maxVal = Math.max(...cadastrosPorSemana, ...conclusoesPorSemana, 1);
+              const pend = pendentesPorSemana[i];
+              const maxVal = Math.max(...cadastrosPorSemana, ...conclusoesPorSemana, ...pendentesPorSemana, 1);
               const hCad  = Math.max(2, Math.round((cad  / maxVal) * 100));
               const hConc = Math.max(2, Math.round((conc / maxVal) * 100));
+              const hPend = Math.max(2, Math.round((pend / maxVal) * 100));
               const isLast = i === semanas.length - 1;
               return (
                 <div key={sem} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
@@ -421,6 +451,11 @@ const PainelTab = () => {
                       background: isLast ? '#1d4ed8' : '#bfdbfe',
                       transition: 'height 0.4s ease', minHeight: 2,
                     }} title={`Cadastros: ${cad}`} />
+                    <div style={{
+                      flex: 1, height: `${hPend}%`, borderRadius: '2px 2px 0 0',
+                      background: isLast ? '#f97316' : '#fed7aa',
+                      transition: 'height 0.4s ease', minHeight: 2,
+                    }} title={`Pendentes recebidos: ${pend}`} />
                     <div style={{
                       flex: 1, height: `${hConc}%`, borderRadius: '2px 2px 0 0',
                       background: isLast ? '#15803d' : '#bbf7d0',
@@ -440,6 +475,10 @@ const PainelTab = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: '#1d4ed8' }} />
               <span>Cadastros <Trend delta={deltaCadastros} /></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }} />
+              <span>Pendentes recebidos <Trend delta={deltaPendentes} /></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: '#15803d' }} />
