@@ -87,6 +87,17 @@ const fmtSemana = (iso) => {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 };
 
+const mesStr = (d) => {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const fmtMes = (str) => {
+  const [y, m] = str.split('-');
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  return meses[parseInt(m, 10) - 1] + '/' + y.slice(2);
+};
+
 export const getDataEtapa = (hist, etapa) => {
   const entrada = (hist || []).find(h => h.msg?.toLowerCase().includes(etapa.toLowerCase()));
   return entrada?.when ? parseData(entrada.when) : null;
@@ -201,7 +212,12 @@ const exportarAlertasXLSX = (alertas) => {
 // ── Componente principal ──────────────────────────────────────────────────────
 const PainelTab = () => {
   const [servicos, setServicos] = useState([]);
-  const [periodoTendencia, setPeriodoTendencia] = useState(8); // semanas
+  const [agrupamento, setAgrupamento] = useState('semana'); // 'semana' | 'mes'
+  const [periodoTendencia, setPeriodoTendencia] = useState(8); // semanas ou meses
+
+  useEffect(() => {
+    setPeriodoTendencia(agrupamento === 'semana' ? 8 : 6);
+  }, [agrupamento]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -257,47 +273,56 @@ const PainelTab = () => {
     return { tipo, total: ps.length, concluidos, pct: ps.length > 0 ? Math.round((concluidos / ps.length) * 100) : 0 };
   }).filter(d => d.total > 0);
 
-  // ── Tendência semanal ──────────────────────────────────────────────────────
+  // ── Tendência temporal ─────────────────────────────────────────────────────
   const agora = new Date();
-  const semanas = Array.from({ length: periodoTendencia }, (_, i) => {
-    const d = new Date(agora);
-    d.setDate(d.getDate() - (periodoTendencia - 1 - i) * 7);
-    return semanaStr(d);
+  
+  const chavesPeriodo = Array.from({ length: periodoTendencia }, (_, i) => {
+    if (agrupamento === 'semana') {
+      const d = new Date(agora);
+      d.setDate(d.getDate() - (periodoTendencia - 1 - i) * 7);
+      return semanaStr(d);
+    } else {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - (periodoTendencia - 1 - i), 1);
+      return mesStr(d);
+    }
   });
 
-  // Cadastros por semana (usando dtCadastro)
-  const cadastrosPorSemana = semanas.map(sem => {
+  const getChave = (dt) => agrupamento === 'semana' ? semanaStr(dt) : mesStr(dt);
+  const getFmt = (chave) => agrupamento === 'semana' ? fmtSemana(chave) : fmtMes(chave);
+
+  // Cadastros
+  const cadastrosPorPeriodo = chavesPeriodo.map(chave => {
     return servicos.filter(s => {
       const dt = s.dtCadastro?.toDate ? s.dtCadastro.toDate() : parseData(s.dtCadastro);
       if (!dt) return false;
-      return semanaStr(dt) === sem;
+      return getChave(dt) === chave;
     }).length;
   });
 
-  // Conclusões por semana (última entrada de hist com status concluido)
-  const conclusoesPorSemana = semanas.map(sem => {
+  // Conclusões (última entrada de hist com status concluido)
+  const conclusoesPorPeriodo = chavesPeriodo.map(chave => {
     return ativos.filter(s => {
       if (s.status !== 'concluido') return false;
       const hist = s.hist || [];
       const ultimo = [...hist].reverse().find(h => h.msg?.toLowerCase().includes('conclu'));
       if (!ultimo) return false;
       const dt = parseData(ultimo.when);
-      return dt && semanaStr(dt) === sem;
+      return dt && getChave(dt) === chave;
     }).length;
   });
 
-  // Pendentes por semana (quando recebeu numero cemig)
-  const pendentesPorSemana = semanas.map(sem => {
+  // Pendentes (quando recebeu numero cemig)
+  const pendentesPorPeriodo = chavesPeriodo.map(chave => {
     return servicos.filter(s => {
       const dt = getDataEtapa(s.hist, 'número cemig recebido');
-      return dt && semanaStr(dt) === sem;
+      return dt && getChave(dt) === chave;
     }).length;
   });
 
-  // Delta semana atual vs semana anterior
-  const deltaCadastros  = cadastrosPorSemana[periodoTendencia-1] - (cadastrosPorSemana[periodoTendencia-2] || 0);
-  const deltaConclusoes = conclusoesPorSemana[periodoTendencia-1] - (conclusoesPorSemana[periodoTendencia-2] || 0);
-  const deltaPendentes  = pendentesPorSemana[periodoTendencia-1] - (pendentesPorSemana[periodoTendencia-2] || 0);
+  // Delta período atual vs anterior
+  const deltaCadastros  = cadastrosPorPeriodo[periodoTendencia-1] - (cadastrosPorPeriodo[periodoTendencia-2] || 0);
+  const deltaConclusoes = conclusoesPorPeriodo[periodoTendencia-1] - (conclusoesPorPeriodo[periodoTendencia-2] || 0);
+  const deltaPendentes  = pendentesPorPeriodo[periodoTendencia-1] - (pendentesPorPeriodo[periodoTendencia-2] || 0);
 
   // ── Alertas — FIX 1: filtrar apenas pendentes e exibir nº do serviço ──────
   const DIAS_ALERTA = 14;
@@ -359,7 +384,7 @@ const PainelTab = () => {
         <div style={{ ...card, padding: '18px 16px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Cadastrados</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{totalCadastrados}</div>
-          <Sparkline data={cadastrosPorSemana} color="#1d4ed8" width={100} height={28} />
+          <Sparkline data={cadastrosPorPeriodo} color="#1d4ed8" width={100} height={28} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
             <span style={{ fontSize: 10, color: '#94a3b8' }}>esta semana</span>
             <Trend delta={deltaCadastros} />
@@ -417,34 +442,40 @@ const PainelTab = () => {
         <div style={{ ...card, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Tendência semanal</div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Cadastros vs conclusões por semana</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544', display: 'flex', alignItems: 'center', gap: 12 }}>
+                Tendência
+                <div style={{ display: 'flex', background: '#f1f5f9', padding: 2, borderRadius: 6 }}>
+                  <button onClick={() => setAgrupamento('semana')} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', background: agrupamento === 'semana' ? '#fff' : 'transparent', color: agrupamento === 'semana' ? '#0f2544' : '#64748b', fontWeight: agrupamento === 'semana' ? 700 : 500, boxShadow: agrupamento === 'semana' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', transition: 'all 0.15s' }}>Semana</button>
+                  <button onClick={() => setAgrupamento('mes')} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', background: agrupamento === 'mes' ? '#fff' : 'transparent', color: agrupamento === 'mes' ? '#0f2544' : '#64748b', fontWeight: agrupamento === 'mes' ? 700 : 500, boxShadow: agrupamento === 'mes' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', transition: 'all 0.15s' }}>Mês</button>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Cadastros vs Pendentes vs Conclusões</div>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
-              {[4, 8, 12].map(n => (
+              {(agrupamento === 'semana' ? [4, 8, 12] : [3, 6, 12]).map(n => (
                 <button key={n} onClick={() => setPeriodoTendencia(n)} style={{
                   fontSize: 10, padding: '3px 9px', border: `1px solid ${periodoTendencia === n ? '#0f2544' : '#e2e8f0'}`,
                   borderRadius: 6, background: periodoTendencia === n ? '#0f2544' : '#fff',
                   color: periodoTendencia === n ? '#fff' : '#64748b',
                   cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, transition: 'all 0.1s',
-                }}>{n}s</button>
+                }}>{n}{agrupamento === 'semana' ? 's' : 'm'}</button>
               ))}
             </div>
           </div>
 
           {/* Gráfico de barras agrupadas */}
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120 }}>
-            {semanas.map((sem, i) => {
-              const cad = cadastrosPorSemana[i];
-              const conc = conclusoesPorSemana[i];
-              const pend = pendentesPorSemana[i];
-              const maxVal = Math.max(...cadastrosPorSemana, ...conclusoesPorSemana, ...pendentesPorSemana, 1);
+            {chavesPeriodo.map((chave, i) => {
+              const cad = cadastrosPorPeriodo[i];
+              const conc = conclusoesPorPeriodo[i];
+              const pend = pendentesPorPeriodo[i];
+              const maxVal = Math.max(...cadastrosPorPeriodo, ...conclusoesPorPeriodo, ...pendentesPorPeriodo, 1);
               const hCad  = Math.max(2, Math.round((cad  / maxVal) * 100));
               const hConc = Math.max(2, Math.round((conc / maxVal) * 100));
               const hPend = Math.max(2, Math.round((pend / maxVal) * 100));
-              const isLast = i === semanas.length - 1;
+              const isLast = i === chavesPeriodo.length - 1;
               return (
-                <div key={sem} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div key={chave} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', height: 100 }}>
                     <div style={{
                       flex: 1, height: `${hCad}%`, borderRadius: '2px 2px 0 0',
@@ -463,7 +494,7 @@ const PainelTab = () => {
                     }} title={`Conclusões: ${conc}`} />
                   </div>
                   <div style={{ fontSize: 9, color: isLast ? '#0f2544' : '#94a3b8', fontWeight: isLast ? 700 : 400, whiteSpace: 'nowrap' }}>
-                    {fmtSemana(sem)}
+                    {getFmt(chave)}
                   </div>
                 </div>
               );

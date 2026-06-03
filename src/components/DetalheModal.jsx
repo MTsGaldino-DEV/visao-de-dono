@@ -11,6 +11,33 @@ const STATUS_CONFIG = {
   cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
 
+const POSTOS = {
+  'Posto 1 — Pedro': [
+    'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
+    'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
+    'Mathias Lobato','São Geraldo do Tumiritinga','Sobrália','Tarumirim','Tumiritinga',
+  ],
+  'Posto 2 — Elton': [
+    'Coluna','São Geraldo da Piedade','Água Boa','José Raydan','Paulistas',
+    'Cantagalo','Peçanha','São João Evangelista','São José do Jacuri',
+    'Santa Efigênia de Minas','Gonzaga','Santa Maria do Suaçuí','Frei Lago Negro',
+    'São Pedro do Suaçuí','São Sebastião do Maranhão','Sardoá',
+  ],
+  'Posto 3 — Vinicius': [
+    'Cuparaque','Conselheiro Pena','Resplendor','Aimorés','Goiabeira',
+    'Itueta','Santa Rita do Itueto','São Geraldo do Baixio','Galileia',
+  ],
+  'Posto 4 — Victor': [
+    'Itabirinha de Mantena','Divino das Laranjeiras','Central de Minas','Mendes Pimentel',
+    'Nova Belém','São Félix de Minas','Tipiti','Mantena','São João do Manteninha',
+    'Marilac','Coroaci','Virgolândia','Nacip Raydan','São José da Safira',
+  ],
+};
+
+const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
+  locs.map(loc => ({ loc, posto }))
+).sort((a, b) => a.loc.localeCompare(b.loc, 'pt-BR'));
+
 const fmtDt = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -53,9 +80,11 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState('');
   const [saved, setSaved] = useState(false);
+  const [editandoLocal, setEditandoLocal] = useState(false);
 
   useEffect(() => {
     if (service) {
+      setEditandoLocal(false);
       setFormData({
         local:  service.local  || '',
         desc:   service.desc   || '',
@@ -168,10 +197,32 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                 />
               </Field>
               <Field label="Localidade">
-                <input type="text" name="local" placeholder="Ex: Frei Inocêncio"
-                  value={formData.local} onChange={handleChange}
-                  style={inp('local')} onFocus={() => setFocused('local')} onBlur={() => setFocused('')}
-                />
+                {editandoLocal ? (
+                  <select name="local" value={formData.local} onChange={handleChange}
+                    style={inp('local')} onFocus={() => setFocused('local')} onBlur={() => setFocused('')}>
+                    <option value="">Selecione uma localidade</option>
+                    {Object.entries(POSTOS).map(([posto, locs]) => (
+                      <optgroup key={posto} label={posto}>
+                        {locs.map(loc => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#1e293b' }}>
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formData.local || 'Não informada'}</span>
+                    <button onClick={() => setEditandoLocal(true)} title="Editar localidade"
+                      style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 4px', borderRadius: '4px' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </Field>
               <Field label="Tipo de serviço">
                 <select name="tipo" value={formData.tipo} onChange={handleChange}
@@ -300,19 +351,6 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               Todos os campos são editáveis por qualquer usuário.
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {isDono && service.status !== 'cancelado' && onAlterarLocalidade && (
-                <button onClick={() => { onAlterarLocalidade(service); onClose(); }} style={{
-                  padding: '8px 16px', border: '1px solid #bfdbfe', borderRadius: '8px',
-                  background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: '600', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
-                >
-                  📍 Alterar localidade
-                </button>
-              )}
               <button onClick={onClose} style={{
                 padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px',
                 background: '#fff', color: '#475569', cursor: 'pointer',

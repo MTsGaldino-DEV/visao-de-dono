@@ -463,46 +463,6 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
   );
 };
 
-// ── Popup alterar localidade ──────────────────────────────────────────────────
-const AlterarLocalidadePopup = ({ servico, onConfirm, onCancel }) => {
-  const [novaLocal, setNovaLocal] = useState(servico.local || '');
-  return (
-    <div style={POPUP_OVERLAY}>
-      <div style={{ ...POPUP_BOX, maxWidth: '440px' }}>
-        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Alterar localidade</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>{servico.id}</div>
-          </div>
-        </div>
-        <label style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-          Localidade atual: <span style={{ color: '#0f2544', textTransform: 'none', letterSpacing: 0 }}>{servico.local || '—'}</span>
-        </label>
-        <LocalidadeSelect value={novaLocal} onChange={setNovaLocal} />
-        {novaLocal && novaLocal !== servico.local && (
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px', marginTop: '12px', fontSize: '12px', color: '#1d4ed8' }}>
-            Nova localidade: <strong>{novaLocal}</strong>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
-          <button onClick={onCancel} style={BTN_CANCEL}>Cancelar</button>
-          <button onClick={() => novaLocal && novaLocal !== servico.local && onConfirm(novaLocal)}
-            disabled={!novaLocal || novaLocal === servico.local}
-            style={{ ...BTN_PRIMARY, opacity: (!novaLocal || novaLocal === servico.local) ? 0.5 : 1, cursor: (!novaLocal || novaLocal === servico.local) ? 'not-allowed' : 'pointer' }}>
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ── Gera mensagem NSIS ────────────────────────────────────────────────────────
 const gerarMensagemNSIS = (s) => {
   const equip = s.equip || '—';
@@ -850,8 +810,24 @@ const ServicosTable = () => {
   const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
   const [cancelPending, setCancelPending]               = useState(null);
   const [alterarLocalPending, setAlterarLocalPending]   = useState(null);
-  const [reprovadoPending, setReprovadoPending]         = useState(null);
-  const [concluirDropdownId, setConcluirDropdownId]     = useState(null);
+  const [concluirMenu, setConcluirMenu]                 = useState(null);
+
+  useEffect(() => {
+    const handleScrollOrClick = (e) => {
+      if (!concluirMenu) return;
+      const isClickInside = e.target.closest('#concluir-floating-menu');
+      const isTrigger = e.target.closest('.btn-concluir-trigger');
+      if (e.type === 'scroll' || (!isClickInside && !isTrigger)) {
+        setConcluirMenu(null);
+      }
+    };
+    window.addEventListener('scroll', handleScrollOrClick, true);
+    window.addEventListener('mousedown', handleScrollOrClick);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrClick, true);
+      window.removeEventListener('mousedown', handleScrollOrClick);
+    };
+  }, [concluirMenu]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
@@ -1218,15 +1194,28 @@ const ServicosTable = () => {
           </div>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '40px' }} />
+            <col style={{ width: '40px' }} />
+            <col style={{ width: '40px' }} />
+            <col style={{ width: '45px' }} />
+            <col style={{ width: '80px' }} />
+            <col style={{ width: '130px' }} />
+            <col style={{ width: '160px' }} />
+            <col style={{ width: '200px' }} />
+            <col style={{ width: '70px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '130px' }} />
+            <col style={{ width: '120px' }} />
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ ...thBase, width: '32px' }} />
-              <th style={{ ...thBase, width: '32px' }} />
-              <th style={{ ...thBase, width: '32px' }} />
-              <th style={{ ...thBase, width: '32px' }} />
-              {/* ── [NOVO] Coluna placa — título de duas linhas para encaixar */}
-              <th style={{ ...thBase, width: '42px', textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
+              <th style={thBase} />
+              <th style={thBase} />
+              <th style={thBase} />
+              <th style={{ ...thBase, textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -1234,15 +1223,15 @@ const ServicosTable = () => {
                   <span style={{ fontSize: '8px', letterSpacing: '0.03em' }}>PLACA</span>
                 </div>
               </th>
-              <th style={{ ...thClick('id'),      width: '80px'  }} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
-              <th style={{ ...thClick('data'),    width: '150px' }} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
-              <th style={{ ...thClick('local'),   width: '120px' }} onClick={() => toggleSort('local')}>Localidade <SortIcon col="local" /></th>
-              <th style={{ ...thClick('desc')                    }} onClick={() => toggleSort('desc')}>Descrição <SortIcon col="desc" /></th>
-              <th style={{ ...thClick('tipo'),    width: '65px'  }} onClick={() => toggleSort('tipo')}>Tipo <SortIcon col="tipo" /></th>
-              <th style={{ ...thClick('equip'),   width: '110px' }} onClick={() => toggleSort('equip')}>Equipamento <SortIcon col="equip" /></th>
-              <th style={{ ...thClick('status'),  width: '145px' }} onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
-              <th style={{ ...thClick('numServ'), width: '120px' }} onClick={() => toggleSort('numServ')}>Nº Serviço <SortIcon col="numServ" /></th>
-              <th style={{ ...thBase,             width: '120px' }}>Ações</th>
+              <th style={thClick('id')} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
+              <th style={thClick('data')} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
+              <th style={thClick('local')} onClick={() => toggleSort('local')}>Localidade <SortIcon col="local" /></th>
+              <th style={thClick('desc')} onClick={() => toggleSort('desc')}>Descrição <SortIcon col="desc" /></th>
+              <th style={thClick('tipo')} onClick={() => toggleSort('tipo')}>Tipo <SortIcon col="tipo" /></th>
+              <th style={thClick('equip')} onClick={() => toggleSort('equip')}>Equipamento <SortIcon col="equip" /></th>
+              <th style={thClick('status')} onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
+              <th style={thClick('numServ')} onClick={() => toggleSort('numServ')}>Nº Serviço <SortIcon col="numServ" /></th>
+              <th style={thBase}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1327,8 +1316,16 @@ const ServicosTable = () => {
 
                   <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
                   <td style={{ ...td, color: '#64748b' }}>{fmtDt(s.data)}</td>
-                  <td style={td}>{s.local}</td>
-                  <td style={{ ...td, maxWidth: '220px' }}>{s.desc}</td>
+                  <td style={td}>
+                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.local}>
+                      {s.local}
+                    </div>
+                  </td>
+                  <td style={td}>
+                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.desc}>
+                      {s.desc}
+                    </div>
+                  </td>
                   <td style={td}>
                     <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', letterSpacing: '0.04em' }}>
                       {s.tipo}
@@ -1355,36 +1352,23 @@ const ServicosTable = () => {
                   <td style={{ ...td, position: 'relative' }}>
                     {nextInfo && s.status !== 'cancelado' && s.status !== 'reprovado' && (
                       nextInfo.next === 'concluido' ? (
-                        // Dropdown para status pendente: Executado ou Reprovado
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <div style={{ display: 'inline-block' }}>
                           <button
-                            onClick={() => setConcluirDropdownId(concluirDropdownId === s._docId ? null : s._docId)}
+                            className="btn-concluir-trigger"
+                            onClick={(e) => {
+                              if (concluirMenu?.id === s._docId) {
+                                setConcluirMenu(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setConcluirMenu({ id: s._docId, x: rect.left, y: rect.bottom + 4, step: 'opcoes', servico: s, nextInfo });
+                              }
+                            }}
                             style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s', display: 'flex', alignItems: 'center', gap: '4px' }}
                             onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
                             onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
                             {nextInfo.label}
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirDropdownId === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirMenu?.id === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
                           </button>
-                          {concluirDropdownId === s._docId && (
-                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 250, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '150px', overflow: 'hidden' }}>
-                              <button
-                                onClick={() => { setConcluirDropdownId(null); setConfirmPending({ servico: s, novoStatus: 'concluido', mensagem: 'Serviço concluído' }); }}
-                                style={{ width: '100%', padding: '9px 14px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#15803d', fontWeight: '600', textAlign: 'left' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                Executado
-                              </button>
-                              <button
-                                onClick={() => { setConcluirDropdownId(null); setReprovadoPending(s); }}
-                                style={{ width: '100%', padding: '9px 14px', border: 'none', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#dc2626', fontWeight: '600', textAlign: 'left' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-                                Reprovado
-                              </button>
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <button
@@ -1448,13 +1432,83 @@ const ServicosTable = () => {
         )}
       </div>
 
-      <DetalheModal
-        service={selectedService}
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        isDono={isDono}
-        onAlterarLocalidade={(s) => { setModalOpen(false); setAlterarLocalPending(s); }}
-      />
+        <DetalheModal
+          service={selectedService}
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          isDono={isDono}
+        />
+      </div>
+
+      {concluirMenu && (
+        <div id="concluir-floating-menu" style={{
+          position: 'fixed',
+          top: concluirMenu.y,
+          left: concluirMenu.x,
+          zIndex: 9999,
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          minWidth: '180px',
+          overflow: 'hidden',
+          animation: 'popIn 0.15s ease'
+        }}>
+          {concluirMenu.step === 'opcoes' ? (
+            <>
+              <button
+                onClick={() => {
+                  setConcluirMenu(null);
+                  setConfirmPending({ servico: concluirMenu.servico, novoStatus: 'concluido', mensagem: 'Serviço concluído' });
+                }}
+                style={{ width: '100%', padding: '10px 14px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#15803d', fontWeight: '600', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Executado
+              </button>
+              <button
+                onClick={() => {
+                  setConcluirMenu(prev => ({ ...prev, step: 'motivo', motivo: '' }));
+                }}
+                style={{ width: '100%', padding: '10px 14px', border: 'none', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#dc2626', fontWeight: '600', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                Reprovado
+              </button>
+            </>
+          ) : (
+            <div style={{ padding: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                Motivo da reprovação
+              </div>
+              <textarea
+                autoFocus
+                value={concluirMenu.motivo || ''}
+                onChange={e => setConcluirMenu(prev => ({ ...prev, motivo: e.target.value }))}
+                placeholder="Descreva o motivo..."
+                rows={3}
+                style={{ width: '100%', padding: '8px', boxSizing: 'border-box', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical', outline: 'none', marginBottom: '8px' }}
+              />
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button onClick={() => setConcluirMenu(null)} style={{ flex: 1, padding: '6px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: '600' }}>Cancelar</button>
+                <button 
+                  onClick={() => {
+                    if (!concluirMenu.motivo?.trim()) return;
+                    atualizarStatus(concluirMenu.id, 'reprovado', `Serviço reprovado: ${concluirMenu.motivo.trim()}`, { motivoReprovacao: concluirMenu.motivo.trim() });
+                    setConcluirMenu(null);
+                  }}
+                  disabled={!concluirMenu.motivo?.trim()}
+                  style={{ flex: 1, padding: '6px', background: concluirMenu.motivo?.trim() ? '#dc2626' : '#fca5a5', border: 'none', borderRadius: '6px', fontSize: '11px', color: '#fff', cursor: concluirMenu.motivo?.trim() ? 'pointer' : 'not-allowed', fontWeight: '600' }}>
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
