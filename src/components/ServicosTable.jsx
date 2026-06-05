@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -24,7 +24,7 @@ const NEXT_STATUS = {
 };
 
 // ── Localidades ───────────────────────────────────────────────────────────────
-const POSTOS = {
+export const POSTOS = {
   'Posto 1 — Pedro': [
     'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
     'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
@@ -47,11 +47,11 @@ const POSTOS = {
   ],
 };
 
-const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
+export const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
   locs.map(loc => ({ loc, posto }))
 ).sort((a, b) => a.loc.localeCompare(b.loc, 'pt-BR'));
 
-const POSTO_COLORS = {
+export const POSTO_COLORS = {
   'Posto 1 — Pedro':    '#1d4ed8',
   'Posto 2 — Elton':    '#7c3aed',
   'Posto 3 — Vinicius': '#0369a1',
@@ -113,7 +113,7 @@ const Badge = ({ status }) => {
 };
 
 // ── Select pesquisável de localidade ─────────────────────────────────────────
-const LocalidadeSelect = ({ value, onChange }) => {
+export const LocalidadeSelect = ({ value, onChange }) => {
   const [query, setQuery]             = useState('');
   const [open, setOpen]               = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -809,6 +809,7 @@ const ServicosTable = () => {
   const [statusDonoPending, setStatusDonoPending]       = useState(null);
   const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
   const [cancelPending, setCancelPending]               = useState(null);
+  const [reprovadoPending, setReprovadoPending]         = useState(null);
   const [alterarLocalPending, setAlterarLocalPending]   = useState(null);
   const [concluirMenu, setConcluirMenu]                 = useState(null);
 
@@ -1018,7 +1019,6 @@ const ServicosTable = () => {
       {statusDonoPending    && <StatusDonoPopup    servico={statusDonoPending}        onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
       {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico}     onClose={() => setMensagemCemigServico(null)} />}
       {cancelPending        && <CancelPopup        servico={cancelPending}            onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
-      {alterarLocalPending  && <AlterarLocalidadePopup servico={alterarLocalPending}  onConfirm={confirmarLocalidade}        onCancel={() => setAlterarLocalPending(null)} />}
       {reprovadoPending     && <ReprovadoPopup     servico={reprovadoPending}         onConfirm={confirmarReprovado}         onCancel={() => setReprovadoPending(null)} />}
 
       {/* ── Filtros ── */}
@@ -1432,13 +1432,12 @@ const ServicosTable = () => {
         )}
       </div>
 
-        <DetalheModal
-          service={selectedService}
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          isDono={isDono}
-        />
-      </div>
+      <DetalheModal
+        service={selectedService}
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        isDono={isDono}
+      />
 
       {concluirMenu && (
         <div id="concluir-floating-menu" style={{
@@ -1494,7 +1493,7 @@ const ServicosTable = () => {
               />
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button onClick={() => setConcluirMenu(null)} style={{ flex: 1, padding: '6px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px', color: '#64748b', cursor: 'pointer', fontWeight: '600' }}>Cancelar</button>
-                <button 
+                <button
                   onClick={() => {
                     if (!concluirMenu.motivo?.trim()) return;
                     atualizarStatus(concluirMenu.id, 'reprovado', `Serviço reprovado: ${concluirMenu.motivo.trim()}`, { motivoReprovacao: concluirMenu.motivo.trim() });

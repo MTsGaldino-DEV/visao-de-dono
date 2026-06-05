@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { LocalidadeSelect } from './ServicosTable';
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
@@ -10,33 +11,6 @@ const STATUS_CONFIG = {
   concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
   cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
-
-const POSTOS = {
-  'Posto 1 — Pedro': [
-    'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
-    'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
-    'Mathias Lobato','São Geraldo do Tumiritinga','Sobrália','Tarumirim','Tumiritinga',
-  ],
-  'Posto 2 — Elton': [
-    'Coluna','São Geraldo da Piedade','Água Boa','José Raydan','Paulistas',
-    'Cantagalo','Peçanha','São João Evangelista','São José do Jacuri',
-    'Santa Efigênia de Minas','Gonzaga','Santa Maria do Suaçuí','Frei Lago Negro',
-    'São Pedro do Suaçuí','São Sebastião do Maranhão','Sardoá',
-  ],
-  'Posto 3 — Vinicius': [
-    'Cuparaque','Conselheiro Pena','Resplendor','Aimorés','Goiabeira',
-    'Itueta','Santa Rita do Itueto','São Geraldo do Baixio','Galileia',
-  ],
-  'Posto 4 — Victor': [
-    'Itabirinha de Mantena','Divino das Laranjeiras','Central de Minas','Mendes Pimentel',
-    'Nova Belém','São Félix de Minas','Tipiti','Mantena','São João do Manteninha',
-    'Marilac','Coroaci','Virgolândia','Nacip Raydan','São José da Safira',
-  ],
-};
-
-const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
-  locs.map(loc => ({ loc, posto }))
-).sort((a, b) => a.loc.localeCompare(b.loc, 'pt-BR'));
 
 const fmtDt = (iso) => {
   if (!iso) return '—';
@@ -81,6 +55,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const [focused, setFocused] = useState('');
   const [saved, setSaved] = useState(false);
   const [editandoLocal, setEditandoLocal] = useState(false);
+  const [savingLocal, setSavingLocal] = useState(false);
 
   useEffect(() => {
     if (service) {
@@ -198,17 +173,44 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               </Field>
               <Field label="Localidade">
                 {editandoLocal ? (
-                  <select name="local" value={formData.local} onChange={handleChange}
-                    style={inp('local')} onFocus={() => setFocused('local')} onBlur={() => setFocused('')}>
-                    <option value="">Selecione uma localidade</option>
-                    {Object.entries(POSTOS).map(([posto, locs]) => (
-                      <optgroup key={posto} label={posto}>
-                        {locs.map(loc => (
-                          <option key={loc} value={loc}>{loc}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  <div style={{ position: 'relative' }}>
+                    <LocalidadeSelect
+                      value={formData.local}
+                      onChange={async (novaLocal) => {
+                        if (!novaLocal || novaLocal === formData.local) {
+                          setEditandoLocal(false);
+                          return;
+                        }
+                        setSavingLocal(true);
+                        try {
+                          await updateDoc(doc(db, 'servicos', service._docId), {
+                            local: novaLocal,
+                            hist: [...(service.hist || []), {
+                              who: user.label,
+                              matricula: user.matricula,
+                              when: new Date().toISOString(),
+                              msg: `Localidade alterada de "${formData.local || '—'}" para "${novaLocal}"`,
+                            }],
+                          });
+                          setFormData(prev => ({ ...prev, local: novaLocal }));
+                        } catch { alert('Erro ao salvar localidade.'); }
+                        finally { setSavingLocal(false); setEditandoLocal(false); }
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button
+                        onClick={() => setEditandoLocal(false)}
+                        style={{ flex: 1, padding: '5px 10px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', fontSize: '11px', fontWeight: '500', fontFamily: 'inherit' }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    {savingLocal && (
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', fontSize: '11px', color: '#64748b' }}>
+                        Salvando...
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#1e293b' }}>
                     <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formData.local || 'Não informada'}</span>
