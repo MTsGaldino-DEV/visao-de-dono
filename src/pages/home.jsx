@@ -6,6 +6,7 @@ import PlacasTab from '../components/PlacasTab';
 import PainelTab from '../components/PainelTab';
 import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
+import GerarServicosTab from '../components/GerarServicosTab';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
@@ -20,6 +21,7 @@ const Home = () => {
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     ...(isDono ? [{ key: 'logs', label: 'Logs' }] : []),
+    ...(isDono ? [{ key: 'gerar-ns', label: '⚡ Gerar NS' }] : []),
   ];
 
   if (loading) {
@@ -162,6 +164,10 @@ const Home = () => {
 
         <div style={{ display: activeTab === 'logs' ? 'block' : 'none' }}>
           {activeTab === 'logs' && <LogsTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'gerar-ns' ? 'block' : 'none' }}>
+          {activeTab === 'gerar-ns' && <GerarServicosTab />}
         </div>
       </main>
     </div>

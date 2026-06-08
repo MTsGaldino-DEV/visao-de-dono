@@ -1,0 +1,14 @@
+{
+    "name": "conector-visao-de-dono",
+    "version": "1.0.0",
+    "description": "Conector local para automação do sistema CEMIG",
+    "main": "conector.js",
+    "scripts": {
+        "start": "node conector.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "playwright": "^1.44.0"
+    }
+}
