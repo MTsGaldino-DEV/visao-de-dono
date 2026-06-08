@@ -75,7 +75,25 @@ app.post('/iniciar-sessao', async (req, res) => {
       args: ['--start-maximized', '--disable-popup-blocking'],
     });
 
-    page = await browser.newPage();
+    const context = await browser.newContext();
+    
+    // POLYFILL para IE: Permite que document.getElementById encontre elementos pelo atributo 'name'
+    // Sistemas legados usam $('nome_do_campo') esperando que funcione sem atributo id (comportamento do IE).
+    await context.addInitScript(() => {
+      const originalGetElementById = document.getElementById;
+      document.getElementById = function(id) {
+        let el = originalGetElementById.call(document, id);
+        if (!el) {
+          const elements = document.getElementsByName(id);
+          if (elements && elements.length > 0) {
+            el = elements[0];
+          }
+        }
+        return el;
+      };
+    });
+
+    page = await context.newPage();
     await page.goto(CONFIG.loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     // Preenche CNPJ e Inscrição Estadual automaticamente
@@ -219,6 +237,16 @@ async function gerarUmServico(s) {
     throw new Error('Campo do número do transformador (#Numero) não encontrado no popup.');
   }
 
+  // ── NOVO: Seleciona a malha ──
+  debug(`Selecionando a Malha ${CONFIG.malha || 'DL'} no popup...`, s.id);
+  const selectMalha = await popup.$('#Superin, select[name="Superin"]');
+  if (selectMalha) {
+    await selectMalha.selectOption({ value: CONFIG.malha || 'DL' });
+    await sleep(300);
+  } else {
+    debug('AVISO: Campo de Malha (Superin) não encontrado no popup.', s.id);
+  }
+
   const btnBuscarPopup = await popup.$('#BotaoConsultar, input[name="BotaoConsultar"]');
   if (!btnBuscarPopup) throw new Error('Botão Buscar (#BotaoConsultar) não encontrado no popup.');
   
@@ -228,8 +256,8 @@ async function gerarUmServico(s) {
   await sleep(800);
 
   // Lê os resultados — procura linhas com Região = GV
-  const linhas = await popup.$$('table tr:not(:first-child)');
-  debug(`Popup retornou ${linhas.length} linha(s) na tabela.`, s.id);
+  const linhas = await popup.$$('#resultadoConsultaTrafo table tr:not(:first-child)');
+  debug(`Popup retornou ${linhas.length} linha(s) de resultados.`, s.id);
   const gvLinhas = [];
 
   for (const linha of linhas) {
@@ -249,12 +277,11 @@ async function gerarUmServico(s) {
   }
 
   if (gvLinhas.length > 1) {
-    await popup.close();
-    throw new Error(`MANUAL: ${gvLinhas.length} resultados GV para o transformador "${s.transformador}". Gere manualmente.`);
+    debug(`AVISO: Múltiplos resultados GV encontrados. O sistema da CEMIG retornou ${gvLinhas.length} entradas. Selecionando a primeira automaticamente.`, s.id);
   }
 
-  // Exatamente 1 resultado GV — clica no radio button da linha
-  debug(`Selecionando o radio button da linha GV...`, s.id);
+  // Clica no radio button da primeira linha GV encontrada
+  debug(`Selecionando o radio button da linha...`, s.id);
   const radio = await gvLinhas[0].$('input[type="radio"]');
   if (!radio) throw new Error('Radio button não encontrado na linha do transformador.');
   await radio.click();

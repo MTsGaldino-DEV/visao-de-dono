@@ -16,8 +16,8 @@ const Home = () => {
 
   const tabs = [
     { key: 'cadastrar', label: 'Cadastrar' },
-    { key: 'servicos',  label: 'Serviços'  },
-    { key: 'placas',    label: 'Placas'    },
+    { key: 'servicos', label: 'Serviços' },
+    { key: 'placas', label: 'Placas' },
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     ...(isDono ? [{ key: 'logs', label: 'Logs' }] : []),
@@ -62,10 +62,10 @@ const Home = () => {
         {/* Logo — olho idêntico ao Login */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
           <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-            <ellipse cx="18" cy="18" rx="17" ry="17" fill="#1a3a5c"/>
-            <path d="M4,18 Q18,4 32,18 Q18,32 4,18 Z" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-            <circle cx="18" cy="18" r="5" fill="#fff"/>
-            <circle cx="18" cy="18" r="2" fill="#1a3a5c"/>
+            <ellipse cx="18" cy="18" rx="17" ry="17" fill="#1a3a5c" />
+            <path d="M4,18 Q18,4 32,18 Q18,32 4,18 Z" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="18" cy="18" r="5" fill="#fff" />
+            <circle cx="18" cy="18" r="2" fill="#1a3a5c" />
           </svg>
           <span style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544', letterSpacing: '-0.01em' }}>
             Visão de Dono
@@ -131,8 +131,8 @@ const Home = () => {
                 letterSpacing: '0.01em',
                 fontFamily: 'inherit',
               }}
-              onMouseEnter={e => { if (activeTab !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}}
-              onMouseLeave={e => { if (activeTab !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}}
+              onMouseEnter={e => { if (activeTab !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
+              onMouseLeave={e => { if (activeTab !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
             >
               {label}
             </button>
@@ -162,13 +162,14 @@ const Home = () => {
           {activeTab === 'faturamento' && <FaturamentoTab />}
         </div>
 
+        <div style={{ display: activeTab === 'gerar-ns' ? 'block' : 'none' }}>
+          {activeTab === 'gerar-ns' && <GerarServicosTab />}
+        </div>
+
         <div style={{ display: activeTab === 'logs' ? 'block' : 'none' }}>
           {activeTab === 'logs' && <LogsTab />}
         </div>
 
-        <div style={{ display: activeTab === 'gerar-ns' ? 'block' : 'none' }}>
-          {activeTab === 'gerar-ns' && <GerarServicosTab />}
-        </div>
       </main>
     </div>
   );

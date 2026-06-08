@@ -6,10 +6,10 @@ import { LocalidadeSelect } from './ServicosTable';
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
-  enviado:    { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
-  pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
-  concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
-  cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+  enviado: { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  pendente: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
+  concluido: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
+  cancelado: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
 
 const fmtDt = (iso) => {
@@ -61,15 +61,15 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
     if (service) {
       setEditandoLocal(false);
       setFormData({
-        local:  service.local  || '',
-        desc:   service.desc   || '',
-        tipo:   service.tipo   || '',
-        equip:  service.equip  || '',
-        coord:  service.coord  || '',
-        data:   service.data   || '',
-        foto:   service.foto   || '',
-        orig:   service.orig   || '',
-        obs:    service.obs    || '',
+        local: service.local || '',
+        desc: service.desc || '',
+        tipo: service.tipo || '',
+        equip: service.equip || '',
+        coord: service.coord || '',
+        data: service.data || '',
+        foto: service.foto || '',
+        orig: service.orig || '',
+        obs: service.obs || '',
         numServ: service.numServ || '',
       });
       setSaved(false);
@@ -86,13 +86,13 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const inp = (name) => ({
     ...baseInput,
     borderColor: focused === name ? '#3b82f6' : '#e2e8f0',
-    background:  focused === name ? '#fff'    : '#f8fafc',
-    boxShadow:   focused === name ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
+    background: focused === name ? '#fff' : '#f8fafc',
+    boxShadow: focused === name ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
   });
 
   // Hoje como max para datetime
   const hoje = new Date();
-  const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}T23:59:59`;
+  const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}T23:59:59`;
 
   const salvar = async () => {
     setLoading(true);
@@ -219,8 +219,8 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                       onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                       </svg>
                     </button>
                   </div>
@@ -285,8 +285,8 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                       title="Abrir foto"
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                        <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                        <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                       </svg>
                     </a>
                   )}
@@ -326,8 +326,8 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               <div key={i} style={{
                 display: 'flex', gap: '10px',
                 paddingBottom: i < arr.length - 1 ? '10px' : 0,
-                marginBottom:  i < arr.length - 1 ? '10px' : 0,
-                borderBottom:  i < arr.length - 1 ? '1px solid #e2e8f0' : 'none',
+                marginBottom: i < arr.length - 1 ? '10px' : 0,
+                borderBottom: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none',
               }}>
                 <div style={{
                   width: '28px', height: '28px', flexShrink: 0, background: '#e0f2fe',
@@ -368,7 +368,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                 background: saved
                   ? 'linear-gradient(135deg, #15803d, #16a34a)'
                   : loading ? '#94a3b8'
-                  : 'linear-gradient(135deg, #0f2544, #1d4ed8)',
+                    : 'linear-gradient(135deg, #0f2544, #1d4ed8)',
                 color: '#fff', cursor: loading ? 'not-allowed' : 'pointer',
                 fontSize: '13px', fontWeight: '600', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: '6px',
@@ -377,7 +377,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                 {saved ? (
                   <>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                      <polyline points="20 6 9 17 4 12"/>
+                      <polyline points="20 6 9 17 4 12" />
                     </svg>
                     Salvo!
                   </>
