@@ -39,11 +39,11 @@ const STATUS_LINHA = {
 };
 
 const LOG_CORES = {
-    debug:     { color: '#64748b', bg: '#f8fafc', prefix: '·' },
-    info:      { color: '#1d4ed8', bg: '#eff6ff', prefix: 'ℹ' },
-    sucesso:   { color: '#15803d', bg: '#f0fdf4', prefix: '✓' },
-    erro:      { color: '#b91c1c', bg: '#fef2f2', prefix: '✗' },
-    aviso:     { color: '#c2410c', bg: '#fff7ed', prefix: '⚠' },
+    debug: { color: '#64748b', bg: '#f8fafc', prefix: '·' },
+    info: { color: '#1d4ed8', bg: '#eff6ff', prefix: 'ℹ' },
+    sucesso: { color: '#15803d', bg: '#f0fdf4', prefix: '✓' },
+    erro: { color: '#b91c1c', bg: '#fef2f2', prefix: '✗' },
+    aviso: { color: '#c2410c', bg: '#fff7ed', prefix: '⚠' },
     iniciando: { color: '#7c3aed', bg: '#faf5ff', prefix: '▶' },
 };
 

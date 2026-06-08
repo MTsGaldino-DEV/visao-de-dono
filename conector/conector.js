@@ -72,7 +72,7 @@ app.post('/iniciar-sessao', async (req, res) => {
     browser = await chromium.launch({
       channel: 'msedge',
       headless: false,
-      args: ['--start-maximized'],
+      args: ['--start-maximized', '--disable-popup-blocking'],
     });
 
     page = await browser.newPage();
@@ -167,37 +167,65 @@ async function gerarUmServico(s) {
   await sleep(800);
 
   // ── Passo 1: Abrir popup de busca do Transformador ──
-  debug(`Procurando botão btnTrafo na página...`, s.id);
-  const btnBuscarTrafo = await page.$('input[name="btnTrafo"]');
-  if (!btnBuscarTrafo) throw new Error('Botão Buscar Transformador (btnTrafo) não encontrado.');
-  debug(`Botão btnTrafo encontrado. Clicando para abrir popup...`, s.id);
+  debug(`Iniciando abertura do popup de transformadores...`, s.id);
 
-  // Aguarda o popup abrir (buscaTrafo() usa window.open)
-  const [popup] = await Promise.all([
-    page.context().waitForEvent('page', { timeout: 10000 }),
-    btnBuscarTrafo.click(),
-  ]);
+  let popup;
+  try {
+    // 1. Tenta clicar pelo método padrão do Playwright
+    const btnBuscarTrafo = await page.$('input[name="btnTrafo"]');
+    if (btnBuscarTrafo) {
+      await btnBuscarTrafo.scrollIntoViewIfNeeded().catch(() => {});
+      await btnBuscarTrafo.focus().catch(() => {});
+      const [p] = await Promise.all([
+        page.context().waitForEvent('page', { timeout: 15000 }),
+        btnBuscarTrafo.click(),
+      ]);
+      popup = p;
+    } else {
+      throw new Error('Botão btnTrafo físico não localizado.');
+    }
+  } catch (err) {
+    debug(`Clique físico falhou ou timeout excedido (${err.message}). Tentando executar a função buscaTrafo() diretamente via JS...`, s.id);
+    try {
+      // 2. Fallback definitivo: executa a função global buscaTrafo() do site da CEMIG
+      const [p] = await Promise.all([
+        page.context().waitForEvent('page', { timeout: 20000 }),
+        page.evaluate(() => {
+          if (typeof window.buscaTrafo === 'function') {
+            window.buscaTrafo();
+          } else {
+            const btn = document.querySelector('input[name="btnTrafo"]');
+            if (btn) btn.click();
+          }
+        })
+      ]);
+      popup = p;
+    } catch (err2) {
+      throw new Error(`Não foi possível abrir o popup do transformador de nenhuma forma: ${err2.message}`);
+    }
+  }
 
-  debug(`Popup de transformadores aberto.`, s.id);
+  debug(`Popup de transformadores aberto com sucesso.`, s.id);
   await popup.waitForLoadState('domcontentloaded');
-  await sleep(600);
+  await sleep(800);
 
   // Preenche o número do transformador no popup e clica Buscar
-  const inputTrafoPopup = await popup.$('input[type="text"]:first-of-type, input[name*="trafo"], input[name*="numero"]');
+  const inputTrafoPopup = await popup.$('#Numero, input[name="Numero"]');
   if (inputTrafoPopup) {
-    debug(`Preenchendo transformador: ${s.transformador}`, s.id);
+    debug(`Preenchendo transformador no popup: ${s.transformador}`, s.id);
     await inputTrafoPopup.fill('');
     await inputTrafoPopup.type(String(s.transformador), { delay: 30 });
   } else {
-    debug(`AVISO: campo de transformador no popup não encontrado pelo seletor padrão.`, s.id);
+    throw new Error('Campo do número do transformador (#Numero) não encontrado no popup.');
   }
 
-  const btnBuscarPopup = await popup.$('input[value="Buscar"], button:has-text("Buscar")');
-  if (!btnBuscarPopup) throw new Error('Botão Buscar dentro do popup não encontrado.');
-  debug(`Clicando Buscar no popup...`, s.id);
+  const btnBuscarPopup = await popup.$('#BotaoConsultar, input[name="BotaoConsultar"]');
+  if (!btnBuscarPopup) throw new Error('Botão Buscar (#BotaoConsultar) não encontrado no popup.');
+  
+  debug(`Clicando em Buscar no popup...`, s.id);
   await btnBuscarPopup.click();
   await popup.waitForLoadState('domcontentloaded');
-  await sleep(700);
+  await sleep(800);
 
   // Lê os resultados — procura linhas com Região = GV
   const linhas = await popup.$$('table tr:not(:first-child)');
