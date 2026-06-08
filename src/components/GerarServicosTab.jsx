@@ -38,18 +38,42 @@ const STATUS_LINHA = {
     manual: { color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', label: 'Manual' },
 };
 
+const LOG_CORES = {
+    debug:     { color: '#64748b', bg: '#f8fafc', prefix: '·' },
+    info:      { color: '#1d4ed8', bg: '#eff6ff', prefix: 'ℹ' },
+    sucesso:   { color: '#15803d', bg: '#f0fdf4', prefix: '✓' },
+    erro:      { color: '#b91c1c', bg: '#fef2f2', prefix: '✗' },
+    aviso:     { color: '#c2410c', bg: '#fff7ed', prefix: '⚠' },
+    iniciando: { color: '#7c3aed', bg: '#faf5ff', prefix: '▶' },
+};
+
 // ── Componente ────────────────────────────────────────────────────────────────
 const GerarServicosTab = () => {
     const [servicos, setServicos] = useState([]);
     const [selecionados, setSelecionados] = useState([]);
     const [executorGlobal, setExecutorGlobal] = useState('Região');
-    const [executores, setExecutores] = useState({}); // _docId → executor individual
-    const [statusLinhas, setStatusLinhas] = useState({}); // _docId → { tipo, msg, numGerado }
-    const [etapa, setEtapa] = useState('idle'); // idle | aguardando_captcha | rodando | finalizado
+    const [executores, setExecutores] = useState({});
+    const [statusLinhas, setStatusLinhas] = useState({});
+    const [etapa, setEtapa] = useState('idle');
     const [conectorOk, setConectorOk] = useState(false);
     const [busca, setBusca] = useState('');
     const [filtroLocal, setFiltroLocal] = useState('');
+    const [logs, setLogs] = useState([]);
+    const [debugAberto, setDebugAberto] = useState(false);
     const esFonte = useRef(null);
+    const logsEndRef = useRef(null);
+
+    const addLog = (tipo, msg, servId = null) => {
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setLogs(prev => [...prev, { hora, tipo, msg, servId, id: Date.now() + Math.random() }]);
+    };
+
+    // Auto-scroll do painel de debug
+    useEffect(() => {
+        if (debugAberto && logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [logs, debugAberto]);
 
     // ── Carrega serviços cadastrados ──────────────────────────────────────────
     useEffect(() => {
@@ -84,41 +108,65 @@ const GerarServicosTab = () => {
         es.onmessage = (e) => {
             const ev = JSON.parse(e.data);
 
+            if (ev.tipo === 'debug') {
+                addLog('debug', ev.msg, ev.id || null);
+            }
+            if (ev.tipo === 'inicio_lote') {
+                addLog('info', `Iniciando lote com ${ev.total} serviço(s).`);
+            }
             if (ev.tipo === 'iniciando') {
                 setStatusLinhas(prev => ({ ...prev, [selecionados[ev.index]]: { tipo: 'iniciando', msg: ev.msg } }));
+                addLog('iniciando', `[${ev.id}] ${ev.msg}`);
             }
             if (ev.tipo === 'sucesso') {
                 const docId = ev.docId || selecionados[ev.index];
                 setStatusLinhas(prev => ({ ...prev, [docId]: { tipo: 'sucesso', msg: ev.msg, numGerado: ev.numGerado } }));
+                addLog('sucesso', `[${ev.id}] Criado com sucesso${ev.numGerado ? ` — NS Nº ${ev.numGerado}` : ' (nº não capturado)'}`, ev.id);
                 // Salva numServ e status no Firebase
                 if (docId && ev.numGerado) {
                     updateDoc(doc(db, 'servicos', docId), {
                         numServ: ev.numGerado,
                         status: 'gerado',
-                    }).catch(err => console.warn('Erro ao salvar numServ no Firebase:', err));
+                    }).catch(err => {
+                        addLog('aviso', `Firebase: erro ao salvar numServ — ${err.message}`);
+                        console.warn('Erro ao salvar numServ no Firebase:', err);
+                    });
+                } else if (docId && !ev.numGerado) {
+                    addLog('aviso', `[${ev.id}] Serviço criado mas número não foi capturado. Verifique manualmente.`);
                 }
             }
             if (ev.tipo === 'erro') {
                 const tipo = ev.msg.startsWith('MANUAL:') ? 'manual' : 'erro';
                 setStatusLinhas(prev => ({ ...prev, [selecionados[ev.index]]: { tipo, msg: ev.msg.replace('MANUAL: ', '') } }));
+                addLog('erro', `[${ev.id}] ${ev.msg}`);
             }
             if (ev.tipo === 'fim_lote') {
                 setEtapa('finalizado');
+                addLog('info', 'Lote finalizado.');
                 es.close();
             }
             if (ev.tipo === 'aguardando_captcha') {
                 setEtapa('aguardando_captcha');
             }
+            if (ev.tipo === 'sessao_ok') {
+                addLog('sucesso', 'Sessão verificada. Iniciando automação…');
+            }
+            if (ev.tipo === 'cancelado') {
+                addLog('aviso', 'Geração cancelada pelo usuário.');
+            }
+        };
+
+        es.onerror = () => {
+            addLog('aviso', 'Conexão SSE interrompida.');
         };
 
         return () => es.close();
     }, [etapa]);
 
     // ── Filtra serviços disponíveis para gerar ────────────────────────────────
-    // Mostra apenas cadastrados que ainda não têm numServ e não foram gerados
     const disponiveis = servicos.filter(s => {
         if (s.status !== 'cadastrado') return false;
-        if (s.numServ) return false; // já tem número CEMIG
+        if (s.numServ) return false;
         if (busca) {
             const hay = [s.id, s.local, s.desc, s.equip].join(' ').toLowerCase();
             if (!hay.includes(busca.toLowerCase())) return false;
@@ -143,27 +191,40 @@ const GerarServicosTab = () => {
 
     // ── Ações ─────────────────────────────────────────────────────────────────
     const iniciarSessao = async () => {
+        setLogs([]);
+        setDebugAberto(true);
+        addLog('info', 'Abrindo navegador e navegando para o login CEMIG…');
         try {
             const r = await fetch(`${CONECTOR_URL}/iniciar-sessao`, { method: 'POST' });
             const j = await r.json();
-            if (j.ok) setEtapa('aguardando_captcha');
-            else alert('Erro: ' + j.erro);
+            if (j.ok) {
+                setEtapa('aguardando_captcha');
+                addLog('info', 'Navegador aberto. Aguardando reCAPTCHA…');
+            } else {
+                addLog('erro', 'Erro ao iniciar sessão: ' + j.erro);
+                alert('Erro: ' + j.erro);
+            }
         } catch {
+            addLog('erro', 'Conector não está respondendo. Verifique se node conector.js está rodando.');
             alert('Conector não está rodando. Execute: node conector.js');
         }
     };
 
     const continuarAposCaptcha = async () => {
+        addLog('info', 'Verificando sessão após reCAPTCHA…');
         try {
             const r = await fetch(`${CONECTOR_URL}/continuar-apos-captcha`, { method: 'POST' });
             const j = await r.json();
             if (j.ok) {
                 setEtapa('rodando');
+                addLog('sucesso', 'Sessão OK. Iniciando geração do lote…');
                 iniciarGeracao();
             } else {
+                addLog('erro', j.erro);
                 alert(j.erro);
             }
         } catch (err) {
+            addLog('erro', 'Erro ao verificar sessão: ' + err.message);
             alert('Erro ao verificar sessão: ' + err.message);
         }
     };
@@ -175,12 +236,11 @@ const GerarServicosTab = () => {
                 _docId: s._docId,
                 id: s.id,
                 desc: s.desc,
-                transformador: s.equip || '',   // campo equip = nº do transformador no cadastro
+                transformador: s.equip || '',
                 executor: executores[docId] || executorGlobal,
             };
         });
 
-        // Inicializa status como pendente
         const inicial = {};
         selecionados.forEach(id => { inicial[id] = { tipo: 'pendente', msg: 'Aguardando…' }; });
         setStatusLinhas(inicial);
@@ -194,6 +254,7 @@ const GerarServicosTab = () => {
 
     const cancelar = async () => {
         await fetch(`${CONECTOR_URL}/cancelar`, { method: 'POST' }).catch(() => { });
+        addLog('aviso', 'Cancelamento solicitado.');
         setEtapa('idle');
     };
 
@@ -202,6 +263,8 @@ const GerarServicosTab = () => {
         setStatusLinhas({});
         setEtapa('idle');
     };
+
+    const limparLogs = () => setLogs([]);
 
     // ── Contadores do resumo ──────────────────────────────────────────────────
     const qtdSucesso = Object.values(statusLinhas).filter(s => s.tipo === 'sucesso').length;
@@ -225,11 +288,27 @@ const GerarServicosTab = () => {
                     </span>
                     {!conectorOk && (
                         <span style={{ fontSize: '11px', color: '#64748b' }}>
-                            — Execute no terminal: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>node conector.js</code>
+                            — Execute no terminal: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>cd conector &amp;&amp; node conector.js</code>
                         </span>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {/* Botão Debug */}
+                    <button
+                        onClick={() => setDebugAberto(v => !v)}
+                        style={{
+                            padding: '6px 14px', borderRadius: '7px', border: '1px solid #e2e8f0',
+                            background: debugAberto ? '#1e293b' : '#f8fafc', color: debugAberto ? '#94a3b8' : '#475569',
+                            fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                        }}
+                    >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>
+                        Debug {logs.length > 0 && <span style={{ background: '#64748b', color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '10px' }}>{logs.length}</span>}
+                    </button>
+
                     {etapa === 'idle' && (
                         <button
                             onClick={iniciarSessao}
@@ -262,6 +341,66 @@ const GerarServicosTab = () => {
                     )}
                 </div>
             </div>
+
+            {/* ── Painel de Debug ── */}
+            {debugAberto && (
+                <div style={{
+                    ...card,
+                    background: '#0f172a',
+                    border: '1px solid #1e293b',
+                    overflow: 'hidden',
+                }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '8px 14px', borderBottom: '1px solid #1e293b',
+                    }}>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                            🖥 Log de execução
+                        </span>
+                        <button
+                            onClick={limparLogs}
+                            style={{ fontSize: '10px', color: '#475569', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                            Limpar
+                        </button>
+                    </div>
+                    <div style={{
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                        padding: '8px 0',
+                        fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+                        fontSize: '11px',
+                    }}>
+                        {logs.length === 0 ? (
+                            <div style={{ padding: '16px 14px', color: '#334155', fontSize: '11px' }}>
+                                Nenhum log ainda. Clique em "Iniciar geração" para começar.
+                            </div>
+                        ) : (
+                            logs.map(l => {
+                                const cfg = LOG_CORES[l.tipo] || LOG_CORES.debug;
+                                return (
+                                    <div key={l.id} style={{
+                                        display: 'flex', gap: '8px', alignItems: 'flex-start',
+                                        padding: '2px 14px',
+                                        borderLeft: `2px solid transparent`,
+                                    }}>
+                                        <span style={{ color: '#334155', flexShrink: 0, userSelect: 'none', fontSize: '10px', paddingTop: '1px' }}>
+                                            {l.hora}
+                                        </span>
+                                        <span style={{ color: cfg.color, flexShrink: 0, userSelect: 'none', fontSize: '12px', lineHeight: '1' }}>
+                                            {cfg.prefix}
+                                        </span>
+                                        <span style={{ color: l.tipo === 'erro' ? '#f87171' : l.tipo === 'sucesso' ? '#4ade80' : l.tipo === 'aviso' ? '#fb923c' : l.tipo === 'iniciando' ? '#c084fc' : l.tipo === 'info' ? '#60a5fa' : '#64748b', lineHeight: '1.5', wordBreak: 'break-word' }}>
+                                            {l.msg}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                        <div ref={logsEndRef} />
+                    </div>
+                </div>
+            )}
 
             {/* ── Aviso aguardando reCAPTCHA ── */}
             {etapa === 'aguardando_captcha' && (
@@ -350,7 +489,7 @@ const GerarServicosTab = () => {
                                 <th style={{ textAlign: 'left', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Descrição</th>
                                 <th style={{ textAlign: 'left', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Transformador</th>
                                 <th style={{ textAlign: 'left', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', width: 110 }}>Executor</th>
-                                <th style={{ textAlign: 'left', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', width: 130 }}>Status</th>
+                                <th style={{ textAlign: 'left', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', width: 160 }}>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -374,7 +513,6 @@ const GerarServicosTab = () => {
                                         onMouseEnter={e => { if (!rodando) e.currentTarget.style.background = '#f0f7ff'; }}
                                         onMouseLeave={e => { if (!rodando) e.currentTarget.style.background = sel ? '#f0f7ff' : i % 2 === 0 ? '#fff' : '#fafbfc'; }}
                                     >
-                                        {/* Checkbox */}
                                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #f8fafc' }} onClick={e => e.stopPropagation()}>
                                             <div
                                                 onClick={() => !rodando && toggleSelecionado(s._docId)}
@@ -393,7 +531,6 @@ const GerarServicosTab = () => {
                                             {s.equip || <span style={{ color: '#ef4444', fontWeight: '400' }}>Sem transformador</span>}
                                         </td>
 
-                                        {/* Executor individual — clique não propaga seleção */}
                                         <td style={{ padding: '6px 12px', borderBottom: '1px solid #f8fafc' }} onClick={e => e.stopPropagation()}>
                                             <select
                                                 value={exeInd || executorGlobal}
@@ -406,14 +543,13 @@ const GerarServicosTab = () => {
                                             </select>
                                         </td>
 
-                                        {/* Status */}
                                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #f8fafc' }}>
                                             {stCfg ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                     <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}`, width: 'fit-content' }}>
                                                         {stCfg.label}
                                                     </span>
-                                                    {st.numGerado && <span style={{ fontSize: '10px', color: '#15803d', fontWeight: '600' }}>Nº {st.numGerado}</span>}
+                                                    {st.numGerado && <span style={{ fontSize: '10px', color: '#15803d', fontWeight: '600' }}>NS {st.numGerado}</span>}
                                                     {st.msg && st.tipo !== 'sucesso' && (
                                                         <span style={{ fontSize: '10px', color: '#94a3b8', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={st.msg}>
                                                             {st.msg}
@@ -435,8 +571,9 @@ const GerarServicosTab = () => {
             {/* ── Legenda executor ── */}
             <div style={{ ...card, padding: '12px 18px', display: 'flex', gap: '24px', fontSize: '11px', color: '#64748b' }}>
                 <span style={{ fontWeight: '700', color: '#0f2544' }}>Executor:</span>
-                <span><strong>Região</strong> — serviço executado pela equipe regional</span>
-                <span><strong>COD</strong> — serviço executado pelo COD</span>
+                <span><strong>Região</strong> — equipe regional</span>
+                <span><strong>COD</strong> — Centro de Operação da Distribuição</span>
+                <span><strong>Tipo de Turma:</strong> sempre DUPLA</span>
                 <span style={{ marginLeft: 'auto', color: '#94a3b8' }}>
                     O executor pode ser definido globalmente ou individualmente por serviço.
                 </span>

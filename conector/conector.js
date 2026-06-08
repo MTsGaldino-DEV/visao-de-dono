@@ -43,6 +43,11 @@ function broadcast(evento) {
   sseClients.forEach(res => res.write(data));
 }
 
+function debug(msg, id = null) {
+  broadcast({ tipo: 'debug', msg, id });
+  console.log(`[DEBUG] ${msg}`);
+}
+
 app.get('/status-stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -156,14 +161,16 @@ async function executarLote(servicos) {
 }
 
 async function gerarUmServico(s) {
+  debug(`Navegando para ns.jsp...`, s.id);
   // Navega para o formulário de novo serviço
   await page.goto(CONFIG.nsUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
   await sleep(800);
 
   // ── Passo 1: Abrir popup de busca do Transformador ──
-  // Botão correto conforme ns.jsp linha 697: input[name="btnTrafo"] onClick="buscaTrafo()"
+  debug(`Procurando botão btnTrafo na página...`, s.id);
   const btnBuscarTrafo = await page.$('input[name="btnTrafo"]');
   if (!btnBuscarTrafo) throw new Error('Botão Buscar Transformador (btnTrafo) não encontrado.');
+  debug(`Botão btnTrafo encontrado. Clicando para abrir popup...`, s.id);
 
   // Aguarda o popup abrir (buscaTrafo() usa window.open)
   const [popup] = await Promise.all([
@@ -171,36 +178,42 @@ async function gerarUmServico(s) {
     btnBuscarTrafo.click(),
   ]);
 
+  debug(`Popup de transformadores aberto.`, s.id);
   await popup.waitForLoadState('domcontentloaded');
   await sleep(600);
 
   // Preenche o número do transformador no popup e clica Buscar
-  // O popup é selecionatrafo.jsp — campo de busca costuma ser o primeiro input text
   const inputTrafoPopup = await popup.$('input[type="text"]:first-of-type, input[name*="trafo"], input[name*="numero"]');
   if (inputTrafoPopup) {
+    debug(`Preenchendo transformador: ${s.transformador}`, s.id);
     await inputTrafoPopup.fill('');
     await inputTrafoPopup.type(String(s.transformador), { delay: 30 });
+  } else {
+    debug(`AVISO: campo de transformador no popup não encontrado pelo seletor padrão.`, s.id);
   }
 
   const btnBuscarPopup = await popup.$('input[value="Buscar"], button:has-text("Buscar")');
   if (!btnBuscarPopup) throw new Error('Botão Buscar dentro do popup não encontrado.');
+  debug(`Clicando Buscar no popup...`, s.id);
   await btnBuscarPopup.click();
   await popup.waitForLoadState('domcontentloaded');
   await sleep(700);
 
   // Lê os resultados — procura linhas com Região = GV
-  const linhas = await popup.$$('table tr:not(:first-child)'); // pula header
+  const linhas = await popup.$$('table tr:not(:first-child)');
+  debug(`Popup retornou ${linhas.length} linha(s) na tabela.`, s.id);
   const gvLinhas = [];
 
   for (const linha of linhas) {
     const colunas = await linha.$$('td');
     if (colunas.length === 0) continue;
-    // Última coluna é "Região"
     const regiao = await colunas[colunas.length - 1].innerText();
     if (regiao.trim().toUpperCase() === 'GV') {
       gvLinhas.push(linha);
     }
   }
+
+  debug(`Encontrado(s) ${gvLinhas.length} resultado(s) com Região = GV.`, s.id);
 
   if (gvLinhas.length === 0) {
     await popup.close();
@@ -213,56 +226,62 @@ async function gerarUmServico(s) {
   }
 
   // Exatamente 1 resultado GV — clica no radio button da linha
+  debug(`Selecionando o radio button da linha GV...`, s.id);
   const radio = await gvLinhas[0].$('input[type="radio"]');
   if (!radio) throw new Error('Radio button não encontrado na linha do transformador.');
   await radio.click();
   await sleep(500);
 
   // Aguarda o popup fechar e os campos serem preenchidos na página principal
+  debug(`Aguardando popup fechar...`, s.id);
   await popup.waitForEvent('close', { timeout: 8000 }).catch(() => { });
   await sleep(1000);
 
   // ── Passo 2: Corrigir o campo Bairro ──
-  // ns.jsp linha 716: input name="bairro"
+  debug(`Preenchendo Bairro: ${CONFIG.bairroPadrao}`, s.id);
   await preencherCampoSeExistir(page, 'input[name="bairro"]', CONFIG.bairroPadrao);
 
   // ── Passo 3: Tipo de Serviço ──
-  // ns.jsp linha 753: <Select Name=tiposerv id=tiposerv>
-  // Seleciona pelo VALUE (ex: "NSIS"), não pelo label
+  debug(`Selecionando Tipo de Serviço: ${CONFIG.tipoServico}`, s.id);
   const selectTipo = await page.$('select[name="tiposerv"], #tiposerv');
   if (selectTipo) {
     await selectTipo.selectOption({ value: CONFIG.tipoServico });
     await sleep(400);
+  } else {
+    debug(`AVISO: select tiposerv não encontrado!`, s.id);
   }
 
   // ── Passo 4: Serviço a ser Executado (Desc_Serv) ──
-  // ns.jsp linha 794: textarea name="Desc_Serv" id="Desc_Serv"
+  debug(`Preenchendo Desc_Serv...`, s.id);
   await preencherCampoSeExistir(page, 'textarea[name="Desc_Serv"], #Desc_Serv', s.desc);
 
   // ── Passo 5: Observação (Observ) ──
-  // ns.jsp linha 801: textarea name="Observ"
+  debug(`Preenchendo Observação...`, s.id);
   await preencherCampoSeExistir(page, 'textarea[name="Observ"]', CONFIG.observacao);
 
   // ── Passo 6: Executor (Projeta) ──
-  // ns.jsp linha 815: <Select name=Projeta id=Projeta>
-  // value="E" = COD | value="R" = REGIÃO
+  const valorExecutor = s.executor === 'COD' ? 'E' : 'R';
+  debug(`Selecionando Executor: ${s.executor} → value="${valorExecutor}"`, s.id);
   const selectExecutor = await page.$('select[name="Projeta"], #Projeta');
   if (selectExecutor) {
-    const valorExecutor = s.executor === 'COD' ? 'E' : 'R';
     await selectExecutor.selectOption({ value: valorExecutor });
     await sleep(300);
+  } else {
+    debug(`AVISO: select Projeta não encontrado!`, s.id);
   }
 
   // ── Passo 7: Tipo de Turma (TipoTurma) — sempre DUPLA ──
-  // ns.jsp linha 823: <Select name="TipoTurma">; value="D" = DUPLA
+  debug(`Selecionando Tipo de Turma: DUPLA (${CONFIG.tipoTurma})`, s.id);
   const selectTurma = await page.$('select[name="TipoTurma"]');
   if (selectTurma) {
     await selectTurma.selectOption({ value: CONFIG.tipoTurma });
     await sleep(300);
+  } else {
+    debug(`AVISO: select TipoTurma não encontrado!`, s.id);
   }
 
   // ── Passo 8: Clicar Cadastrar ──
-  // ns.jsp linha 909: input[name="inserir"] onClick="return ChecaDados();"
+  debug(`Clicando em Cadastrar...`, s.id);
   const btnCadastrar = await page.$('input[name="inserir"], input[value="Cadastrar"]');
   if (!btnCadastrar) throw new Error('Botão Cadastrar não encontrado.');
   await btnCadastrar.click();
@@ -270,9 +289,11 @@ async function gerarUmServico(s) {
   await sleep(800);
 
   // Tenta capturar o número do serviço gerado na página de confirmação
+  debug(`Lendo número do serviço gerado na página de confirmação...`, s.id);
   const corpo = await page.innerText('body').catch(() => '');
   const match = corpo.match(/n[úu]mero[:\s]*(\d{6,12})/i) || corpo.match(/(\d{9,12})/);
   const numGerado = match ? match[1] : null;
+  debug(numGerado ? `Número capturado: ${numGerado}` : `AVISO: número não encontrado no corpo da página.`, s.id);
 
   return { msg: 'Criado com sucesso.', numGerado };
 }
