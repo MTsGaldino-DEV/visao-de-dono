@@ -15,44 +15,44 @@ const pulseStyle = `
 // ── Constantes de domínio ────────────────────────────────────────────────────
 const POSTOS = {
   'Posto 1 — Pedro': [
-    'FREI INOCENCIO','ALPERCATA','ALVARENGA','CAPITAO ANDRADE','ENGENHEIRO CALDAS',
-    'FERNANDES TOURINHO','GOVERNADOR VALADARES','ITANHOMI','JAMPRUCA','JATAI',
-    'MATHIAS LOBATO','SAO GERALDO TUMIRITINGA','SOBRALIA','TARUMIRIM','TUMIRITINGA',
+    'FREI INOCENCIO', 'ALPERCATA', 'ALVARENGA', 'CAPITAO ANDRADE', 'ENGENHEIRO CALDAS',
+    'FERNANDES TOURINHO', 'GOVERNADOR VALADARES', 'ITANHOMI', 'JAMPRUCA', 'JATAI',
+    'MATHIAS LOBATO', 'SAO GERALDO TUMIRITINGA', 'SOBRALIA', 'TARUMIRIM', 'TUMIRITINGA',
   ],
   'Posto 2 — Elton': [
-    'COLUNA','SAO GERALDO DA PIEDADE','AGUA BOA','JOSE RAYDAN','PAULISTAS',
-    'CANTAGALO','PECANHA','SAO JOAO EVANGELISTA','SAO JOSE DO JACURI',
-    'SANTA EFIGENIA DE MINAS','GONZAGA','SANTA MARIA DO SUACUI','FREI LAGO NEGRO',
-    'SAO PEDRO DO SUACUI','SAO SEBASTIAO DO MARANHAO','SARDOA',
+    'COLUNA', 'SAO GERALDO DA PIEDADE', 'AGUA BOA', 'JOSE RAYDAN', 'PAULISTAS',
+    'CANTAGALO', 'PECANHA', 'SAO JOAO EVANGELISTA', 'SAO JOSE DO JACURI',
+    'SANTA EFIGENIA DE MINAS', 'GONZAGA', 'SANTA MARIA DO SUACUI', 'FREI LAGO NEGRO',
+    'SAO PEDRO DO SUACUI', 'SAO SEBASTIAO DO MARANHAO', 'SARDOA',
   ],
   'Posto 3 — Vinicius': [
-    'CUPARAQUE','CONSELHEIRO PENA','RESPLENDOR','AIMORES','GOIABEIRA',
-    'ITUETA','SANTA RITA DO ITUETO','SAO GERALDO DO BAIXIO','GALILEIA',
+    'CUPARAQUE', 'CONSELHEIRO PENA', 'RESPLENDOR', 'AIMORES', 'GOIABEIRA',
+    'ITUETA', 'SANTA RITA DO ITUETO', 'SAO GERALDO DO BAIXIO', 'GALILEIA',
   ],
   'Posto 4 — Victor': [
-    'ITABIRINHA DE MANTENA','DIVINO LARANJEIRAS','CENTRAL DE MINAS','MENDES PIMENTEL',
-    'NOVA BELEM','SAO FELIX DE MINAS','TIPITI','MANTENA','SAO JOAO DO MANTENINHA',
-    'MARILAC','COROACI','VIRGOLANDIA','NACIP RAYDAN','SAO JOSE DA SAFIRA',
+    'ITABIRINHA DE MANTENA', 'DIVINO LARANJEIRAS', 'CENTRAL DE MINAS', 'MENDES PIMENTEL',
+    'NOVA BELEM', 'SAO FELIX DE MINAS', 'TIPITI', 'MANTENA', 'SAO JOAO DO MANTENINHA',
+    'MARILAC', 'COROACI', 'VIRGOLANDIA', 'NACIP RAYDAN', 'SAO JOSE DA SAFIRA',
   ],
 };
 
 const STATUS_CONFIG = {
-  cadastrado: { label: 'Cadastrado',    color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
-  enviado:    { label: 'Enviado CEMIG', color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe' },
-  pendente:   { label: 'Pendente',      color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' },
-  concluido:  { label: 'Concluído',     color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
-  cancelado:  { label: 'Cancelado',     color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
-  reprovado:  { label: 'Reprovado',     color: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
+  cadastrado: { label: 'Cadastrado', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
+  enviado: { label: 'Enviado CEMIG', color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe' },
+  pendente: { label: 'Pendente', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' },
+  concluido: { label: 'Concluído', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
+  cancelado: { label: 'Cancelado', color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
+  reprovado: { label: 'Reprovado', color: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
 };
 
 const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
 
 const POSTO_CFG = {
-  'Posto 1 — Pedro':    { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', track: '#dbeafe' },
-  'Posto 2 — Elton':    { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', track: '#ede9fe' },
+  'Posto 1 — Pedro': { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', track: '#dbeafe' },
+  'Posto 2 — Elton': { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', track: '#ede9fe' },
   'Posto 3 — Vinicius': { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', track: '#e0f2fe' },
-  'Posto 4 — Victor':   { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', track: '#dcfce7' },
-  'Não mapeado':        { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', track: '#f1f5f9' },
+  'Posto 4 — Victor': { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', track: '#dcfce7' },
+  'Não mapeado': { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', track: '#f1f5f9' },
 };
 
 const TIPOS = ['NSIS', 'NSMP', 'RC02', 'INBE', 'NSCP'];
@@ -84,7 +84,7 @@ const semanaStr = (d) => {
 
 const fmtSemana = (iso) => {
   const d = new Date(iso + 'T00:00:00');
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
 const mesStr = (d) => {
@@ -130,8 +130,8 @@ const Ring = ({ pct, color, size = 80, stroke = 14 }) => {
   const dash = (pct / 100) * circ;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25}
         strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.6s ease' }} />
     </svg>
@@ -149,7 +149,7 @@ const Sparkline = ({ data, color, height = 40, width = 120 }) => {
     const y = height - 2 - ((v - min) / range) * (height - 4);
     return `${x},${y}`;
   });
-  const area = `M${pts[0]} ` + pts.slice(1).map(p => `L${p}`).join(' ') + ` L${width-2},${height} L2,${height} Z`;
+  const area = `M${pts[0]} ` + pts.slice(1).map(p => `L${p}`).join(' ') + ` L${width - 2},${height} L2,${height} Z`;
   const line = `M${pts[0]} ` + pts.slice(1).map(p => `L${p}`).join(' ');
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
@@ -193,13 +193,13 @@ if (typeof document !== 'undefined' && !document.getElementById('__alertPulseSty
 // ── Exportar alertas para Excel ───────────────────────────────────────────────
 const exportarAlertasXLSX = (alertas) => {
   const linhas = alertas.map(s => ({
-    'ID':            s.id || '—',
-    'Nº OS':         s.numOS || s.numServico || s.nServico || '—',
-    'Status':        'Pendente',
-    'Localidade':    s.local || '—',
-    'Posto':         postoDeLocalidade(s.local),
-    'Tipo':          s.tipo || '—',
-    'Descrição':     s.desc || '—',
+    'ID': s.id || '—',
+    'Nº OS': s.numServ || s.numServico || s.numServ || '—',
+    'Status': 'Pendente',
+    'Localidade': s.local || '—',
+    'Posto': postoDeLocalidade(s.local),
+    'Tipo': s.tipo || '—',
+    'Descrição': s.desc || '—',
     'Dias s/ mover': s.diasSem ?? '—',
   }));
   const ws = XLSX.utils.json_to_sheet(linhas);
@@ -227,23 +227,23 @@ const PainelTab = () => {
   }, []);
 
   // ── Derivações base ────────────────────────────────────────────────────────
-  const ativos     = servicos.filter(s => s.status !== 'cancelado');
+  const ativos = servicos.filter(s => s.status !== 'cancelado');
   const cancelados = servicos.filter(s => s.status === 'cancelado');
   const servicosAtivos = servicos.filter(s => ['pendente', 'concluido', 'reprovado'].includes(s.status));
 
-  const totalAtivos     = ativos.length; // Usado para os cards da linha 1
+  const totalAtivos = ativos.length; // Usado para os cards da linha 1
   const totalConcluidos = ativos.filter(s => s.status === 'concluido').length;
-  const totalEnviados   = ativos.filter(s => s.status === 'enviado').length;
-  const totalPendentes  = ativos.filter(s => s.status === 'pendente').length;
-  const totalCadastrados= ativos.filter(s => s.status === 'cadastrado').length;
+  const totalEnviados = ativos.filter(s => s.status === 'enviado').length;
+  const totalPendentes = ativos.filter(s => s.status === 'pendente').length;
+  const totalCadastrados = ativos.filter(s => s.status === 'cadastrado').length;
   const totalReprovados = ativos.filter(s => s.status === 'reprovado').length;
-  
-  const progressoConcluidos = servicosAtivos.filter(s => s.status === 'concluido').length;
-  const pctGeral        = servicosAtivos.length > 0 ? Math.round((progressoConcluidos / servicosAtivos.length) * 100) : 0;
 
-  const totalPlacas    = ativos.filter(s => norm(s.desc).includes('PLACA')).length;
+  const progressoConcluidos = servicosAtivos.filter(s => s.status === 'concluido').length;
+  const pctGeral = servicosAtivos.length > 0 ? Math.round((progressoConcluidos / servicosAtivos.length) * 100) : 0;
+
+  const totalPlacas = ativos.filter(s => norm(s.desc).includes('PLACA')).length;
   const placasMontadas = ativos.filter(s => s.placaMontada).length;
-  const pctPlacas      = totalPlacas > 0 ? Math.round((placasMontadas / totalPlacas) * 100) : 0;
+  const pctPlacas = totalPlacas > 0 ? Math.round((placasMontadas / totalPlacas) * 100) : 0;
 
   // ── Dados por posto ────────────────────────────────────────────────────────
   const dadosPosto = Object.keys(POSTOS).map(posto => {
@@ -275,7 +275,7 @@ const PainelTab = () => {
 
   // ── Tendência temporal ─────────────────────────────────────────────────────
   const agora = new Date();
-  
+
   const chavesPeriodo = Array.from({ length: periodoTendencia }, (_, i) => {
     if (agrupamento === 'semana') {
       const d = new Date(agora);
@@ -320,9 +320,9 @@ const PainelTab = () => {
   });
 
   // Delta período atual vs anterior
-  const deltaCadastros  = cadastrosPorPeriodo[periodoTendencia-1] - (cadastrosPorPeriodo[periodoTendencia-2] || 0);
-  const deltaConclusoes = conclusoesPorPeriodo[periodoTendencia-1] - (conclusoesPorPeriodo[periodoTendencia-2] || 0);
-  const deltaPendentes  = pendentesPorPeriodo[periodoTendencia-1] - (pendentesPorPeriodo[periodoTendencia-2] || 0);
+  const deltaCadastros = cadastrosPorPeriodo[periodoTendencia - 1] - (cadastrosPorPeriodo[periodoTendencia - 2] || 0);
+  const deltaConclusoes = conclusoesPorPeriodo[periodoTendencia - 1] - (conclusoesPorPeriodo[periodoTendencia - 2] || 0);
+  const deltaPendentes = pendentesPorPeriodo[periodoTendencia - 1] - (pendentesPorPeriodo[periodoTendencia - 2] || 0);
 
   // ── Alertas — FIX 1: filtrar apenas pendentes e exibir nº do serviço ──────
   const DIAS_ALERTA = 14;
@@ -333,8 +333,8 @@ const PainelTab = () => {
     .map(s => {
       const hist = s.hist || [];
       const ultima = hist.length > 0 ? parseData(hist[hist.length - 1].when) : null;
-      const dtCad  = s.dtCadastro?.toDate ? s.dtCadastro.toDate() : parseData(s.dtCadastro);
-      const ref    = ultima || dtCad;
+      const dtCad = s.dtCadastro?.toDate ? s.dtCadastro.toDate() : parseData(s.dtCadastro);
+      const ref = ultima || dtCad;
       const diasSem = ref ? Math.floor((agora_ms - ref.getTime()) / 86400000) : null;
       return { ...s, diasSem };
     })
@@ -396,9 +396,9 @@ const PainelTab = () => {
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Enviados CEMIG</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#7c3aed', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{totalEnviados}</div>
           <div style={{ height: 6, borderRadius: 3, background: '#ede9fe', overflow: 'hidden', marginBottom: 6 }}>
-            <div style={{ height: '100%', borderRadius: 3, background: '#7c3aed', width: totalAtivos > 0 ? `${Math.round((totalEnviados/totalAtivos)*100)}%` : '0%', transition: 'width 0.5s' }} />
+            <div style={{ height: '100%', borderRadius: 3, background: '#7c3aed', width: totalAtivos > 0 ? `${Math.round((totalEnviados / totalAtivos) * 100)}%` : '0%', transition: 'width 0.5s' }} />
           </div>
-          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalEnviados/totalAtivos)*100) : 0}% do total ativo</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalEnviados / totalAtivos) * 100) : 0}% do total ativo</div>
         </div>
 
         {/* Pendentes */}
@@ -406,9 +406,9 @@ const PainelTab = () => {
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Pendentes</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#c2410c', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{totalPendentes}</div>
           <div style={{ height: 6, borderRadius: 3, background: '#fff7ed', overflow: 'hidden', marginBottom: 6 }}>
-            <div style={{ height: '100%', borderRadius: 3, background: '#c2410c', width: totalAtivos > 0 ? `${Math.round((totalPendentes/totalAtivos)*100)}%` : '0%', transition: 'width 0.5s' }} />
+            <div style={{ height: '100%', borderRadius: 3, background: '#c2410c', width: totalAtivos > 0 ? `${Math.round((totalPendentes / totalAtivos) * 100)}%` : '0%', transition: 'width 0.5s' }} />
           </div>
-          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalPendentes/totalAtivos)*100) : 0}% do total ativo</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalPendentes / totalAtivos) * 100) : 0}% do total ativo</div>
         </div>
 
         {/* Placas */}
@@ -429,9 +429,9 @@ const PainelTab = () => {
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Reprovados</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#dc2626', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{totalReprovados}</div>
           <div style={{ height: 6, borderRadius: 3, background: '#fff1f2', overflow: 'hidden', marginBottom: 6 }}>
-            <div style={{ height: '100%', borderRadius: 3, background: '#dc2626', width: totalAtivos > 0 ? `${Math.round((totalReprovados/totalAtivos)*100)}%` : '0%', transition: 'width 0.5s' }} />
+            <div style={{ height: '100%', borderRadius: 3, background: '#dc2626', width: totalAtivos > 0 ? `${Math.round((totalReprovados / totalAtivos) * 100)}%` : '0%', transition: 'width 0.5s' }} />
           </div>
-          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalReprovados/totalAtivos)*100) : 0}% do total ativo</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalReprovados / totalAtivos) * 100) : 0}% do total ativo</div>
         </div>
       </div>
 
@@ -470,7 +470,7 @@ const PainelTab = () => {
               const conc = conclusoesPorPeriodo[i];
               const pend = pendentesPorPeriodo[i];
               const maxVal = Math.max(...cadastrosPorPeriodo, ...conclusoesPorPeriodo, ...pendentesPorPeriodo, 1);
-              const hCad  = Math.max(2, Math.round((cad  / maxVal) * 100));
+              const hCad = Math.max(2, Math.round((cad / maxVal) * 100));
               const hConc = Math.max(2, Math.round((conc / maxVal) * 100));
               const hPend = Math.max(2, Math.round((pend / maxVal) * 100));
               const isLast = i === chavesPeriodo.length - 1;
@@ -555,9 +555,9 @@ const PainelTab = () => {
               >
                 {/* Ícone download/xlsx */}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
                 .xlsx
               </button>
@@ -574,7 +574,7 @@ const PainelTab = () => {
               const postoCfg = POSTO_CFG[postoDeLocalidade(s.local)] || POSTO_CFG['Não mapeado'];
               const urgente = (s.diasSem || 0) >= 30;
               // Número do serviço: campo id (ex: VD0016) + numOS/numServico (ex: 241115952)
-              const idServico  = s.id || '—';
+              const idServico = s.id || '—';
               const numOS = s.numServ || '';
               return (
                 <div key={s._docId} style={{
@@ -640,8 +640,8 @@ const PainelTab = () => {
           {dadosPosto.map(({ posto, total, concluidos, pct, placasTotal, placasMontadas, porStatus }) => {
             const cfg = POSTO_CFG[posto] || POSTO_CFG['Não mapeado'];
             const supervisor = posto.includes('—') ? posto.split('—')[1].trim() : '';
-            const postoNome  = posto.includes('—') ? posto.split('—')[0].trim() : posto;
-            const pctPlacaP  = placasTotal > 0 ? Math.round((placasMontadas / placasTotal) * 100) : null;
+            const postoNome = posto.includes('—') ? posto.split('—')[0].trim() : posto;
+            const pctPlacaP = placasTotal > 0 ? Math.round((placasMontadas / placasTotal) * 100) : null;
 
             return (
               <div key={posto} style={{
@@ -741,8 +741,8 @@ const PainelTab = () => {
                     </div>
                     {/* Barra dupla: volume (cinza) + conclusão (azul) */}
                     <div style={{ position: 'relative', height: 8, borderRadius: 4, background: '#f1f5f9', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 4, background: '#e2e8f0', width: `${Math.round((total/maxT)*100)}%` }} />
-                      <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 4, background: '#1d4ed8', width: `${pct * (total/maxT)}%`, transition: 'width 0.5s' }} />
+                      <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 4, background: '#e2e8f0', width: `${Math.round((total / maxT) * 100)}%` }} />
+                      <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 4, background: '#1d4ed8', width: `${pct * (total / maxT)}%`, transition: 'width 0.5s' }} />
                     </div>
                   </div>
                 );
@@ -770,7 +770,7 @@ const PainelTab = () => {
                 <div key={loc}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', minWidth: 14 }}>#{i+1}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', minWidth: 14 }}>#{i + 1}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>{loc}</span>
                       <span style={{
                         fontSize: 9, padding: '1px 6px', borderRadius: 20, fontWeight: 700,
@@ -864,8 +864,8 @@ const PainelTab = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { label: 'Total cadastrado', value: servicos.length, color: '#0f2544' },
-                { label: 'Ativos',           value: totalAtivos,     color: '#1d4ed8' },
-                { label: 'Cancelados',        value: cancelados.length, color: '#b91c1c' },
+                { label: 'Ativos', value: totalAtivos, color: '#1d4ed8' },
+                { label: 'Cancelados', value: cancelados.length, color: '#b91c1c' },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8, background: '#f8fafc', border: '1px solid #f1f5f9' }}>
                   <span style={{ fontSize: 12, color: '#64748b' }}>{label}</span>
