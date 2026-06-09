@@ -194,7 +194,7 @@ if (typeof document !== 'undefined' && !document.getElementById('__alertPulseSty
 const exportarAlertasXLSX = (alertas) => {
   const linhas = alertas.map(s => ({
     'ID': s.id || '—',
-    'Nº OS': s.numServ || s.numServico || s.numServ || '—',
+    'Nº OS': s.numServ || '—',
     'Status': 'Pendente',
     'Localidade': s.local || '—',
     'Posto': postoDeLocalidade(s.local),
