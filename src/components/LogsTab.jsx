@@ -6,12 +6,12 @@ const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u
 
 const TIPOS_EVENTO = {
   CADASTRADO: { id: 'cadastrado', label: 'Cadastrado', cor: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', keys: ['cadastrad'] },
-  ENVIADO:    { id: 'enviado',    label: 'Enviado',    cor: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', keys: ['enviado à cemig'] },
-  NUM_CEMIG:  { id: 'num_cemig',  label: 'Nº CEMIG',   cor: '#c2410c', bg: '#fff7ed', border: '#fed7aa', keys: ['número cemig', 'numero cemig'] },
-  CONCLUIDO:  { id: 'concluido',  label: 'Concluído',  cor: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', keys: ['concluíd', 'concluid'] },
-  REPROVADO:  { id: 'reprovado',  label: 'Reprovado',  cor: '#dc2626', bg: '#fff1f2', border: '#fecdd3', keys: ['reprovad'] },
-  CANCELADO:  { id: 'cancelado',  label: 'Cancelado',  cor: '#b91c1c', bg: '#fef2f2', border: '#fecaca', keys: ['cancelad'] },
-  OUTROS:     { id: 'outros',     label: 'Outros',     cor: '#475569', bg: '#f8fafc', border: '#e2e8f0', keys: [] }
+  ENVIADO: { id: 'enviado', label: 'Enviado', cor: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', keys: ['enviado à cemig'] },
+  NUM_CEMIG: { id: 'num_cemig', label: 'Nº CEMIG', cor: '#c2410c', bg: '#fff7ed', border: '#fed7aa', keys: ['número cemig', 'numero cemig'] },
+  CONCLUIDO: { id: 'concluido', label: 'Concluído', cor: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', keys: ['concluíd', 'concluid'] },
+  REPROVADO: { id: 'reprovado', label: 'Reprovado', cor: '#dc2626', bg: '#fff1f2', border: '#fecdd3', keys: ['reprovad'] },
+  CANCELADO: { id: 'cancelado', label: 'Cancelado', cor: '#b91c1c', bg: '#fef2f2', border: '#fecaca', keys: ['cancelad'] },
+  OUTROS: { id: 'outros', label: 'Outros', cor: '#475569', bg: '#f8fafc', border: '#e2e8f0', keys: [] }
 };
 
 const getTipoEvento = (msg) => {
@@ -77,10 +77,10 @@ const LogsTab = () => {
   };
 
   let filtered = logs;
-  if (filtros.dataInicio) filtered = filtered.filter(l => (l.when || '').slice(0,10) >= filtros.dataInicio);
-  if (filtros.dataFim)    filtered = filtered.filter(l => (l.when || '').slice(0,10) <= filtros.dataFim);
-  if (filtros.usuario)    filtered = filtered.filter(l => norm(l.who).includes(norm(filtros.usuario)));
-  if (filtros.servicoId)  filtered = filtered.filter(l => norm(l.servicoId).includes(norm(filtros.servicoId)));
+  if (filtros.dataInicio) filtered = filtered.filter(l => (l.when || '').slice(0, 10) >= filtros.dataInicio);
+  if (filtros.dataFim) filtered = filtered.filter(l => (l.when || '').slice(0, 10) <= filtros.dataFim);
+  if (filtros.usuario) filtered = filtered.filter(l => norm(l.who).includes(norm(filtros.usuario)));
+  if (filtros.servicoId) filtered = filtered.filter(l => norm(l.servicoId).includes(norm(filtros.servicoId)));
   if (filtros.tipos.length > 0) {
     filtered = filtered.filter(l => filtros.tipos.includes(getTipoEvento(l.msg).id));
   }
@@ -91,7 +91,7 @@ const LogsTab = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      
+
       {/* ── Header & Filtros ── */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -175,7 +175,7 @@ const LogsTab = () => {
                   {/* Conteúdo */}
                   <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-5px', top: '19px', width: '8px', height: '8px', background: '#f8fafc', borderLeft: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', transform: 'rotate(45deg)' }} />
-                    
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                         <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544' }}>{l.who}</span>
