@@ -1,7 +1,6 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import DetalheModal from './DetalheModal';
 
 const STATUS_CONFIG = {
@@ -831,10 +830,15 @@ const ServicosTable = () => {
   }, [concluirMenu]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-      setServices(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-    });
-    return () => unsub();
+    const carregar = async () => {
+      const { data } = await supabase.from('servicos').select('*');
+      if (data) setServices(data.map(d => ({ ...d, _docId: d.id })));
+    };
+    carregar();
+    const channel = supabase.channel('servicos_table')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
@@ -922,10 +926,10 @@ const ServicosTable = () => {
   const atualizarStatus = async (docId, novoStatus, mensagem, extra = {}) => {
     try {
       const atual = services.find(s => s._docId === docId);
-      await updateDoc(doc(db, 'servicos', docId), {
+      await supabase.from('servicos').update({
         status: novoStatus, ...extra,
         hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: mensagem }]
-      });
+      }).eq('id', docId);
     } catch { alert('Erro ao atualizar.'); }
   };
 
@@ -939,10 +943,10 @@ const ServicosTable = () => {
 
   const confirmarNumServ = async (num) => {
     const s = numServPending;
-    await updateDoc(doc(db, 'servicos', s._docId), {
+    await supabase.from('servicos').update({
       numServ: num,
       hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Nº CEMIG registrado: ${num}` }]
-    });
+    }).eq('id', s._docId);
     setNumServPending(null);
   };
 
@@ -968,10 +972,10 @@ const ServicosTable = () => {
   const confirmarLocalidade = async (novaLocal) => {
     const s = alterarLocalPending;
     try {
-      await updateDoc(doc(db, 'servicos', s._docId), {
+      await supabase.from('servicos').update({
         local: novaLocal,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Localidade alterada de "${s.local}" para "${novaLocal}"` }]
-      });
+      }).eq('id', s._docId);
     } catch { alert('Erro ao atualizar localidade.'); }
     setAlterarLocalPending(null);
   };

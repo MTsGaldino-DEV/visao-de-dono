@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { LocalidadeSelect } from './ServicosTable';
 
 const STATUS_CONFIG = {
@@ -97,14 +96,14 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const salvar = async () => {
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'servicos', service._docId), {
+      await supabase.from('servicos').update({
         ...formData,
         hist: [...(service.hist || []), {
           who: user.label, matricula: user.matricula,
           when: new Date().toISOString(),
           msg: 'Dados do serviço atualizados.',
         }],
-      });
+      }).eq('id', service._docId);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch { alert('Erro ao salvar alterações.'); }
@@ -183,7 +182,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                         }
                         setSavingLocal(true);
                         try {
-                          await updateDoc(doc(db, 'servicos', service._docId), {
+                          await supabase.from('servicos').update({
                             local: novaLocal,
                             hist: [...(service.hist || []), {
                               who: user.label,
@@ -191,7 +190,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                               when: new Date().toISOString(),
                               msg: `Localidade alterada de "${formData.local || '—'}" para "${novaLocal}"`,
                             }],
-                          });
+                          }).eq('id', service._docId);
                           setFormData(prev => ({ ...prev, local: novaLocal }));
                         } catch { alert('Erro ao salvar localidade.'); }
                         finally { setSavingLocal(false); setEditandoLocal(false); }

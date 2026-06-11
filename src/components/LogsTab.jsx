@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -41,26 +40,32 @@ const LogsTab = () => {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-      const allLogs = [];
-      snap.docs.forEach(doc => {
-        const s = doc.data();
-        if (s.hist && Array.isArray(s.hist)) {
-          s.hist.forEach(h => {
-            allLogs.push({
-              _docId: doc.id,
-              servicoId: s.id,
-              numServ: s.numServ,
-              local: s.local,
-              ...h,
+    const carregar = async () => {
+      const { data } = await supabase.from('servicos').select('*');
+      if (data) {
+        const allLogs = [];
+        data.forEach(s => {
+          if (s.hist && Array.isArray(s.hist)) {
+            s.hist.forEach(h => {
+              allLogs.push({
+                _docId: s.id,
+                servicoId: s.id,
+                numServ: s.numServ,
+                local: s.local,
+                ...h,
+              });
             });
-          });
-        }
-      });
-      allLogs.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
-      setLogs(allLogs);
-    });
-    return () => unsub();
+          }
+        });
+        allLogs.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+        setLogs(allLogs);
+      }
+    };
+    carregar();
+    const channel = supabase.channel('servicos_logs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleChangeFiltro = (campo, valor) => {

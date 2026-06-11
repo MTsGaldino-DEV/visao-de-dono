@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { db } from '../firebase/firebase';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 const CONECTOR_URL = 'http://localhost:3333';
 
@@ -77,10 +76,15 @@ const GerarServicosTab = () => {
 
     // ── Carrega serviços cadastrados ──────────────────────────────────────────
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'servicos'), snap => {
-            setServicos(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-        });
-        return () => unsub();
+        const carregar = async () => {
+            const { data } = await supabase.from('servicos').select('*');
+            if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
+        };
+        carregar();
+        const channel = supabase.channel('servicos_gerar')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+            .subscribe();
+        return () => supabase.removeChannel(channel);
     }, []);
 
     // ── Verifica se conector está rodando ─────────────────────────────────────
@@ -122,14 +126,16 @@ const GerarServicosTab = () => {
                 const docId = ev.docId || selecionados[ev.index];
                 setStatusLinhas(prev => ({ ...prev, [docId]: { tipo: 'sucesso', msg: ev.msg, numGerado: ev.numGerado } }));
                 addLog('sucesso', `[${ev.id}] Criado com sucesso${ev.numGerado ? ` — NS Nº ${ev.numGerado}` : ' (nº não capturado)'}`, ev.id);
-                // Salva numServ e status no Firebase
+                // Salva numServ e status no Supabase
                 if (docId && ev.numGerado) {
-                    updateDoc(doc(db, 'servicos', docId), {
+                    supabase.from('servicos').update({
                         numServ: ev.numGerado,
                         status: 'gerado',
-                    }).catch(err => {
-                        addLog('aviso', `Firebase: erro ao salvar numServ — ${err.message}`);
-                        console.warn('Erro ao salvar numServ no Firebase:', err);
+                    }).eq('id', docId).then(({ error }) => {
+                        if (error) {
+                            addLog('aviso', `Supabase: erro ao salvar numServ — ${error.message}`);
+                            console.warn('Erro ao salvar numServ no Supabase:', error);
+                        }
                     });
                 } else if (docId && !ev.numGerado) {
                     addLog('aviso', `[${ev.id}] Serviço criado mas número não foi capturado. Verifique manualmente.`);

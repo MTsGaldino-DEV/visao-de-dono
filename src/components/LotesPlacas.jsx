@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import {
-  collection, onSnapshot, doc, updateDoc, addDoc, getDoc, setDoc,
-  query, orderBy, getDocs, limit
-} from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const norm = (s) =>
@@ -213,10 +209,10 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
     try {
       let novoId = lote?.id;
       if (!isEdit) {
-        const snap = await getDocs(query(collection(db, 'lotes'), orderBy('id', 'desc'), limit(1)));
+        const { data: lastLotes } = await supabase.from('lotes').select('id').order('id', { ascending: false }).limit(1);
         let next = 1;
-        if (!snap.empty) {
-          const last = snap.docs[0].data().id;
+        if (lastLotes && lastLotes.length > 0) {
+          const last = lastLotes[0].id;
           if (last && last.startsWith('LT')) {
             next = parseInt(last.replace('LT', ''), 10) + 1;
           }
@@ -248,10 +244,10 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
       let docRefId;
       if (isEdit) {
         docRefId = lote._docId;
-        await updateDoc(doc(db, 'lotes', docRefId), payload);
+        await supabase.from('lotes').update(payload).eq('id', docRefId);
       } else {
-        const docRef = await addDoc(collection(db, 'lotes'), payload);
-        docRefId = docRef.id;
+        const { data: newRow } = await supabase.from('lotes').insert([payload]).select().single();
+        if (newRow) docRefId = newRow.id;
       }
 
       // Atualizar servicos (loteId)
@@ -262,17 +258,17 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
       await Promise.all([
         ...removidas.map(docId => {
           const s = servicos.find(x => x._docId === docId);
-          return updateDoc(doc(db, 'servicos', docId), {
+          return supabase.from('servicos').update({
             loteId: null, // limpa a referência
             hist: [...(s?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Removido do lote ${novoId}.` }]
-          });
+          }).eq('id', docId);
         }),
         ...adicionadas.map(docId => {
           const s = servicos.find(x => x._docId === docId);
-          return updateDoc(doc(db, 'servicos', docId), {
+          return supabase.from('servicos').update({
             loteId: novoId,
             hist: [...(s?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Adicionado ao lote ${novoId}.` }]
-          });
+          }).eq('id', docId);
         })
       ]);
 
@@ -305,18 +301,18 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
           msg: `Status do lote alterado para "${LOTE_STATUS[novoStatus].label}".`,
         },
       ];
-      await updateDoc(doc(db, 'lotes', lote._docId), {
+      await supabase.from('lotes').update({
         status: novoStatus,
         atualizadoEm: new Date().toISOString(),
         hist,
         ...(novoStatus === 'enviado' ? { enviadoEm: new Date().toISOString() } : {}),
         ...(novoStatus === 'entregue' ? { entregueEm: new Date().toISOString() } : {}),
-      });
+      }).eq('id', lote._docId);
       // Envio ao supervisor marca lote + cada serviço
       if (novoStatus === 'enviado') {
         await Promise.all(
           (lote.placas || []).map((docId) =>
-            updateDoc(doc(db, 'servicos', docId), {
+            supabase.from('servicos').update({
               enviadoSupervisor: true,
               hist: [
                 ...(servicos.find((s) => s._docId === docId)?.hist || []),
@@ -327,7 +323,7 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
                   msg: `Placa marcada como enviada ao supervisor via lote ${lote.id}.`,
                 },
               ],
-            })
+            }).eq('id', docId)
           )
         );
       }
@@ -822,11 +818,15 @@ const LotesPlacas = ({ servicos }) => {
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      query(collection(db, 'lotes'), orderBy('criadoEm', 'desc')),
-      (snap) => setLotes(snap.docs.map((d) => ({ ...d.data(), _docId: d.id })))
-    );
-    return () => unsub();
+    const carregar = async () => {
+      const { data } = await supabase.from('lotes').select('*').order('criadoEm', { ascending: false });
+      if (data) setLotes(data.map((d) => ({ ...d, _docId: d.id })));
+    };
+    carregar();
+    const channel = supabase.channel('lotes_placas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lotes' }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const abrirNovoLote = () => {

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -320,12 +319,17 @@ const FaturamentoTab = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    // Carregar serviços do Firestore
+    // Carregar serviços do Supabase
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-            setServicos(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-        });
-        return () => unsub();
+        const carregar = async () => {
+            const { data } = await supabase.from('servicos').select('*');
+            if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
+        };
+        carregar();
+        const channel = supabase.channel('servicos_faturamento')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+            .subscribe();
+        return () => supabase.removeChannel(channel);
     }, []);
 
     // Carregar faturamento salvo
@@ -333,8 +337,8 @@ const FaturamentoTab = () => {
         const load = async () => {
             setCarregandoDados(true);
             try {
-                const snap = await getDoc(doc(db, 'config', 'faturamento'));
-                if (snap.exists()) setFaturamento(snap.data());
+                const { data } = await supabase.from('config').select('*').eq('id', 'faturamento').single();
+                if (data) setFaturamento(data);
             } catch { }
             setCarregandoDados(false);
         };
@@ -485,7 +489,7 @@ const FaturamentoTab = () => {
                 naoEncontrados: pendingNaoEncontrados,
             };
 
-            await setDoc(doc(db, 'config', 'faturamento'), payload);
+            await supabase.from('config').upsert({ id: 'faturamento', ...payload });
             setFaturamento(payload);
             setConfirmStats(null);
             setPendingRows([]);

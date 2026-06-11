@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import { collection, onSnapshot, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import LotesPlacas from './LotesPlacas';
 
@@ -298,17 +297,22 @@ const PlacasTab = () => {
   const [pagePendentes, setPagePendentes] = useState(1);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-      setServicos(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-    });
-    return () => unsub();
+    const carregar = async () => {
+      const { data } = await supabase.from('servicos').select('*');
+      if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
+    };
+    carregar();
+    const channel = supabase.channel('servicos_placas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const snap = await getDoc(doc(db, 'config', 'estoque'));
-        if (snap.exists()) setEstoque(snap.data().digitos || Array(10).fill(0));
+        const { data } = await supabase.from('config').select('*').eq('id', 'estoque').single();
+        if (data) setEstoque(data.digitos || Array(10).fill(0));
       } catch {}
     };
     load();
@@ -320,7 +324,7 @@ const PlacasTab = () => {
   const salvarEstoque = async () => {
     setSavingEstoque(true);
     try {
-      await setDoc(doc(db, 'config', 'estoque'), { digitos: estoqueTemp });
+      await supabase.from('config').upsert({ id: 'estoque', digitos: estoqueTemp });
       setEstoque(estoqueTemp);
       setEditandoEstoque(false);
     } catch { alert('Erro ao salvar estoque.'); }
@@ -382,11 +386,11 @@ const PlacasTab = () => {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
       for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]); }
-      await updateDoc(doc(db, 'servicos', s._docId), {
+      await supabase.from('servicos').update({
         placaMontada: true, enviadoSupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
-      });
-      await setDoc(doc(db, 'config', 'estoque'), { digitos: novoEstoque });
+      }).eq('id', s._docId);
+      await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
       setEstoque(novoEstoque);
     } catch { alert('Erro ao marcar placa como montada.'); }
   };

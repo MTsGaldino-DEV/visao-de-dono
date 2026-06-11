@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase/firebase';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 // ── Localidades por posto ────────────────────────────────────────────────────
 const POSTOS = {
@@ -357,9 +356,8 @@ const CadastroForm = () => {
     if (!placa?.trim()) { setEquipServicos([]); return; }
     setLoadingEquip(true);
     try {
-      const snap = await getDocs(collection(db, 'servicos'));
-      const encontrados = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+      const { data } = await supabase.from('servicos').select('*');
+      const encontrados = (data || [])
         .filter(s =>
           s.equip?.trim().toLowerCase() === placa.trim().toLowerCase() &&
           s.status !== 'cancelado'
@@ -411,16 +409,16 @@ const CadastroForm = () => {
     }
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, 'servicos'));
-      const novoId = `VD${String(snapshot.size + 1).padStart(4, '0')}`;
-      await addDoc(collection(db, 'servicos'), {
+      const { count } = await supabase.from('servicos').select('id', { count: 'exact', head: true });
+      const novoId = `VD${String((count || 0) + 1).padStart(4, '0')}`;
+      await supabase.from('servicos').insert({
         ...formData,
         id: novoId,
         status: 'cadastrado',
         numServ: '',
         autor: user.label,
         matriculaAutor: user.matricula,
-        dtCadastro: serverTimestamp(),
+        dtCadastro: new Date().toISOString(),
         hist: [{ who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Serviço cadastrado.' }]
       });
       setFormData({ data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: '' });

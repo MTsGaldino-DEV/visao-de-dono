@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { db } from '../firebase/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
 // ── Animação pulse (bolinha alerta) ──────────────────────────────────────────
@@ -220,10 +219,15 @@ const PainelTab = () => {
   }, [agrupamento]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'servicos'), (snap) => {
-      setServicos(snap.docs.map(d => ({ ...d.data(), _docId: d.id })));
-    });
-    return () => unsub();
+    const carregar = async () => {
+      const { data } = await supabase.from('servicos').select('*');
+      if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
+    };
+    carregar();
+    const channel = supabase.channel('servicos_painel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   // ── Derivações base ────────────────────────────────────────────────────────
