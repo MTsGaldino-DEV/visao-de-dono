@@ -8,7 +8,6 @@ import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
 import UsuariosTab from '../components/UsuariosTab';
-import DespacharTab from '../components/DespacharTab';
 import EspacadoresTab from '../components/EspacadoresTab';
 
 const Home = () => {
@@ -16,25 +15,24 @@ const Home = () => {
   const isDono = user?.role === 'dono';
 
   const [activeTab, setActiveTab] = useState('');
-  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('placas');
+  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('servicos');
   const [activeSubTabAdmin, setActiveSubTabAdmin] = useState('painel');
 
   useEffect(() => {
     if (user && !activeTab) {
-      setActiveTab(user.role === 'dono' ? 'cadastrar' : 'servicos');
+      setActiveTab(user.role === 'dono' ? 'cadastrar' : 'despacho');
     }
   }, [user, activeTab]);
 
   const tabs = [
     ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
-    { key: 'servicos', label: 'Serviços' },
     { key: 'despacho', label: 'Despacho' },
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     ...(isDono ? [{ key: 'admin', label: 'Admin' }] : []),
   ];
 
   const despachoTabs = [
-    { key: 'despachar', label: 'Despachar' },
+    { key: 'servicos', label: 'Serviços' },
     { key: 'placas', label: 'Placas' },
     { key: 'espacadores', label: 'Espaçadores' },
   ];
@@ -242,12 +240,8 @@ const Home = () => {
           <CadastroForm />
         </div>
 
-        <div style={{ display: activeTab === 'servicos' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'servicos' ? 'block' : 'none' }}>
           <ServicosTable />
-        </div>
-
-        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'despachar' ? 'block' : 'none' }}>
-          <DespacharTab />
         </div>
 
         <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'placas' ? 'block' : 'none' }}>
