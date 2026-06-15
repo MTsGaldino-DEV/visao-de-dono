@@ -7,6 +7,7 @@ const UsuariosTab = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mensagem, setMensagem] = useState('');
+  const [erroForm, setErroForm] = useState('');
   
   // Form state
   const [nome, setNome] = useState('');
@@ -23,6 +24,10 @@ const UsuariosTab = () => {
   // Inline reset password state
   const [resetUid, setResetUid] = useState(null);
   const [novaSenha, setNovaSenha] = useState('');
+
+  // Inline edit role state
+  const [editRoleUid, setEditRoleUid] = useState(null);
+  const [novaRole, setNovaRole] = useState('tecnico');
 
   useEffect(() => {
     fetchUsuarios();
@@ -45,22 +50,30 @@ const UsuariosTab = () => {
   }, []);
 
   const fetchUsuarios = async () => {
-    const { data } = await supabase.from('usuarios').select('*').order('nome');
+    const { data, error } = await supabase.from('usuarios').select('*').order('nome');
+    if (error) console.error('Erro ao buscar usuarios:', error);
     if (data) setUsuarios(data);
   };
 
   const handleCadastrar = async (e) => {
     e.preventDefault();
+    if (!nome.trim() || !matricula.trim() || !equipe.trim()) {
+      setErroForm('Todos os campos são obrigatórios.');
+      return;
+    }
     if (senha.length < 6) {
-      alert("A senha deve ter no mínimo 6 caracteres.");
+      setErroForm('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
     setLoading(true);
     setMensagem('');
+    setErroForm('');
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-        body: { acao: 'criar', nome, matricula, senha, role, equipe }
+        body: { acao: 'criar', dados: { nome, matricula, senha, role, equipe } },
+        headers: { Authorization: `Bearer ${session?.access_token}` }
       });
       
       if (error) throw new Error(error.message);
@@ -75,7 +88,7 @@ const UsuariosTab = () => {
       
       setTimeout(() => setMensagem(''), 3000);
     } catch (err) {
-      alert("Erro ao cadastrar usuário: " + err.message);
+      setErroForm("Erro ao cadastrar usuário: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -92,8 +105,10 @@ const UsuariosTab = () => {
       return;
     }
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-        body: { acao: 'trocar_senha', uid, novaSenha }
+        body: { acao: 'trocar_senha', dados: { uid, novaSenha } },
+        headers: { Authorization: `Bearer ${session?.access_token}` }
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -106,11 +121,24 @@ const UsuariosTab = () => {
     }
   };
 
+  const handleAlterarRole = async (uid) => {
+    try {
+      const { error } = await supabase.from('usuarios').update({ role: novaRole }).eq('uid', uid);
+      if (error) throw error;
+      alert("Role alterada com sucesso!");
+      setEditRoleUid(null);
+    } catch (err) {
+      alert("Erro ao alterar role: " + err.message);
+    }
+  };
+
   const handleExcluir = async (uid, nomeUsuario) => {
-    if (window.confirm(`Tem certeza que deseja excluir o usuário ${nomeUsuario}?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir o usuário ${nomeUsuario}? Esta ação não pode ser desfeita.`)) {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-          body: { acao: 'deletar', uid }
+          body: { acao: 'deletar', dados: { uid } },
+          headers: { Authorization: `Bearer ${session?.access_token}` }
         });
         if (error) throw new Error(error.message);
         if (data?.error) throw new Error(data.error);
@@ -175,6 +203,12 @@ const UsuariosTab = () => {
               {loading ? 'Cadastrando...' : 'Cadastrar'}
             </button>
             
+            {erroForm && (
+              <div style={{ padding: '10px', background: '#fef2f2', color: '#991b1b', borderRadius: '6px', fontSize: '13px', textAlign: 'center', fontWeight: '500', border: '1px solid #fecaca' }}>
+                {erroForm}
+              </div>
+            )}
+            
             {mensagem && (
               <div style={{ padding: '10px', background: '#dcfce7', color: '#166534', borderRadius: '6px', fontSize: '13px', textAlign: 'center', fontWeight: '500' }}>
                 {mensagem}
@@ -219,13 +253,27 @@ const UsuariosTab = () => {
                       <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '2px' }}>{u.matricula}</div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ 
-                        display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600',
-                        ...(u.role === 'tecnico' ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : { background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' })
-                      }}>
-                        {u.role === 'tecnico' ? 'Técnico' : 'Despachante'}
-                      </div>
-                      <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{u.equipe || '-'}</div>
+                      {editRoleUid === u.uid ? (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <select value={novaRole} onChange={e => setNovaRole(e.target.value)} style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', backgroundColor: '#fff' }}>
+                            <option value="tecnico">Técnico</option>
+                            <option value="despachante">Despachante</option>
+                            <option value="dono">Dono</option>
+                          </select>
+                          <button onClick={() => handleAlterarRole(u.uid)} style={{ padding: '4px 8px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Salvar</button>
+                          <button onClick={() => setEditRoleUid(null)} style={{ padding: '4px 8px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Cancelar</button>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ 
+                            display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600',
+                            ...(u.role === 'tecnico' ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : u.role === 'despachante' ? { background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' } : { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' })
+                          }}>
+                            {u.role === 'tecnico' ? 'Técnico' : u.role === 'despachante' ? 'Despachante' : 'Dono'}
+                          </div>
+                          <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{u.equipe || '-'}</div>
+                        </>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ 
@@ -247,12 +295,21 @@ const UsuariosTab = () => {
                           <button onClick={() => handleToggleStatus(u.uid, u.ativo)} style={{ padding: '4px 8px', background: 'transparent', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
                             {u.ativo ? 'Desativar' : 'Ativar'}
                           </button>
-                          <button onClick={() => setResetUid(u.uid)} style={{ padding: '4px 8px', background: 'transparent', color: '#3b82f6', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                            Senha
-                          </button>
-                          <button onClick={() => handleExcluir(u.uid, u.nome)} style={{ padding: '4px 8px', background: 'transparent', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                            Excluir
-                          </button>
+                          {u.role === 'dono' ? (
+                            <span title="Não é possível alterar o dono" style={{ color: '#cbd5e1', fontSize: '11px', fontStyle: 'italic', display: 'flex', alignItems: 'center', margin: '0 8px' }}>Dono</span>
+                          ) : (
+                            <>
+                              <button onClick={() => { setEditRoleUid(u.uid); setNovaRole(u.role); }} style={{ padding: '4px 8px', background: 'transparent', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                Role
+                              </button>
+                              <button onClick={() => setResetUid(u.uid)} style={{ padding: '4px 8px', background: 'transparent', color: '#3b82f6', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                Senha
+                              </button>
+                              <button onClick={() => handleExcluir(u.uid, u.nome)} style={{ padding: '4px 8px', background: 'transparent', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                Excluir
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </td>

@@ -39,10 +39,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     
-    const { acao, ...payload } = await req.json();
+    const { acao, dados } = await req.json();
     
     if (acao === 'criar') {
-      const { nome, matricula, senha, role, equipe } = payload;
+      const { nome, matricula, senha, role, equipe } = dados;
       const email = `${matricula}@visaodedono.com`;
       
       const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
@@ -73,14 +73,14 @@ serve(async (req) => {
     }
     
     if (acao === 'trocar_senha') {
-      const { uid, novaSenha } = payload;
+      const { uid, novaSenha } = dados;
       const { error } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: novaSenha });
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     
     if (acao === 'deletar') {
-      const { uid } = payload;
+      const { uid } = dados;
       const { error: dbError } = await supabaseAdmin.from('usuarios').delete().eq('uid', uid);
       if (dbError) throw dbError;
       const { error } = await supabaseAdmin.auth.admin.deleteUser(uid);

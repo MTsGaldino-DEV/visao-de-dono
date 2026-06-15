@@ -16,7 +16,7 @@ const Home = () => {
   const isDono = user?.role === 'dono';
 
   const [activeTab, setActiveTab] = useState('');
-  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('despachar');
+  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('placas');
   const [activeSubTabAdmin, setActiveSubTabAdmin] = useState('painel');
 
   useEffect(() => {
@@ -42,8 +42,8 @@ const Home = () => {
   const adminTabs = [
     { key: 'painel', label: 'Painel' },
     { key: 'gerar-os', label: 'Gerar OS' },
-    { key: 'logs', label: 'Logs' },
     { key: 'usuarios', label: 'Usuários' },
+    { key: 'logs', label: 'Logs' },
   ];
 
   if (loading) {

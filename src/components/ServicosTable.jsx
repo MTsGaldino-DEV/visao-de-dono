@@ -805,6 +805,12 @@ const ServicosTable = () => {
 
   const [enviadoSupFilter, setEnviadoSupFilter]         = useState('todos');
 
+  // ── [NOVO] Despacho ──
+  const [selecionados, setSelecionados]                 = useState(new Set());
+  const [tecnicos, setTecnicos]                         = useState([]);
+  const [despacharOpen, setDespacharOpen]               = useState(false);
+  const [despacharLoading, setDespacharLoading]         = useState(false);
+
   const [confirmPending, setConfirmPending]             = useState(null);
   const [numServPending, setNumServPending]             = useState(null);
   const [statusDonoPending, setStatusDonoPending]       = useState(null);
@@ -842,6 +848,16 @@ const ServicosTable = () => {
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, []);
+
+  useEffect(() => {
+    const fetchTecnicos = async () => {
+      if (isDono || user?.role === 'despachante') {
+        const { data } = await supabase.from('usuarios').select('*').eq('role', 'tecnico').eq('ativo', true);
+        if (data) setTecnicos(data.sort((a, b) => a.nome.localeCompare(b.nome)));
+      }
+    };
+    fetchTecnicos();
+  }, [isDono, user]);
 
   useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
 
@@ -1015,6 +1031,51 @@ const ServicosTable = () => {
 
   // Há serviços com placa montada no conjunto filtrado? (para exibir filtro de supervisor)
   const temPlacaMontadaFiltrada = filteredServices.some(s => s.placaMontada === true);
+
+  const toggleSelection = (id) => {
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selecionados.size === pageServices.length && pageServices.length > 0) {
+      setSelecionados(new Set());
+    } else {
+      setSelecionados(new Set(pageServices.map(s => s._docId)));
+    }
+  };
+
+  const despacharSelecionados = async (tecnico) => {
+    if (selecionados.size === 0) return;
+    setDespacharLoading(true);
+    try {
+      const ids = Array.from(selecionados);
+      const updates = ids.map(id => {
+        const atual = services.find(s => s._docId === id);
+        return supabase.from('servicos').update({
+          atribuido_para: {
+            uid: tecnico.id,
+            nome: tecnico.nome,
+            matricula: tecnico.matricula,
+            equipe: tecnico.equipe
+          },
+          dtAtribuicao: new Date().toISOString(),
+          hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Atribuído para o técnico ${tecnico.nome}` }]
+        }).eq('id', id);
+      });
+      await Promise.all(updates);
+      setSelecionados(new Set());
+      setDespacharOpen(false);
+    } catch {
+      alert('Erro ao despachar.');
+    } finally {
+      setDespacharLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -1205,6 +1266,7 @@ const ServicosTable = () => {
             <col style={{ width: '40px' }} />
             <col style={{ width: '40px' }} />
             <col style={{ width: '40px' }} />
+            <col style={{ width: '40px' }} />
             <col style={{ width: '45px' }} />
             <col style={{ width: '80px' }} />
             <col style={{ width: '130px' }} />
@@ -1219,6 +1281,14 @@ const ServicosTable = () => {
           </colgroup>
           <thead>
             <tr>
+              <th style={{ ...thBase, textAlign: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={selecionados.size > 0 && selecionados.size === pageServices.length}
+                  onChange={toggleAll}
+                  style={{ cursor: 'pointer' }}
+                />
+              </th>
               <th style={thBase} />
               <th style={thBase} />
               <th style={thBase} />
@@ -1268,6 +1338,16 @@ const ServicosTable = () => {
                   onMouseLeave={e => { e.currentTarget.style.background = globalIdx % 2 === 0 ? '#fff' : '#fafbfc'; }}
                   onClick={() => { if (concluirDropdownId) setConcluirDropdownId(null); }}
                 >
+                  {/* Seleção */}
+                  <td style={{ ...td, textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selecionados.has(s._docId)}
+                      onChange={(e) => { e.stopPropagation(); toggleSelection(s._docId); }}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </td>
+
                   {/* Ver detalhes */}
                   <td style={td}>
                     <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
@@ -1360,11 +1440,13 @@ const ServicosTable = () => {
                   <td style={td}>
                     {s.atribuido_para ? (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ color: '#1d4ed8', fontWeight: '600', fontSize: '11px' }}>{s.atribuido_para.nome}</span>
+                        <span style={{ color: '#1d4ed8', fontWeight: '600', fontSize: '11px' }}>
+                          {s.atribuido_para.nome} — {s.atribuido_para.matricula}
+                        </span>
                         {s.atribuido_para.equipe && <span style={{ color: '#94a3b8', fontSize: '10px' }}>{s.atribuido_para.equipe}</span>}
                       </div>
                     ) : (
-                      <span style={{ color: '#cbd5e1', fontSize: '11px', fontStyle: 'italic' }}>Não atribuído</span>
+                      <span style={{ color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>Não atribuído</span>
                     )}
                   </td>
 
@@ -1526,6 +1608,74 @@ const ServicosTable = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Barra Flutuante de Despacho */}
+      {selecionados.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 400,
+          background: '#0f2544', color: '#fff', padding: '12px 24px', borderRadius: '12px',
+          boxShadow: '0 20px 40px rgba(15,37,68,0.3)', display: 'flex', alignItems: 'center', gap: '20px',
+          animation: 'popIn 0.2s ease', border: '1px solid #1e3a8a'
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: '600' }}>
+            {selecionados.size} serviço(s) selecionado(s)
+          </div>
+          
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setDespacharOpen(!despacharOpen)}
+              disabled={despacharLoading}
+              style={{
+                background: '#1d4ed8', border: 'none', padding: '8px 16px', borderRadius: '8px',
+                color: '#fff', fontWeight: '600', fontSize: '13px', cursor: despacharLoading ? 'wait' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit',
+                opacity: despacharLoading ? 0.7 : 1
+              }}
+            >
+              {despacharLoading ? (
+                <span>Aguarde...</span>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                  Despachar
+                </>
+              )}
+            </button>
+
+            {despacharOpen && !despacharLoading && (
+              <div style={{
+                position: 'absolute', bottom: '100%', right: 0, marginBottom: '8px',
+                background: '#fff', borderRadius: '12px', padding: '8px', minWidth: '240px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0',
+                color: '#334155', maxHeight: '300px', overflowY: 'auto'
+              }}>
+                <div style={{ padding: '8px', fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Selecionar Técnico
+                </div>
+                {tecnicos.length === 0 ? (
+                  <div style={{ padding: '8px', fontSize: '13px', color: '#64748b' }}>Nenhum técnico disponível</div>
+                ) : (
+                  tecnicos.map(t => (
+                    <button key={t.id} onClick={() => despacharSelecionados(t)} style={{
+                      width: '100%', padding: '10px 12px', border: 'none', background: 'transparent',
+                      textAlign: 'left', cursor: 'pointer', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '2px', fontFamily: 'inherit'
+                    }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>
+                        {t.nome} — {t.matricula}
+                      </div>
+                      {t.equipe && (
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{t.equipe}</div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

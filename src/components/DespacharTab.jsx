@@ -162,13 +162,15 @@ const DespacharTab = () => {
 
   const fetchServicos = async () => {
     setLoading(true);
-    const { data } = await supabase.from('servicos').select('*').order('dataCriacao', { ascending: false });
+    const { data, error } = await supabase.from('servicos').select('*').order('data', { ascending: false });
+    if (error) console.error('Erro ao buscar servicos:', error);
     if (data) setServicos(data);
     setLoading(false);
   };
 
   const fetchTecnicos = async () => {
-    const { data } = await supabase.from('usuarios').select('*').eq('role', 'tecnico').eq('ativo', true);
+    const { data, error } = await supabase.from('usuarios').select('*').eq('role', 'tecnico').eq('ativo', true);
+    if (error) console.error('Erro ao buscar tecnicos:', error);
     if (data) setTecnicos(data);
   };
 
@@ -203,11 +205,11 @@ const DespacharTab = () => {
     if (filtroTipo.length > 0 && !filtroTipo.includes(s.tipoServ)) return false;
     
     if (dataDe) {
-      const sDate = s.dataCriacao ? s.dataCriacao.substring(0, 10) : '';
+      const sDate = s.data ? s.data.substring(0, 10) : '';
       if (sDate < dataDe) return false;
     }
     if (dataAte) {
-      const sDate = s.dataCriacao ? s.dataCriacao.substring(0, 10) : '';
+      const sDate = s.data ? s.data.substring(0, 10) : '';
       if (sDate > dataAte) return false;
     }
     
@@ -379,7 +381,7 @@ const DespacharTab = () => {
               ) : (
                 currentData.map((s, i) => {
                   const scfg = STATUS_CONFIG[s.status] || { label: s.status, bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
-                  const dataFormatada = s.dataCriacao ? new Date(s.dataCriacao).toLocaleDateString('pt-BR') : '—';
+                  const dataFormatada = s.data ? new Date(s.data).toLocaleDateString('pt-BR') : '—';
                   const isSelected = selectedIds.includes(s.id);
                   
                   return (
