@@ -14,12 +14,12 @@ export const AuthProvider = ({ children }) => {
         .select('*')
         .eq('uid', userId)
         .single();
-        
+
       if (error) {
         console.error('Erro ao buscar perfil:', error);
         return null;
       }
-      
+
       return {
         uid: data.uid,
         matricula: data.matricula,
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (matricula, senha) => {
     const matriculaLimpa = matricula.trim();
-    const email = `${matriculaLimpa}@visaodono.app`;
+    const email = `${matriculaLimpa}@visaodedono.com`;
 
     console.log('🔑 Tentando login com email:', email);
 

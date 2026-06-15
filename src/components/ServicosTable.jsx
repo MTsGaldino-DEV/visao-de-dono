@@ -665,7 +665,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
 
 // ── Exportar CSV ──────────────────────────────────────────────────────────────
 const exportarExcel = (dados) => {
-  const colunas = ['ID','Data','Localidade','Descrição','Tipo','Equipamento','Status','Nº Serviço','Técnico Origem','Coordenada','Observação','Obs. Cancelamento','Placa Montada'];
+  const colunas = ['ID','Data','Localidade','Descrição','Tipo','Equipamento','Status','Nº Serviço','Atribuído para','Técnico Origem','Coordenada','Observação','Obs. Cancelamento','Placa Montada'];
   const esc = (val) => {
     if (val === null || val === undefined) return '';
     const str = String(val);
@@ -676,7 +676,9 @@ const exportarExcel = (dados) => {
     colunas.join(';'),
     ...dados.map(s => [
       esc(s.id), esc(fmtDt(s.data)), esc(s.local), esc(s.desc), esc(s.tipo), esc(s.equip),
-      esc(STATUS_CONFIG[s.status]?.label || s.status), esc(s.numServ), esc(s.orig), esc(s.coord),
+      esc(STATUS_CONFIG[s.status]?.label || s.status), esc(s.numServ),
+      esc(s.atribuido_para ? `${s.atribuido_para.nome} (${s.atribuido_para.matricula})` : ''),
+      esc(s.orig), esc(s.coord),
       esc(s.obs), esc(s.obsCancelamento), esc(s.placaMontada ? 'Sim' : 'Não'),
     ].join(';'))
   ];
@@ -1212,6 +1214,7 @@ const ServicosTable = () => {
             <col style={{ width: '110px' }} />
             <col style={{ width: '110px' }} />
             <col style={{ width: '130px' }} />
+            <col style={{ width: '130px' }} />
             <col style={{ width: '120px' }} />
           </colgroup>
           <thead>
@@ -1235,6 +1238,7 @@ const ServicosTable = () => {
               <th style={thClick('equip')} onClick={() => toggleSort('equip')}>Equipamento <SortIcon col="equip" /></th>
               <th style={thClick('status')} onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
               <th style={thClick('numServ')} onClick={() => toggleSort('numServ')}>Nº Serviço <SortIcon col="numServ" /></th>
+              <th style={thBase}>Atribuído para</th>
               <th style={thBase}>Ações</th>
             </tr>
           </thead>
@@ -1350,6 +1354,18 @@ const ServicosTable = () => {
                         <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                       </svg>
                     </button>
+                  </td>
+
+                  {/* Atribuído para */}
+                  <td style={td}>
+                    {s.atribuido_para ? (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: '#1d4ed8', fontWeight: '600', fontSize: '11px' }}>{s.atribuido_para.nome}</span>
+                        {s.atribuido_para.equipe && <span style={{ color: '#94a3b8', fontSize: '10px' }}>{s.atribuido_para.equipe}</span>}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#cbd5e1', fontSize: '11px', fontStyle: 'italic' }}>Não atribuído</span>
+                    )}
                   </td>
 
                   {/* Ação de avanço */}

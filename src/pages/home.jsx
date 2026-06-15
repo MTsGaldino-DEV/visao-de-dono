@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import CadastroForm from '../components/CadastroForm';
 import ServicosTable from '../components/ServicosTable';
@@ -7,21 +7,43 @@ import PainelTab from '../components/PainelTab';
 import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
+import UsuariosTab from '../components/UsuariosTab';
+import DespacharTab from '../components/DespacharTab';
+import EspacadoresTab from '../components/EspacadoresTab';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('cadastrar');
-
   const isDono = user?.role === 'dono';
 
+  const [activeTab, setActiveTab] = useState('');
+  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('despachar');
+  const [activeSubTabAdmin, setActiveSubTabAdmin] = useState('painel');
+
+  useEffect(() => {
+    if (user && !activeTab) {
+      setActiveTab(user.role === 'dono' ? 'cadastrar' : 'servicos');
+    }
+  }, [user, activeTab]);
+
   const tabs = [
-    { key: 'cadastrar', label: 'Cadastrar' },
+    ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
     { key: 'servicos', label: 'Serviços' },
-    { key: 'placas', label: 'Placas' },
-    ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
+    { key: 'despacho', label: 'Despacho' },
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
-    ...(isDono ? [{ key: 'logs', label: 'Logs' }] : []),
-    ...(isDono ? [{ key: 'gerar-ns', label: '⚡ Gerar NS' }] : []),
+    ...(isDono ? [{ key: 'admin', label: 'Admin' }] : []),
+  ];
+
+  const despachoTabs = [
+    { key: 'despachar', label: 'Despachar' },
+    { key: 'placas', label: 'Placas' },
+    { key: 'espacadores', label: 'Espaçadores' },
+  ];
+
+  const adminTabs = [
+    { key: 'painel', label: 'Painel' },
+    { key: 'gerar-os', label: 'Gerar OS' },
+    { key: 'logs', label: 'Logs' },
+    { key: 'usuarios', label: 'Usuários' },
   ];
 
   if (loading) {
@@ -139,6 +161,80 @@ const Home = () => {
           ))}
         </nav>
 
+        {/* SUB-TABS DESPACHO */}
+        {activeTab === 'despacho' && (
+          <nav style={{
+            display: 'flex',
+            gap: '2px',
+            marginBottom: '20px',
+            background: '#f8fafc',
+            borderRadius: '8px',
+            padding: '3px',
+            width: 'fit-content',
+          }}>
+            {despachoTabs.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveSubTabDespacho(key)}
+                style={{
+                  padding: '5px 12px',
+                  background: activeSubTabDespacho === key ? '#0f2544' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  color: activeSubTabDespacho === key ? '#ffffff' : '#64748b',
+                  fontWeight: activeSubTabDespacho === key ? '600' : '400',
+                  transition: 'all 0.12s',
+                  letterSpacing: '0.01em',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => { if (activeSubTabDespacho !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
+                onMouseLeave={e => { if (activeSubTabDespacho !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
+
+        {/* SUB-TABS ADMIN */}
+        {activeTab === 'admin' && (
+          <nav style={{
+            display: 'flex',
+            gap: '2px',
+            marginBottom: '20px',
+            background: '#f8fafc',
+            borderRadius: '8px',
+            padding: '3px',
+            width: 'fit-content',
+          }}>
+            {adminTabs.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveSubTabAdmin(key)}
+                style={{
+                  padding: '5px 12px',
+                  background: activeSubTabAdmin === key ? '#0f2544' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  color: activeSubTabAdmin === key ? '#ffffff' : '#64748b',
+                  fontWeight: activeSubTabAdmin === key ? '600' : '400',
+                  transition: 'all 0.12s',
+                  letterSpacing: '0.01em',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => { if (activeSubTabAdmin !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
+                onMouseLeave={e => { if (activeSubTabAdmin !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
+
         {/* CONTEÚDO DAS TABS
             Mantemos CadastroForm e ServicosTable sempre montados (display none/block)
             para evitar que desmonte ao trocar de aba e perca o estado/listener do Firebase */}
@@ -150,11 +246,19 @@ const Home = () => {
           <ServicosTable />
         </div>
 
-        <div style={{ display: activeTab === 'placas' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'despachar' ? 'block' : 'none' }}>
+          <DespacharTab />
+        </div>
+
+        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'placas' ? 'block' : 'none' }}>
           <PlacasTab />
         </div>
 
-        <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'espacadores' ? 'block' : 'none' }}>
+          <EspacadoresTab />
+        </div>
+
+        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'painel' ? 'block' : 'none' }}>
           <PainelTab />
         </div>
 
@@ -162,12 +266,16 @@ const Home = () => {
           {activeTab === 'faturamento' && <FaturamentoTab />}
         </div>
 
-        <div style={{ display: activeTab === 'gerar-ns' ? 'block' : 'none' }}>
-          {activeTab === 'gerar-ns' && <GerarServicosTab />}
+        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' ? 'block' : 'none' }}>
+          {activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' && <GerarServicosTab />}
         </div>
 
-        <div style={{ display: activeTab === 'logs' ? 'block' : 'none' }}>
-          {activeTab === 'logs' && <LogsTab />}
+        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'logs' ? 'block' : 'none' }}>
+          {activeTab === 'admin' && activeSubTabAdmin === 'logs' && <LogsTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'usuarios' ? 'block' : 'none' }}>
+          {activeTab === 'admin' && activeSubTabAdmin === 'usuarios' && <UsuariosTab />}
         </div>
 
       </main>
