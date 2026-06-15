@@ -1081,11 +1081,38 @@ const ImportPopup = ({ onClose, onSuccess }) => {
 // ── Distância (Haversine) ─────────────────────────────────────────────────────
 const calcularDistancia = (coord1, coord2) => {
   if (!coord1 || !coord2) return Infinity;
-  const parseCoord = (c) => {
-    const parts = String(c).split(',');
-    if (parts.length !== 2) return null;
-    const lat = parseFloat(parts[0].trim());
-    const lon = parseFloat(parts[1].trim());
+
+  // Aceita vários formatos: "-18.517, -41.936" | "-18.517;-41.936" | "-18.517 -41.936"
+  // Também vírgula como decimal no lugar do ponto: "-18,517;-41,936"
+  const parseCoord = (raw) => {
+    if (!raw) return null;
+    // Normaliza: troca vírgula decimal por ponto SOMENTE quando usada dentro de números
+    // Primeiro detecta o separador de lat/lon
+    let str = String(raw).trim();
+
+    // Tenta separar por ponto-e-vírgula primeiro
+    let parts = str.split(';');
+    if (parts.length !== 2) {
+      // Tenta separar por vírgula: "-18.517, -41.936"
+      // Precisa ter exatamente 2 partes após split por vírgula
+      const byComma = str.split(',');
+      if (byComma.length === 2) {
+        parts = byComma;
+      } else if (byComma.length === 4) {
+        // Formato com vírgula decimal: "-18,517,-41,936" → partes = ["-18","517","-41","936"]
+        // Reagrupa: "-18.517" e "-41.936"
+        parts = [byComma[0] + '.' + byComma[1], byComma[2] + '.' + byComma[3]];
+      } else {
+        // Tenta separar por espaço
+        const bySpace = str.trim().split(/\s+/);
+        if (bySpace.length === 2) parts = bySpace;
+        else return null;
+      }
+    }
+
+    // Substitui vírgula decimal por ponto em cada parte
+    const lat = parseFloat(parts[0].trim().replace(',', '.'));
+    const lon = parseFloat(parts[1].trim().replace(',', '.'));
     if (isNaN(lat) || isNaN(lon)) return null;
     return { lat, lon };
   };
@@ -1611,11 +1638,11 @@ const ServicosTable = () => {
 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
           <colgroup>
+            <col style={{ width: '36px' }} />
+            <col style={{ width: '58px' }} />
+            <col style={{ width: '32px' }} />
+            <col style={{ width: '32px' }} />
             <col style={{ width: '40px' }} />
-            <col style={{ width: '40px' }} />
-            <col style={{ width: '40px' }} />
-            <col style={{ width: '40px' }} />
-            <col style={{ width: '45px' }} />
             <col style={{ width: '80px' }} />
             <col style={{ width: '130px' }} />
             <col style={{ width: '160px' }} />
