@@ -1636,23 +1636,20 @@ const ServicosTable = () => {
           </div>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <colgroup>
-            <col style={{ width: '36px' }} />
-            <col style={{ width: '58px' }} />
-            <col style={{ width: '32px' }} />
-            <col style={{ width: '32px' }} />
-            <col style={{ width: '40px' }} />
+            <col style={{ width: '38px' }} />
+            <col style={{ width: '44px' }} />
+            <col style={{ width: '120px' }} />
             <col style={{ width: '80px' }} />
             <col style={{ width: '130px' }} />
-            <col style={{ width: '160px' }} />
+            <col style={{ width: '140px' }} />
             <col style={{ width: '200px' }} />
-            <col style={{ width: '70px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '130px' }} />
-            <col style={{ width: '130px' }} />
+            <col style={{ width: '72px' }} />
             <col style={{ width: '120px' }} />
+            <col style={{ width: '120px' }} />
+            <col style={{ width: '140px' }} />
+            <col style={{ width: '150px' }} />
           </colgroup>
           <thead>
             <tr>
@@ -1664,9 +1661,7 @@ const ServicosTable = () => {
                   style={{ cursor: 'pointer' }}
                 />
               </th>
-              <th style={thBase} />
-              <th style={thBase} />
-              <th style={thBase} />
+              <th style={thBase}>Ações</th>
               <th style={{ ...thBase, textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1684,7 +1679,6 @@ const ServicosTable = () => {
               <th style={thClick('status')} onClick={() => toggleSort('status')}>Status <SortIcon col="status" /></th>
               <th style={thClick('numServ')} onClick={() => toggleSort('numServ')}>Nº Serviço <SortIcon col="numServ" /></th>
               <th style={thBase}>Atribuído para</th>
-              <th style={thBase}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1723,55 +1717,53 @@ const ServicosTable = () => {
                     />
                   </td>
 
-                  {/* Ver detalhes e Próximos */}
-                  <td style={td}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                  {/* ── Ações consolidadas em um único td ── */}
+                  <td style={{ ...td, padding: '6px 8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap' }}>
+
+                      {/* Ver detalhes */}
                       <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
-                        style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ width: '28px', height: '28px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                         </svg>
                       </button>
+
+                      {/* Mais próximos */}
                       <button onClick={() => setServicoReferencia(s)} title="Buscar mais próximos a este"
-                        style={{ width: '26px', height: '26px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ width: '28px', height: '28px', border: servicoReferencia?._docId === s._docId ? '1.5px solid #15803d' : '1px solid #bbf7d0', borderRadius: '6px', background: servicoReferencia?._docId === s._docId ? '#dcfce7' : '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        onMouseLeave={e => { e.currentTarget.style.background = servicoReferencia?._docId === s._docId ? '#dcfce7' : '#f0fdf4'; e.currentTarget.style.borderColor = servicoReferencia?._docId === s._docId ? '#15803d' : '#bbf7d0'; }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                       </button>
+
+                      {/* Alterar status (Dono) */}
+                      {isDono && (
+                        <button onClick={() => setStatusDonoPending(s)} title="Alterar status (Dono)"
+                          style={{ width: '28px', height: '28px', border: '1px solid #fde68a', borderRadius: '6px', background: '#fffbeb', color: '#92400e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.borderColor = '#fbbf24'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Cancelar */}
+                      {isDono && s.status !== 'cancelado' && (
+                        <button onClick={() => setCancelPending(s)} title="Cancelar serviço"
+                          style={{ width: '28px', height: '28px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
-                  </td>
-
-                  {/* Alterar status Dono */}
-                  <td style={td}>
-                    {isDono && (
-                      <button onClick={() => setStatusDonoPending(s)} title="Alterar status (Dono)"
-                        style={{ width: '26px', height: '26px', border: '1px solid #fde68a', borderRadius: '6px', background: '#fffbeb', color: '#92400e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.borderColor = '#fbbf24'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      </button>
-                    )}
-                  </td>
-
-                  {/* Alterar localidade — removido da tabela (disponível no DetalheModal) */}
-
-                  {/* Cancelar */}
-                  <td style={td}>
-                    {isDono && s.status !== 'cancelado' && (
-                      <button onClick={() => setCancelPending(s)} title="Cancelar serviço"
-                        style={{ width: '26px', height: '26px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#b91c1c', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-                        </svg>
-                      </button>
-                    )}
                   </td>
 
                   {/* ── [NOVO] Checkbox de placa — verde = montada, roxo = enviada ao supervisor ── */}
