@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import DetalheModal from './DetalheModal';
+import * as XLSX from 'xlsx';
+
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
@@ -691,89 +693,385 @@ const exportarExcel = (dados) => {
   a.click(); URL.revokeObjectURL(url);
 };
 
-// ── Importar CSV ──────────────────────────────────────────────────────────────
-const importarExcel = (file, onSuccess, onError) => {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const text = e.target.result;
-      const clean = text.replace(/^\uFEFF/, '');
-      const lines = clean.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { onError('Arquivo vazio ou sem dados.'); return; }
-      const sep = lines[0].includes(';') ? ';' : ',';
-      const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-      const parseCell = (val) => (val || '').replace(/^"|"$/g, '').trim();
-      const rows = lines.slice(1).map(line => {
-        const cells = []; let cur = '', inQ = false;
-        for (let c of line) {
-          if (c === '"') { inQ = !inQ; } else if (c === sep && !inQ) { cells.push(cur); cur = ''; } else { cur += c; }
-        }
-        cells.push(cur);
-        const obj = {}; headers.forEach((h, i) => { obj[h] = parseCell(cells[i]); }); return obj;
-      }).filter(r => Object.values(r).some(v => v));
-      onSuccess(rows, headers);
-    } catch (err) { onError('Erro ao processar arquivo: ' + err.message); }
-  };
-  reader.readAsText(file, 'UTF-8');
-};
-
-// ── Popup de importação ───────────────────────────────────────────────────────
-const ImportPopup = ({ onClose }) => {
-  const [preview, setPreview] = useState(null);
-  const [headers, setHeaders] = useState([]);
-  const [erro, setErro]       = useState('');
+// ── Novo Popup de importação (XLSX) ───────────────────────────────────────────
+const ImportPopup = ({ onClose, onSuccess }) => {
+  const { user } = useAuth();
+  const [etapa, setEtapa] = useState('selecao'); // 'selecao', 'previa', 'importando', 'concluido'
+  const [linhas, setLinhas] = useState([]);
+  const [estatisticas, setEstatisticas] = useState({ validos: 0, erros: 0, total: 0 });
+  const [progresso, setProgresso] = useState({ atual: 0, total: 0 });
+  const [resultado, setResultado] = useState({ validos: 0, ignorados: 0, inicio: '', fim: '' });
   const [fileName, setFileName] = useState('');
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setFileName(file.name); setErro(''); setPreview(null);
-    importarExcel(file, (rows, hdrs) => { setPreview(rows.slice(0, 5)); setHeaders(hdrs); }, (msg) => setErro(msg));
+    setFileName(file.name);
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        
+        const { data: lastRecord } = await supabase
+          .from('servicos')
+          .select('id')
+          .order('dtCadastro', { ascending: false })
+          .limit(1);
+          
+        let currentIdNum = 0;
+        if (lastRecord && lastRecord.length > 0 && lastRecord[0].id) {
+          currentIdNum = parseInt(lastRecord[0].id.replace('VD', ''), 10) || 0;
+        }
+
+        const validTypes = ['NSIS', 'NSMP', 'RC02', 'INBE', 'NSCP'];
+        let validosCount = 0;
+        let errosCount = 0;
+
+        const equipsNaPlanilha = Array.from(new Set(json.map(r => String(r['TRANSFORMADOR'] || '').trim()).filter(Boolean)));
+        let existentesMap = new Set();
+        if (equipsNaPlanilha.length > 0) {
+          const inChunks = [];
+          for (let i = 0; i < equipsNaPlanilha.length; i += 100) {
+            inChunks.push(equipsNaPlanilha.slice(i, i + 100));
+          }
+          for (const chunk of inChunks) {
+            const { data: dbExistentes } = await supabase.from('servicos').select('equip, desc, data').in('equip', chunk);
+            if (dbExistentes) {
+              dbExistentes.forEach(e => existentesMap.add(`${e.equip}|${e.desc}|${e.data}`));
+            }
+          }
+        }
+
+        const processadas = json.map((row, index) => {
+          const numLinha = index + 2; 
+          const errors = [];
+          const avisos = [];
+          
+          const rawData = String(row['Data'] || '').trim();
+          let parsedData = new Date().toISOString();
+          if (!rawData) {
+            avisos.push('DATA vazia — utilizando data atual.');
+          } else {
+            if (!isNaN(Number(rawData)) && Number(rawData) > 20000) {
+               const excelDate = new Date(Math.round((Number(rawData) - 25569)*86400*1000));
+               parsedData = excelDate.toISOString();
+            } else {
+               const d = new Date(rawData);
+               if (isNaN(d.getTime())) {
+                 avisos.push(`DATA inválida ("${rawData}") — utilizando data atual.`);
+               } else {
+                 parsedData = d.toISOString();
+               }
+            }
+          }
+          
+          const local = String(row['LOCALIDADE'] || '').trim();
+          if (!local) errors.push('LOCALIDADE está vazia');
+          
+          const desc = String(row['DESCRIÇÃO'] || '').trim();
+          if (!desc) errors.push('DESCRIÇÃO está vazia');
+          
+          const coord = String(row['COORDENADA'] || '').trim();
+          if (!coord) errors.push('COORDENADA está vazia');
+          
+          const equip = String(row['TRANSFORMADOR'] || '').trim();
+          if (!equip) errors.push('TRANSFORMADOR está vazio');
+          
+          const tipoRaw = String(row['TIPO'] || '').trim().toUpperCase();
+          let tipo = tipoRaw;
+          if (!tipoRaw) {
+            errors.push('TIPO está vazio');
+          } else if (!validTypes.includes(tipoRaw)) {
+            errors.push(`TIPO inválido: "${tipoRaw}" (valores aceitos: NSIS, NSMP, RC02, INBE, NSCP)`);
+          }
+
+          const dupKey = `${equip}|${desc}|${parsedData}`;
+          if (existentesMap.has(dupKey)) {
+             avisos.push(`Possível duplicidade: já existe um serviço com este Transformador, Descrição e Data.`);
+          }
+
+          const hasError = errors.length > 0;
+          if (hasError) {
+            errosCount++;
+          } else {
+            validosCount++;
+            currentIdNum++;
+          }
+          
+          const idGerado = hasError ? null : `VD${String(currentIdNum).padStart(4, '0')}`;
+
+          return {
+            linha: numLinha,
+            isValido: !hasError,
+            erros: errors,
+            avisos: avisos,
+            parsed: {
+              data: parsedData,
+              local,
+              desc,
+              coord,
+              foto: String(row['FOTO'] || '').trim() || null,
+              equip,
+              tipo,
+              numServ: String(row['N°Serviço'] || '').trim() || null,
+              orig: String(row['Técnico Origem'] || '').trim() || null,
+              id: idGerado
+            }
+          };
+        });
+
+        setLinhas(processadas);
+        setEstatisticas({ validos: validosCount, erros: errosCount, total: processadas.length });
+        setEtapa('previa');
+      } catch (err) {
+        alert('Erro ao processar arquivo: ' + err.message);
+        setEtapa('selecao');
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
+
+  const iniciarImportacao = async () => {
+    setEtapa('importando');
+    const validos = linhas.filter(l => l.isValido);
+    setProgresso({ atual: 0, total: validos.length });
+    
+    if (validos.length === 0) return;
+
+    const inicioId = validos[0].parsed.id;
+    const fimId = validos[validos.length - 1].parsed.id;
+
+    for (let i = 0; i < validos.length; i += 50) {
+      const loteBatch = validos.slice(i, i + 50).map(l => {
+        const p = l.parsed;
+        return {
+          id: p.id,
+          data: p.data,
+          local: p.local,
+          desc: p.desc,
+          coord: p.coord,
+          foto: p.foto,
+          equip: p.equip,
+          tipo: p.tipo,
+          numServ: p.numServ,
+          orig: p.orig,
+          status: 'cadastrado',
+          autor: user.label,
+          dtCadastro: new Date().toISOString(),
+          hist: [{ who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Serviço importado via planilha' }]
+        };
+      });
+      
+      await supabase.from('servicos').insert(loteBatch);
+      setProgresso(prev => ({ ...prev, atual: prev.atual + loteBatch.length }));
+    }
+
+    setResultado({
+      validos: validos.length,
+      ignorados: estatisticas.erros,
+      inicio: inicioId,
+      fim: fimId
+    });
+    
+    if (onSuccess) onSuccess();
+    setEtapa('concluido');
+  };
+
+  if (etapa === 'selecao') {
+    return (
+      <div style={POPUP_OVERLAY}>
+        <div style={{ ...POPUP_BOX, maxWidth: '560px' }}>
+          <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Importar Planilha (.xlsx)</div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>Selecione o arquivo Excel com os serviços</div>
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer', background: '#f0fdf4', marginBottom: '14px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span style={{ fontSize: '13px', color: fileName ? '#15803d' : '#64748b', fontWeight: fileName ? '600' : '400' }}>
+              {fileName || 'Clique para selecionar arquivo .xlsx'}
+            </span>
+            <input type="file" accept=".xlsx" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button onClick={onClose} style={BTN_CANCEL}>Cancelar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (etapa === 'importando' || etapa === 'concluido') {
+    return (
+      <div style={POPUP_OVERLAY}>
+        <div style={{ ...POPUP_BOX, maxWidth: '400px' }}>
+          {etapa === 'importando' ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '12px' }}>Importando serviços...</div>
+              <div style={{ background: '#e2e8f0', borderRadius: '8px', height: '12px', overflow: 'hidden', marginBottom: '10px' }}>
+                <div style={{ background: '#0f2544', height: '100%', width: `${(progresso.atual / Math.max(progresso.total, 1)) * 100}%`, transition: 'width 0.3s' }} />
+              </div>
+              <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>{progresso.atual} / {progresso.total} importados</div>
+              <div style={{ fontSize: '11px', color: '#ef4444' }}>Não feche esta janela</div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#15803d' }}>Importação concluída!</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '14px', color: '#334155', marginBottom: '6px' }}><strong>{resultado.validos}</strong> serviços importados</div>
+              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}><strong>{resultado.ignorados}</strong> registros ignorados (erros)</div>
+              {resultado.validos > 0 && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', fontSize: '13px', color: '#0f2544', marginBottom: '20px' }}>
+                  IDs criados: <strong>{resultado.inicio}</strong> até <strong>{resultado.fim}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={onClose} style={BTN_PRIMARY}>Fechar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ETAPA: PREVIA
+  const linhasExibidas = mostrarTodos ? linhas : linhas.slice(0, 10);
+  const errosGerais = linhas.filter(l => !l.isValido);
 
   return (
     <div style={POPUP_OVERLAY}>
-      <div style={{ ...POPUP_BOX, maxWidth: '560px' }}>
-        <style>{`@keyframes popIn{from{transform:scale(0.93);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-          </div>
+      <div style={{ background: '#fff', borderRadius: '12px', width: '90vw', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', animation: 'popIn 0.2s ease' }}>
+        
+        {/* HEADER DO MODAL */}
+        <div style={{ background: '#0f2544', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>Importar de Excel / CSV</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>Selecione um arquivo .csv exportado por esta tabela</div>
+            <div style={{ fontSize: '20px', fontWeight: '700' }}>Prévia de Importação</div>
+            <div style={{ fontSize: '13px', color: '#93c5fd' }}>{estatisticas.total} serviços encontrados na planilha</div>
           </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', opacity: 0.7, padding: '4px' }} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer', background: '#f0fdf4', marginBottom: '14px' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-          </svg>
-          <span style={{ fontSize: '13px', color: fileName ? '#15803d' : '#64748b', fontWeight: fileName ? '600' : '400' }}>
-            {fileName || 'Clique para selecionar arquivo .csv'}
-          </span>
-          <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display: 'none' }} />
-        </label>
-        {erro && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#b91c1c' }}>⚠️ {erro}</div>}
-        {preview && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>Pré-visualização — {preview.length} primeiras linhas</div>
-            <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                <thead><tr>{headers.slice(0, 6).map(h => <th key={h} style={{ padding: '6px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
-                <tbody>{preview.map((row, i) => <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>{headers.slice(0, 6).map(h => <td key={h} style={{ padding: '5px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row[h] || '—'}</td>)}</tr>)}</tbody>
-              </table>
+
+        {/* CORPO COM SCROLL */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f8fafc' }}>
+          
+          {/* RESUMO NO TOPO */}
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #15803d', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#15803d' }}>{estatisticas.validos}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>Válidos</div>
             </div>
-            <div style={{ marginTop: '10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#92400e', lineHeight: '1.5' }}>
-              ℹ️ A importação é apenas para <strong>visualização e referência</strong>. Para atualizar dados no sistema, utilize o cadastro oficial.
+            <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #b91c1c', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#b91c1c' }}>{estatisticas.erros}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>Com erro</div>
+            </div>
+            <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #1d4ed8', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#1d4ed8' }}>{estatisticas.total}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>Total</div>
             </div>
           </div>
-        )}
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={BTN_CANCEL}>Fechar</button>
-          {preview && <button onClick={() => { alert(`${preview.length} linhas lidas com sucesso.`); }} style={{ ...BTN_PRIMARY, background: 'linear-gradient(135deg, #15803d, #16a34a)' }}>Confirmar leitura</button>}
+
+          {/* PRÉVIA DOS DADOS */}
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f2544', marginBottom: '12px' }}>Detalhes dos registros</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {linhasExibidas.map((l, i) => (
+                <div key={i} style={{ background: l.isValido ? '#fff' : '#fef2f2', border: `1px solid ${l.isValido ? '#e2e8f0' : '#fecaca'}`, borderLeft: `4px solid ${l.isValido ? '#15803d' : '#b91c1c'}`, borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ padding: '10px 16px', background: l.isValido ? '#f8fafc' : '#fee2e2', borderBottom: `1px solid ${l.isValido ? '#e2e8f0' : '#fecaca'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>📋 Serviço {l.linha - 1} de {estatisticas.total} (Linha {l.linha})</div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: l.isValido ? '#15803d' : '#b91c1c' }}>{l.isValido ? '✓ Válido' : '✗ Erro'}</div>
+                  </div>
+                  <div style={{ padding: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 24px', fontSize: '13px' }}>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Data</div><div>{l.parsed.data ? new Date(l.parsed.data).toLocaleString('pt-BR') : '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Localidade</div><div>{l.parsed.local || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Descrição</div><div>{l.parsed.desc || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Coordenada</div><div>{l.parsed.coord || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Foto</div><div>{l.parsed.foto || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Transformador</div><div>{l.parsed.equip || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Tipo</div><div>{l.parsed.tipo || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Nº Serviço</div><div>{l.parsed.numServ || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>Técnico Orig.</div><div>{l.parsed.orig || '(vazio)'}</div>
+                      <div style={{ color: '#64748b', fontWeight: '600' }}>ID gerado</div><div><strong style={{ color: '#0f2544' }}>{l.parsed.id || '—'}</strong></div>
+                    </div>
+                    {(!l.isValido || l.avisos.length > 0) && (
+                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${l.isValido ? '#e2e8f0' : '#fecaca'}` }}>
+                        {l.erros.length > 0 && (
+                          <div style={{ color: '#b91c1c', fontSize: '13px' }}>
+                            <div style={{ fontWeight: '700', marginBottom: '4px' }}>⚠️ Erros:</div>
+                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                              {l.erros.map((err, idx) => <li key={idx}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {l.avisos.length > 0 && (
+                          <div style={{ color: '#92400e', fontSize: '13px', marginTop: l.erros.length > 0 ? '8px' : '0' }}>
+                            <div style={{ fontWeight: '700', marginBottom: '4px' }}>ℹ️ Avisos:</div>
+                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                              {l.avisos.map((aviso, idx) => <li key={idx}>{aviso}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!mostrarTodos && linhas.length > 10 && (
+              <button onClick={() => setMostrarTodos(true)} style={{ marginTop: '16px', padding: '8px 16px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#475569' }}>
+                Ver todos os {linhas.length} registros
+              </button>
+            )}
+          </div>
+
+          {/* SEÇÃO DE ERROS GERAIS */}
+          {errosGerais.length > 0 && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#b91c1c', marginBottom: '12px' }}>
+                ⚠️ {errosGerais.length} registros com problema serão ignorados:
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '20px', color: '#b91c1c', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {errosGerais.map((eg, i) => (
+                  <li key={i}>
+                    <strong>Linha {eg.linha}:</strong> {eg.erros.join(' / ')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+        </div>
+
+        {/* RODAPÉ DO MODAL */}
+        <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px', flexShrink: 0 }}>
+          <button onClick={onClose} style={BTN_CANCEL}>Cancelar</button>
+          <button onClick={iniciarImportacao} disabled={estatisticas.validos === 0} style={{ ...BTN_PRIMARY, background: estatisticas.validos === 0 ? '#94a3b8' : '#0f2544', opacity: estatisticas.validos === 0 ? 0.6 : 1, cursor: estatisticas.validos === 0 ? 'not-allowed' : 'pointer' }}>
+            Importar {estatisticas.validos} válidos →
+          </button>
         </div>
       </div>
     </div>
@@ -1080,7 +1378,7 @@ const ServicosTable = () => {
   return (
     <div>
       {/* Popups */}
-      {importPopupOpen        && <ImportPopup                                                            onClose={() => setImportPopupOpen(false)} />}
+      {importPopupOpen        && <ImportPopup                                                            onClose={() => setImportPopupOpen(false)} onSuccess={() => setImportPopupOpen(false)} />}
       {confirmPending       && <ConfirmPopup      servico={confirmPending.servico} novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}    onCancel={() => setConfirmPending(null)} />}
       {numServPending       && <NumServPopup       servico={numServPending}          onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
       {statusDonoPending    && <StatusDonoPopup    servico={statusDonoPending}        onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
