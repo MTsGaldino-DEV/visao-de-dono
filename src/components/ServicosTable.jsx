@@ -1078,6 +1078,32 @@ const ImportPopup = ({ onClose, onSuccess }) => {
   );
 };
 
+// ── Distância (Haversine) ─────────────────────────────────────────────────────
+const calcularDistancia = (coord1, coord2) => {
+  if (!coord1 || !coord2) return Infinity;
+  const parseCoord = (c) => {
+    const parts = String(c).split(',');
+    if (parts.length !== 2) return null;
+    const lat = parseFloat(parts[0].trim());
+    const lon = parseFloat(parts[1].trim());
+    if (isNaN(lat) || isNaN(lon)) return null;
+    return { lat, lon };
+  };
+
+  const p1 = parseCoord(coord1);
+  const p2 = parseCoord(coord2);
+  if (!p1 || !p2) return Infinity;
+
+  const R = 6371; // km
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+  const dLon = (p2.lon - p1.lon) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 const ServicosTable = () => {
   const { user } = useAuth();
@@ -1094,15 +1120,14 @@ const ServicosTable = () => {
   const [postoFilter, setPostoFilter]           = useState([]);
   const [dataInicio, setDataInicio]             = useState('');
   const [dataFim, setDataFim]                   = useState('');
-  // ── [NOVO] Filtro placa montada: 'todos' | 'montada' | 'nao_montada'
   const [placaFilter, setPlacaFilter]           = useState('todos');
+  const [enviadoSupFilter, setEnviadoSupFilter] = useState('todos');
   const [sortCol, setSortCol]                   = useState('id');
   const [sortDir, setSortDir]                   = useState('desc');
+  // ── Filtro por proximidade
+  const [servicoReferencia, setServicoReferencia] = useState(null);
   const [currentPage, setCurrentPage]           = useState(1);
   const [importPopupOpen, setImportPopupOpen]   = useState(false);
-
-  const [enviadoSupFilter, setEnviadoSupFilter]         = useState('todos');
-
   // ── [NOVO] Despacho ──
   const [selecionados, setSelecionados]                 = useState(new Set());
   const [tecnicos, setTecnicos]                         = useState([]);
@@ -1205,21 +1230,28 @@ const ServicosTable = () => {
     if (enviadoSupFilter === 'sim') lista = lista.filter(s => s.enviadoSupervisor === true);
     if (enviadoSupFilter === 'nao') lista = lista.filter(s => s.placaMontada && !s.enviadoSupervisor);
 
-    lista.sort((a, b) => {
-      let va, vb;
-      if (sortCol === 'id') { va = idNum(a.id); vb = idNum(b.id); }
-      else if (sortCol === 'dtCadastro' || sortCol === 'data') {
-        va = a[sortCol]?.seconds ?? (a[sortCol] ? new Date(a[sortCol]).getTime() / 1000 : 0);
-        vb = b[sortCol]?.seconds ?? (b[sortCol] ? new Date(b[sortCol]).getTime() / 1000 : 0);
-      } else if (sortCol === 'status') { va = STATUS_ORDER.indexOf(a.status); vb = STATUS_ORDER.indexOf(b.status); }
-      else { va = (a[sortCol] || '').toString().toLowerCase(); vb = (b[sortCol] || '').toString().toLowerCase(); }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
+    if (servicoReferencia) {
+      lista.forEach(s => {
+        s._distancia = calcularDistancia(servicoReferencia.coord, s.coord);
+      });
+      lista.sort((a, b) => a._distancia - b._distancia);
+    } else {
+      lista.sort((a, b) => {
+        let va, vb;
+        if (sortCol === 'id') { va = idNum(a.id); vb = idNum(b.id); }
+        else if (sortCol === 'dtCadastro' || sortCol === 'data') {
+          va = a[sortCol]?.seconds ?? (a[sortCol] ? new Date(a[sortCol]).getTime() / 1000 : 0);
+          vb = b[sortCol]?.seconds ?? (b[sortCol] ? new Date(b[sortCol]).getTime() / 1000 : 0);
+        } else if (sortCol === 'status') { va = STATUS_ORDER.indexOf(a.status); vb = STATUS_ORDER.indexOf(b.status); }
+        else { va = (a[sortCol] || '').toString().toLowerCase(); vb = (b[sortCol] || '').toString().toLowerCase(); }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
 
     setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
+  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir, servicoReferencia]);
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1385,6 +1417,24 @@ const ServicosTable = () => {
       {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico}     onClose={() => setMensagemCemigServico(null)} />}
       {cancelPending        && <CancelPopup        servico={cancelPending}            onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
       {reprovadoPending     && <ReprovadoPopup     servico={reprovadoPending}         onConfirm={confirmarReprovado}         onCancel={() => setReprovadoPending(null)} />}
+
+      {/* ── Banner de Proximidade ── */}
+      {servicoReferencia && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px 16px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#15803d' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#15803d' }}>Exibindo serviços ordenados por proximidade</div>
+              <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>Referência: <strong>{servicoReferencia.id}</strong> (Coordenadas: {servicoReferencia.coord})</div>
+            </div>
+          </div>
+          <button onClick={() => setServicoReferencia(null)} style={{ background: '#fff', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '600', color: '#15803d', cursor: 'pointer' }}>
+            Limpar Filtro
+          </button>
+        </div>
+      )}
 
       {/* ── Filtros ── */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '14px 16px', marginBottom: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -1646,16 +1696,24 @@ const ServicosTable = () => {
                     />
                   </td>
 
-                  {/* Ver detalhes */}
+                  {/* Ver detalhes e Próximos */}
                   <td style={td}>
-                    <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
-                      style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => { setSelectedService(s); setModalOpen(true); }} title="Ver detalhes"
+                        style={{ width: '26px', height: '26px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                      <button onClick={() => setServicoReferencia(s)} title="Buscar mais próximos a este"
+                        style={{ width: '26px', height: '26px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      </button>
+                    </div>
                   </td>
 
                   {/* Alterar status Dono */}
@@ -1706,6 +1764,12 @@ const ServicosTable = () => {
                     <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.local}>
                       {s.local}
                     </div>
+                    {servicoReferencia && s._distancia !== undefined && (
+                      <div style={{ fontSize: '10px', color: '#15803d', fontWeight: '600', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path></svg>
+                        {s._distancia === Infinity ? 'Sem coord.' : s._distancia === 0 ? 'Ref.' : `${s._distancia.toFixed(2)} km`}
+                      </div>
+                    )}
                   </td>
                   <td style={td}>
                     <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.desc}>
