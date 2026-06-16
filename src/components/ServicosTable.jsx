@@ -1415,11 +1415,14 @@ const ServicosTable = () => {
         const atual = services.find(s => s._docId === id);
         return supabase.from('servicos').update({
           atribuido_para: {
-            uid: tecnico.id,
+            uid: tecnico.uid,
             nome: tecnico.nome,
             matricula: tecnico.matricula,
             equipe: tecnico.equipe
           },
+          // Campos obrigatórios para aparecer no app Android
+          tecnico_uid: tecnico.uid,
+          tecnico_matricula: tecnico.matricula,
           dtAtribuicao: new Date().toISOString(),
           hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Atribuído para o técnico ${tecnico.nome}` }]
         }).eq('id', id);
