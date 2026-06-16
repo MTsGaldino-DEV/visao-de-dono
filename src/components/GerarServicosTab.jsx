@@ -6,7 +6,7 @@ const CONECTOR_URL = 'http://localhost:3333';
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
 // Identifica serviço de espaçador (mesmo critério do EspacadoresTab)
-const isEspacador = (s) => s.tipo === 'NSIS' && s.status === 'concluido' && /espa[cç]ador(es)?/i.test(s.desc || '');
+const isEspacador = (s) => s.tipo === 'NSIS' && /espa[cç]ador(es)?/i.test(s.desc || '');
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
 const card = {
