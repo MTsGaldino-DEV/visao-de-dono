@@ -6,7 +6,7 @@ const CONECTOR_URL = 'http://localhost:3333';
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
 // Identifica serviço de espaçador (mesmo critério do EspacadoresTab)
-const isEspacador = (s) => s.tipo === 'NSIS' && /espa[cç]ador(es)?/i.test(s.desc || '');
+const isEspacador = (s) => s.tipo === 'NSIS' && /espa[cç]ador/i.test(s.desc || '');
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
 const card = {
@@ -175,7 +175,7 @@ const GerarServicosTab = () => {
     // ── Filtra serviços disponíveis para gerar ────────────────────────────────
     const disponiveis = servicos.filter(s => {
         if (!isEspacador(s)) return false;
-        if (s.numServ) return false;
+        if (s.numServ && s.numServ.trim() !== '') return false;
         if (busca) {
             const hay = [s.id, s.local, s.desc, s.equip].join(' ').toLowerCase();
             if (!hay.includes(busca.toLowerCase())) return false;
