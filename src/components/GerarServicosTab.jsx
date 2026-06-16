@@ -5,6 +5,9 @@ const CONECTOR_URL = 'http://localhost:3333';
 
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
+// Identifica serviço de espaçador (mesmo critério do EspacadoresTab)
+const isEspacador = (s) => s.tipo === 'NSIS' && s.status === 'concluido' && /espa[cç]ador(es)?/i.test(s.desc || '');
+
 // ── Estilos base ──────────────────────────────────────────────────────────────
 const card = {
     background: '#fff',
@@ -171,7 +174,7 @@ const GerarServicosTab = () => {
 
     // ── Filtra serviços disponíveis para gerar ────────────────────────────────
     const disponiveis = servicos.filter(s => {
-        if (s.status !== 'cadastrado') return false;
+        if (!isEspacador(s)) return false;
         if (s.numServ) return false;
         if (busca) {
             const hay = [s.id, s.local, s.desc, s.equip].join(' ').toLowerCase();
@@ -181,7 +184,7 @@ const GerarServicosTab = () => {
         return true;
     });
 
-    const localidades = [...new Set(servicos.filter(s => s.status === 'cadastrado' && !s.numServ).map(s => s.local).filter(Boolean))].sort();
+    const localidades = [...new Set(servicos.filter(s => isEspacador(s) && !s.numServ).map(s => s.local).filter(Boolean))].sort();
 
     const toggleSelecionado = (docId) => {
         setSelecionados(prev =>
@@ -238,11 +241,14 @@ const GerarServicosTab = () => {
     const iniciarGeracao = async () => {
         const lista = selecionados.map(docId => {
             const s = servicos.find(sv => sv._docId === docId);
+            // Normaliza o equipamento: pega apenas o que está antes do primeiro traço
+            const equipRaw = s.equip || '';
+            const transformador = equipRaw.includes('-') ? equipRaw.split('-')[0].trim() : equipRaw;
             return {
                 _docId: s._docId,
                 id: s.id,
                 desc: s.desc,
-                transformador: s.equip || '',
+                transformador,
                 executor: executores[docId] || executorGlobal,
             };
         });
@@ -502,7 +508,7 @@ const GerarServicosTab = () => {
                             {disponiveis.length === 0 && (
                                 <tr>
                                     <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '12px' }}>
-                                        Nenhum serviço disponível para geração. Serviços precisam estar com status "Cadastrado" e sem número CEMIG.
+                                        Nenhum serviço de espaçadores disponível. Serviços precisam ser do tipo NSIS, estar concluídos e conter "espaçador" na descrição, sem número CEMIG.
                                     </td>
                                 </tr>
                             )}

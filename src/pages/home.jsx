@@ -14,19 +14,31 @@ const Home = () => {
   const { user, logout, loading } = useAuth();
   const isDono = user?.role === 'dono';
 
-  const [activeTab, setActiveTab] = useState('');
-  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState('servicos');
-  const [activeSubTabAdmin, setActiveSubTabAdmin] = useState('painel');
+  const defaultTab = (role) => (role === 'dono' ? 'cadastrar' : 'despacho');
 
+  const [activeTab, setActiveTab] = useState(
+    () => localStorage.getItem('vd_tab') || ''
+  );
+  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState(
+    () => localStorage.getItem('vd_subtab_despacho') || 'servicos'
+  );
+  const [activeSubTabAdmin, setActiveSubTabAdmin] = useState(
+    () => localStorage.getItem('vd_subtab_admin') || 'gerar-os'
+  );
+
+  // Define aba padrão quando o usuário carrega pela primeira vez
   useEffect(() => {
     if (user && !activeTab) {
-      setActiveTab(user.role === 'dono' ? 'cadastrar' : 'despacho');
+      const def = defaultTab(user.role);
+      setActiveTab(def);
+      localStorage.setItem('vd_tab', def);
     }
   }, [user, activeTab]);
 
   const tabs = [
     ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
     { key: 'despacho', label: 'Despacho' },
+    ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     ...(isDono ? [{ key: 'admin', label: 'Admin' }] : []),
   ];
@@ -38,7 +50,6 @@ const Home = () => {
   ];
 
   const adminTabs = [
-    { key: 'painel', label: 'Painel' },
     { key: 'gerar-os', label: 'Gerar OS' },
     { key: 'usuarios', label: 'Usuários' },
     { key: 'logs', label: 'Logs' },
@@ -137,7 +148,7 @@ const Home = () => {
           {tabs.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => { setActiveTab(key); localStorage.setItem('vd_tab', key); }}
               style={{
                 padding: '7px 18px',
                 background: activeTab === key ? '#0f2544' : 'transparent',
@@ -173,7 +184,7 @@ const Home = () => {
             {despachoTabs.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setActiveSubTabDespacho(key)}
+                onClick={() => { setActiveSubTabDespacho(key); localStorage.setItem('vd_subtab_despacho', key); }}
                 style={{
                   padding: '5px 12px',
                   background: activeSubTabDespacho === key ? '#0f2544' : 'transparent',
@@ -210,7 +221,7 @@ const Home = () => {
             {adminTabs.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setActiveSubTabAdmin(key)}
+                onClick={() => { setActiveSubTabAdmin(key); localStorage.setItem('vd_subtab_admin', key); }}
                 style={{
                   padding: '5px 12px',
                   background: activeSubTabAdmin === key ? '#0f2544' : 'transparent',
@@ -252,7 +263,7 @@ const Home = () => {
           <EspacadoresTab />
         </div>
 
-        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'painel' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
           <PainelTab />
         </div>
 
