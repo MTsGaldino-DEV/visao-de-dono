@@ -7,44 +7,44 @@ import * as XLSX from 'xlsx';
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
-  enviado:    { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
-  pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
-  concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
-  cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
-  reprovado:  { bg: '#fff1f2', color: '#dc2626', border: '#fecdd3', label: 'Reprovado' },
+  enviado: { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  pendente: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
+  concluido: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
+  cancelado: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+  reprovado: { bg: '#fff1f2', color: '#dc2626', border: '#fecdd3', label: 'Reprovado' },
 };
 
 // STATUS_ORDER sem 'cancelado' para o popup StatusDono
-const STATUS_ORDER             = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
-const STATUS_ORDER_SEM_CANCEL  = ['cadastrado', 'enviado', 'pendente', 'concluido'];
+const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
+const STATUS_ORDER_SEM_CANCEL = ['cadastrado', 'enviado', 'pendente', 'concluido'];
 
 const NEXT_STATUS = {
-  cadastrado: { next: 'enviado',   msg: 'Enviado à CEMIG',       label: 'Enviar',   color: '#7c3aed' },
-  enviado:    { next: 'pendente',  msg: 'Número CEMIG recebido',  label: 'Nº CEMIG', color: '#c2410c' },
-  pendente:   { next: 'concluido', msg: 'Serviço concluído',      label: 'Concluir', color: '#15803d' },
+  cadastrado: { next: 'enviado', msg: 'Enviado à CEMIG', label: 'Enviar', color: '#7c3aed' },
+  enviado: { next: 'pendente', msg: 'Número CEMIG recebido', label: 'Nº CEMIG', color: '#c2410c' },
+  pendente: { next: 'concluido', msg: 'Serviço concluído', label: 'Concluir', color: '#15803d' },
 };
 
 // ── Localidades ───────────────────────────────────────────────────────────────
 export const POSTOS = {
   'Posto 1 — Pedro': [
-    'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
-    'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
-    'Mathias Lobato','São Geraldo do Tumiritinga','Sobrália','Tarumirim','Tumiritinga',
+    'Frei Inocêncio', 'Alpercata', 'Alvarenga', 'Capitão Andrade', 'Engenheiro Caldas',
+    'Fernandes Tourinho', 'Governador Valadares', 'Itanhomi', 'Jampruca', 'Jataí',
+    'Mathias Lobato', 'São Geraldo do Tumiritinga', 'Sobrália', 'Tarumirim', 'Tumiritinga',
   ],
   'Posto 2 — Elton': [
-    'Coluna','São Geraldo da Piedade','Água Boa','José Raydan','Paulistas',
-    'Cantagalo','Peçanha','São João Evangelista','São José do Jacuri',
-    'Santa Efigênia de Minas','Gonzaga','Santa Maria do Suaçuí','Frei Lago Negro',
-    'São Pedro do Suaçuí','São Sebastião do Maranhão','Sardoá',
+    'Coluna', 'São Geraldo da Piedade', 'Água Boa', 'José Raydan', 'Paulistas',
+    'Cantagalo', 'Peçanha', 'São João Evangelista', 'São José do Jacuri',
+    'Santa Efigênia de Minas', 'Gonzaga', 'Santa Maria do Suaçuí', 'Frei Lago Negro',
+    'São Pedro do Suaçuí', 'São Sebastião do Maranhão', 'Sardoá',
   ],
   'Posto 3 — Vinicius': [
-    'Cuparaque','Conselheiro Pena','Resplendor','Aimorés','Goiabeira',
-    'Itueta','Santa Rita do Itueto','São Geraldo do Baixio','Galileia',
+    'Cuparaque', 'Conselheiro Pena', 'Resplendor', 'Aimorés', 'Goiabeira',
+    'Itueta', 'Santa Rita do Itueto', 'São Geraldo do Baixio', 'Galileia',
   ],
   'Posto 4 — Victor': [
-    'Itabirinha de Mantena','Divino das Laranjeiras','Central de Minas','Mendes Pimentel',
-    'Nova Belém','São Félix de Minas','Tipiti','Mantena','São João do Manteninha',
-    'Marilac','Coroaci','Virgolândia','Nacip Raydan','São José da Safira',
+    'Itabirinha de Mantena', 'Divino das Laranjeiras', 'Central de Minas', 'Mendes Pimentel',
+    'Nova Belém', 'São Félix de Minas', 'Tipiti', 'Mantena', 'São João do Manteninha',
+    'Marilac', 'Coroaci', 'Virgolândia', 'Nacip Raydan', 'São José da Safira',
   ],
 };
 
@@ -53,10 +53,10 @@ export const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) 
 ).sort((a, b) => a.loc.localeCompare(b.loc, 'pt-BR'));
 
 export const POSTO_COLORS = {
-  'Posto 1 — Pedro':    '#1d4ed8',
-  'Posto 2 — Elton':    '#7c3aed',
+  'Posto 1 — Pedro': '#1d4ed8',
+  'Posto 2 — Elton': '#7c3aed',
   'Posto 3 — Vinicius': '#0369a1',
-  'Posto 4 — Victor':   '#15803d',
+  'Posto 4 — Victor': '#15803d',
 };
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -115,12 +115,12 @@ const Badge = ({ status }) => {
 
 // ── Select pesquisável de localidade ─────────────────────────────────────────
 export const LocalidadeSelect = ({ value, onChange }) => {
-  const [query, setQuery]             = useState('');
-  const [open, setOpen]               = useState(false);
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const containerRef = useRef(null);
-  const inputRef     = useRef(null);
-  const listRef      = useRef(null);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
 
   const resultados = query.trim()
     ? TODAS_LOCALIDADES.filter(({ loc }) => normStr(loc).includes(normStr(query)))
@@ -135,7 +135,7 @@ export const LocalidadeSelect = ({ value, onChange }) => {
   const flat = resultados;
 
   const selecionar = (loc) => { onChange(loc); setQuery(''); setOpen(false); setHighlighted(0); };
-  const limpar     = ()    => { onChange('');  setQuery(''); inputRef.current?.focus(); };
+  const limpar = () => { onChange(''); setQuery(''); inputRef.current?.focus(); };
 
   useEffect(() => {
     const handler = (e) => {
@@ -155,10 +155,10 @@ export const LocalidadeSelect = ({ value, onChange }) => {
 
   const handleKeyDown = (e) => {
     if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) { setOpen(true); return; }
-    if      (e.key === 'ArrowDown') { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
-    else if (e.key === 'ArrowUp')   { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
     else if (e.key === 'Enter' && flat[highlighted]) { selecionar(flat[highlighted].loc); e.preventDefault(); }
-    else if (e.key === 'Escape')    { setOpen(false); setQuery(''); }
+    else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
   return (
@@ -175,7 +175,7 @@ export const LocalidadeSelect = ({ value, onChange }) => {
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
           style={{ flexShrink: 0, marginLeft: '11px' }}>
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         <input
           ref={inputRef} type="text"
@@ -244,7 +244,7 @@ export const LocalidadeSelect = ({ value, onChange }) => {
                       {loc}
                       {loc === value && (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round">
-                          <polyline points="20 6 9 17 4 12"/>
+                          <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
                     </button>
@@ -367,7 +367,7 @@ const ReprovadoPopup = ({ servico, onConfirm, onCancel }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
           <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#fff1f2', border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
           </div>
           <div>
@@ -400,7 +400,7 @@ const ReprovadoPopup = ({ servico, onConfirm, onCancel }) => {
           <button onClick={() => motivo.trim() && onConfirm(motivo.trim())} disabled={!motivo.trim()}
             style={{ ...BTN_PRIMARY, background: motivo.trim() ? 'linear-gradient(135deg, #991b1b, #dc2626)' : '#94a3b8', opacity: motivo.trim() ? 1 : 0.6, cursor: motivo.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             </svg>
             Confirmar reprovação
           </button>
@@ -421,7 +421,7 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
           <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#fef2f2', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
             </svg>
           </div>
           <div>
@@ -454,7 +454,7 @@ const CancelPopup = ({ servico, onConfirm, onCancel }) => {
           <button onClick={() => obs.trim() && onConfirm(obs.trim())} disabled={!obs.trim()}
             style={{ ...BTN_PRIMARY, background: obs.trim() ? 'linear-gradient(135deg, #991b1b, #b91c1c)' : '#94a3b8', opacity: obs.trim() ? 1 : 0.6, cursor: obs.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
             </svg>
             Confirmar cancelamento
           </button>
@@ -500,7 +500,7 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
           <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: 'linear-gradient(135deg, #7c3aed22, #7c3aed11)', border: '1px solid #ddd6fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </div>
           <div style={{ flex: 1 }}>
@@ -511,7 +511,7 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
             <a href={servico.foto} target="_blank" rel="noopener noreferrer" title="Abrir foto do serviço"
               style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: '600', flexShrink: 0, background: 'linear-gradient(135deg, #0f172a, #1d4ed8)', color: '#fff' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
               </svg>
               Ver foto
             </a>
@@ -519,14 +519,14 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: '600', background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
             Enviado CEMIG — {servico.id}
           </div>
           {editado && (
             <button onClick={() => setTexto(gerarMensagemNSIS(servico))}
               style={{ fontSize: '11px', color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
               </svg>
               Restaurar original
             </button>
@@ -545,8 +545,8 @@ const MensagemCemigPopup = ({ servico, onClose }) => {
           <button onClick={copiar}
             style={{ ...BTN_PRIMARY, background: copiado ? 'linear-gradient(135deg, #15803d, #16a34a)' : 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s' }}>
             {copiado
-              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copiado!</>
-              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar mensagem</>
+              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>Copiado!</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>Copiar mensagem</>
             }
           </button>
         </div>
@@ -567,7 +567,7 @@ const StatusDonoPopup = ({ servico, onConfirm, onCancel }) => {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '22px' }}>
           {STATUS_ORDER_SEM_CANCEL.map(s => {
-            const cfg  = STATUS_CONFIG[s];
+            const cfg = STATUS_CONFIG[s];
             const ativo = novoStatus === s;
             return (
               <button key={s} onClick={() => setNovoStatus(s)} style={{
@@ -626,7 +626,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
           style={{ flexShrink: 0, marginLeft: '6px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <polyline points="6 9 12 15 18 9"/>
+          <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       {open && (
@@ -667,7 +667,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
 
 // ── Exportar CSV ──────────────────────────────────────────────────────────────
 const exportarExcel = (dados) => {
-  const colunas = ['ID','Data','Localidade','Descrição','Tipo','Equipamento','Status','Nº Serviço','Atribuído para','Técnico Origem','Coordenada','Observação','Obs. Cancelamento','Placa Montada'];
+  const colunas = ['ID', 'Data', 'Localidade', 'Descrição', 'Tipo', 'Equipamento', 'Status', 'Nº Serviço', 'Atribuído para', 'Técnico Origem', 'Coordenada', 'Observação', 'Obs. Cancelamento', 'Placa Montada'];
   const esc = (val) => {
     if (val === null || val === undefined) return '';
     const str = String(val);
@@ -708,7 +708,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name);
-    
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -717,13 +717,13 @@ const ImportPopup = ({ onClose, onSuccess }) => {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        
+
         const { data: lastRecord } = await supabase
           .from('servicos')
           .select('id')
           .order('dtCadastro', { ascending: false })
           .limit(1);
-          
+
         let currentIdNum = 0;
         if (lastRecord && lastRecord.length > 0 && lastRecord[0].id) {
           currentIdNum = parseInt(lastRecord[0].id.replace('VD', ''), 10) || 0;
@@ -749,40 +749,40 @@ const ImportPopup = ({ onClose, onSuccess }) => {
         }
 
         const processadas = json.map((row, index) => {
-          const numLinha = index + 2; 
+          const numLinha = index + 2;
           const errors = [];
           const avisos = [];
-          
+
           const rawData = String(row['Data'] || '').trim();
           let parsedData = new Date().toISOString();
           if (!rawData) {
             avisos.push('DATA vazia — utilizando data atual.');
           } else {
             if (!isNaN(Number(rawData)) && Number(rawData) > 20000) {
-               const excelDate = new Date(Math.round((Number(rawData) - 25569)*86400*1000));
-               parsedData = excelDate.toISOString();
+              const excelDate = new Date(Math.round((Number(rawData) - 25569) * 86400 * 1000));
+              parsedData = excelDate.toISOString();
             } else {
-               const d = new Date(rawData);
-               if (isNaN(d.getTime())) {
-                 avisos.push(`DATA inválida ("${rawData}") — utilizando data atual.`);
-               } else {
-                 parsedData = d.toISOString();
-               }
+              const d = new Date(rawData);
+              if (isNaN(d.getTime())) {
+                avisos.push(`DATA inválida ("${rawData}") — utilizando data atual.`);
+              } else {
+                parsedData = d.toISOString();
+              }
             }
           }
-          
+
           const local = String(row['LOCALIDADE'] || '').trim();
           if (!local) errors.push('LOCALIDADE está vazia');
-          
+
           const desc = String(row['DESCRIÇÃO'] || '').trim();
           if (!desc) errors.push('DESCRIÇÃO está vazia');
-          
+
           const coord = String(row['COORDENADA'] || '').trim();
           if (!coord) errors.push('COORDENADA está vazia');
-          
+
           const equip = String(row['TRANSFORMADOR'] || '').trim();
           if (!equip) errors.push('TRANSFORMADOR está vazio');
-          
+
           const tipoRaw = String(row['TIPO'] || '').trim().toUpperCase();
           let tipo = tipoRaw;
           if (!tipoRaw) {
@@ -793,7 +793,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
 
           const dupKey = `${equip}|${desc}|${parsedData}`;
           if (existentesMap.has(dupKey)) {
-             avisos.push(`Possível duplicidade: já existe um serviço com este Transformador, Descrição e Data.`);
+            avisos.push(`Possível duplicidade: já existe um serviço com este Transformador, Descrição e Data.`);
           }
 
           const hasError = errors.length > 0;
@@ -803,7 +803,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
             validosCount++;
             currentIdNum++;
           }
-          
+
           const idGerado = hasError ? null : `VD${String(currentIdNum).padStart(4, '0')}`;
 
           return {
@@ -841,7 +841,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
     setEtapa('importando');
     const validos = linhas.filter(l => l.isValido);
     setProgresso({ atual: 0, total: validos.length });
-    
+
     if (validos.length === 0) return;
 
     const inicioId = validos[0].parsed.id;
@@ -867,7 +867,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
           hist: [{ who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Serviço importado via planilha' }]
         };
       });
-      
+
       await supabase.from('servicos').insert(loteBatch);
       setProgresso(prev => ({ ...prev, atual: prev.atual + loteBatch.length }));
     }
@@ -878,7 +878,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
       inicio: inicioId,
       fim: fimId
     });
-    
+
     if (onSuccess) onSuccess();
     setEtapa('concluido');
   };
@@ -891,7 +891,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
             <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
             <div>
@@ -901,7 +901,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', border: '2px dashed #bbf7d0', borderRadius: '10px', cursor: 'pointer', background: '#f0fdf4', marginBottom: '14px' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
             </svg>
             <span style={{ fontSize: '13px', color: fileName ? '#15803d' : '#64748b', fontWeight: fileName ? '600' : '400' }}>
               {fileName || 'Clique para selecionar arquivo .xlsx'}
@@ -933,7 +933,7 @@ const ImportPopup = ({ onClose, onSuccess }) => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
                 <div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#15803d' }}>Importação concluída!</div>
@@ -963,21 +963,21 @@ const ImportPopup = ({ onClose, onSuccess }) => {
   return (
     <div style={POPUP_OVERLAY}>
       <div style={{ background: '#fff', borderRadius: '12px', width: '90vw', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', animation: 'popIn 0.2s ease' }}>
-        
+
         {/* HEADER DO MODAL */}
         <div style={{ background: '#0f2544', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: '20px', fontWeight: '700' }}>Prévia de Importação</div>
             <div style={{ fontSize: '13px', color: '#93c5fd' }}>{estatisticas.total} serviços encontrados na planilha</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', opacity: 0.7, padding: '4px' }} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', opacity: 0.7, padding: '4px' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.7}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
 
         {/* CORPO COM SCROLL */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f8fafc' }}>
-          
+
           {/* RESUMO NO TOPO */}
           <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
             <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '16px', borderLeft: '4px solid #15803d', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
@@ -1124,10 +1124,10 @@ const calcularDistancia = (coord1, coord2) => {
   const R = 6371; // km
   const dLat = (p2.lat - p1.lat) * Math.PI / 180;
   const dLon = (p2.lon - p1.lon) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
@@ -1136,39 +1136,39 @@ const ServicosTable = () => {
   const { user } = useAuth();
   const isDono = user?.role === 'dono';
 
-  const [services, setServices]                 = useState([]);
+  const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
-  const [selectedService, setSelectedService]   = useState(null);
-  const [modalOpen, setModalOpen]               = useState(false);
-  const [busca, setBusca]                       = useState('');
-  const [statusFilter, setStatusFilter]         = useState([]);
-  const [tipoFilter, setTipoFilter]             = useState([]);
+  const [selectedService, setSelectedService] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [statusFilter, setStatusFilter] = useState([]);
+  const [tipoFilter, setTipoFilter] = useState([]);
   const [localidadeFilter, setLocalidadeFilter] = useState('');
-  const [postoFilter, setPostoFilter]           = useState([]);
-  const [dataInicio, setDataInicio]             = useState('');
-  const [dataFim, setDataFim]                   = useState('');
-  const [placaFilter, setPlacaFilter]           = useState('todos');
+  const [postoFilter, setPostoFilter] = useState([]);
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [placaFilter, setPlacaFilter] = useState('todos');
   const [enviadoSupFilter, setEnviadoSupFilter] = useState('todos');
-  const [sortCol, setSortCol]                   = useState('id');
-  const [sortDir, setSortDir]                   = useState('desc');
+  const [sortCol, setSortCol] = useState('id');
+  const [sortDir, setSortDir] = useState('desc');
   // ── Filtro por proximidade
   const [servicoReferencia, setServicoReferencia] = useState(null);
-  const [currentPage, setCurrentPage]           = useState(1);
-  const [importPopupOpen, setImportPopupOpen]   = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [importPopupOpen, setImportPopupOpen] = useState(false);
   // ── [NOVO] Despacho ──
-  const [selecionados, setSelecionados]                 = useState(new Set());
-  const [tecnicos, setTecnicos]                         = useState([]);
-  const [despacharOpen, setDespacharOpen]               = useState(false);
-  const [despacharLoading, setDespacharLoading]         = useState(false);
+  const [selecionados, setSelecionados] = useState(new Set());
+  const [tecnicos, setTecnicos] = useState([]);
+  const [despacharOpen, setDespacharOpen] = useState(false);
+  const [despacharLoading, setDespacharLoading] = useState(false);
 
-  const [confirmPending, setConfirmPending]             = useState(null);
-  const [numServPending, setNumServPending]             = useState(null);
-  const [statusDonoPending, setStatusDonoPending]       = useState(null);
+  const [confirmPending, setConfirmPending] = useState(null);
+  const [numServPending, setNumServPending] = useState(null);
+  const [statusDonoPending, setStatusDonoPending] = useState(null);
   const [mensagemCemigServico, setMensagemCemigServico] = useState(null);
-  const [cancelPending, setCancelPending]               = useState(null);
-  const [reprovadoPending, setReprovadoPending]         = useState(null);
-  const [alterarLocalPending, setAlterarLocalPending]   = useState(null);
-  const [concluirMenu, setConcluirMenu]                 = useState(null);
+  const [cancelPending, setCancelPending] = useState(null);
+  const [reprovadoPending, setReprovadoPending] = useState(null);
+  const [alterarLocalPending, setAlterarLocalPending] = useState(null);
+  const [concluirMenu, setConcluirMenu] = useState(null);
 
   useEffect(() => {
     const handleScrollOrClick = (e) => {
@@ -1250,7 +1250,7 @@ const ServicosTable = () => {
     if (tipoFilter.length > 0) lista = lista.filter(s => tipoFilter.includes(s.tipo));
 
     // Filtro placa montada
-    if (placaFilter === 'montada')     lista = lista.filter(s => s.placaMontada === true);
+    if (placaFilter === 'montada') lista = lista.filter(s => s.placaMontada === true);
     if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placaMontada);
 
     // Filtro placa enviada ao supervisor
@@ -1285,10 +1285,10 @@ const ServicosTable = () => {
     else { setSortCol(col); setSortDir('asc'); }
   };
 
-  const totalPages   = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
-  const safePage     = Math.min(currentPage, totalPages);
-  const pageStart    = (safePage - 1) * PAGE_SIZE;
-  const pageEnd      = pageStart + PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
   const pageServices = filteredServices.slice(pageStart, pageEnd);
 
   const visiblePages = (() => {
@@ -1373,15 +1373,15 @@ const ServicosTable = () => {
   };
 
   const statusOptions = STATUS_ORDER.map(s => ({ value: s, label: STATUS_CONFIG[s].label, badge: STATUS_CONFIG[s] }));
-  const tipoOptions   = ['NSIS','NSMP','RC02','INBE','NSCP'].map(t => ({ value: t, label: t }));
-  const postoOptions  = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p }));
+  const tipoOptions = ['NSIS', 'NSMP', 'RC02', 'INBE', 'NSCP'].map(t => ({ value: t, label: t }));
+  const postoOptions = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p }));
 
   // Contagens para o filtro de placa
-  const totalPlacas      = filteredServices.filter(s => {
+  const totalPlacas = filteredServices.filter(s => {
     const n = (s.desc || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return n.includes('PLACA');
   });
-  const qtdMontadas    = services.filter(s => s.placaMontada === true && s.status !== 'cancelado').length;
+  const qtdMontadas = services.filter(s => s.placaMontada === true && s.status !== 'cancelado').length;
   const qtdNaoMontadas = services.filter(s => !s.placaMontada && s.status !== 'cancelado').length;
 
   const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos' || enviadoSupFilter !== 'todos';
@@ -1420,9 +1420,6 @@ const ServicosTable = () => {
             matricula: tecnico.matricula,
             equipe: tecnico.equipe
           },
-          // Campos obrigatórios para aparecer no app Android
-          tecnico_uid: tecnico.uid,
-          tecnico_matricula: tecnico.matricula,
           dtAtribuicao: new Date().toISOString(),
           hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Atribuído para o técnico ${tecnico.nome}` }]
         }).eq('id', id);
@@ -1440,13 +1437,13 @@ const ServicosTable = () => {
   return (
     <div>
       {/* Popups */}
-      {importPopupOpen        && <ImportPopup                                                            onClose={() => setImportPopupOpen(false)} onSuccess={() => setImportPopupOpen(false)} />}
-      {confirmPending       && <ConfirmPopup      servico={confirmPending.servico} novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus}    onCancel={() => setConfirmPending(null)} />}
-      {numServPending       && <NumServPopup       servico={numServPending}          onConfirm={confirmarNumServ}           onCancel={() => setNumServPending(null)} />}
-      {statusDonoPending    && <StatusDonoPopup    servico={statusDonoPending}        onConfirm={confirmarStatusDono}        onCancel={() => setStatusDonoPending(null)} />}
-      {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico}     onClose={() => setMensagemCemigServico(null)} />}
-      {cancelPending        && <CancelPopup        servico={cancelPending}            onConfirm={confirmarCancelamento}      onCancel={() => setCancelPending(null)} />}
-      {reprovadoPending     && <ReprovadoPopup     servico={reprovadoPending}         onConfirm={confirmarReprovado}         onCancel={() => setReprovadoPending(null)} />}
+      {importPopupOpen && <ImportPopup onClose={() => setImportPopupOpen(false)} onSuccess={() => setImportPopupOpen(false)} />}
+      {confirmPending && <ConfirmPopup servico={confirmPending.servico} novoStatus={confirmPending.novoStatus} onConfirm={confirmarStatus} onCancel={() => setConfirmPending(null)} />}
+      {numServPending && <NumServPopup servico={numServPending} onConfirm={confirmarNumServ} onCancel={() => setNumServPending(null)} />}
+      {statusDonoPending && <StatusDonoPopup servico={statusDonoPending} onConfirm={confirmarStatusDono} onCancel={() => setStatusDonoPending(null)} />}
+      {mensagemCemigServico && <MensagemCemigPopup servico={mensagemCemigServico} onClose={() => setMensagemCemigServico(null)} />}
+      {cancelPending && <CancelPopup servico={cancelPending} onConfirm={confirmarCancelamento} onCancel={() => setCancelPending(null)} />}
+      {reprovadoPending && <ReprovadoPopup servico={reprovadoPending} onConfirm={confirmarReprovado} onCancel={() => setReprovadoPending(null)} />}
 
       {/* ── Banner de Proximidade ── */}
       {servicoReferencia && (
@@ -1477,7 +1474,7 @@ const ServicosTable = () => {
             <div style={{ position: 'relative' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
                 style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input type="text" placeholder="ID, localidade, descrição, equipamento..."
                 value={busca} onChange={e => setBusca(e.target.value)} style={{ ...inputStyle, paddingLeft: '30px' }} />
@@ -1533,8 +1530,8 @@ const ServicosTable = () => {
             </label>
             <div style={{ display: 'flex', gap: '6px' }}>
               {[
-                { key: 'todos',       label: 'Todos'      },
-                { key: 'montada',     label: 'Montada',     cor: '#15803d' },
+                { key: 'todos', label: 'Todos' },
+                { key: 'montada', label: 'Montada', cor: '#15803d' },
                 { key: 'nao_montada', label: 'Não montada', cor: '#c2410c' },
               ].map(({ key, label, cor }) => {
                 const ativo = placaFilter === key;
@@ -1551,12 +1548,12 @@ const ServicosTable = () => {
                   }}>
                     {key === 'montada' && (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2" /><polyline points="9 12 11 14 15 10" />
                       </svg>
                     )}
                     {key === 'nao_montada' && (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
                       </svg>
                     )}
                     {label}
@@ -1575,8 +1572,8 @@ const ServicosTable = () => {
               <div style={{ display: 'flex', gap: '6px' }}>
                 {[
                   { key: 'todos', label: 'Todos' },
-                  { key: 'sim',   label: 'Sim', cor: '#7c3aed' },
-                  { key: 'nao',   label: 'Não', cor: '#c2410c' },
+                  { key: 'sim', label: 'Sim', cor: '#7c3aed' },
+                  { key: 'nao', label: 'Não', cor: '#c2410c' },
                 ].map(({ key, label, cor }) => {
                   const ativo = enviadoSupFilter === key;
                   const corBase = cor || '#475569';
@@ -1620,7 +1617,7 @@ const ServicosTable = () => {
               onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               Importar
             </button>
@@ -1629,7 +1626,7 @@ const ServicosTable = () => {
               onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
               </svg>
               Exportar Excel
             </button>
@@ -1668,7 +1665,7 @@ const ServicosTable = () => {
               <th style={{ ...thBase, textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
                   </svg>
                   <span style={{ fontSize: '8px', letterSpacing: '0.03em' }}>PLACA</span>
                 </div>
@@ -1686,19 +1683,19 @@ const ServicosTable = () => {
           </thead>
           <tbody>
             {pageServices.map((s, i) => {
-              const nextInfo      = NEXT_STATUS[s.status];
-              const placaMontada  = s.placaMontada === true;
-              const enviadoSup    = s.enviadoSupervisor === true;
-              const globalIdx     = pageStart + i;
+              const nextInfo = NEXT_STATUS[s.status];
+              const placaMontada = s.placaMontada === true;
+              const enviadoSup = s.enviadoSupervisor === true;
+              const globalIdx = pageStart + i;
 
               // Aparência do checkbox de placa:
               // · Não montada  → quadrado vazio cinza
               // · Montada, não enviada → quadrado verde com check
               // · Montada + enviada ao supervisor → quadrado roxo com check
-              const placaColor  = !placaMontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
-              const placaBg     = !placaMontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
+              const placaColor = !placaMontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
+              const placaBg = !placaMontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
               const placaBorder = !placaMontada ? '#cbd5e1' : enviadoSup ? '#ddd6fe' : '#bbf7d0';
-              const placaTip    = !placaMontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
+              const placaTip = !placaMontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
 
               return (
                 <tr key={s._docId} style={{
@@ -1708,7 +1705,7 @@ const ServicosTable = () => {
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#f0f7ff'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = globalIdx % 2 === 0 ? '#fff' : '#fafbfc'; }}
-                  onClick={() => { if (concluirDropdownId) setConcluirDropdownId(null); }}
+                  onClick={() => { if (concluirMenu) setConcluirMenu(null); }}
                 >
                   {/* Seleção */}
                   <td style={{ ...td, textAlign: 'center' }}>
@@ -1730,7 +1727,7 @@ const ServicosTable = () => {
                         onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.borderColor = '#7dd3fc'; e.currentTarget.style.color = '#0369a1'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
 
@@ -1749,8 +1746,8 @@ const ServicosTable = () => {
                           onMouseEnter={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.borderColor = '#fbbf24'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.borderColor = '#fde68a'; }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </button>
                       )}
@@ -1762,7 +1759,7 @@ const ServicosTable = () => {
                           onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                            <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
                           </svg>
                         </button>
                       )}
@@ -1774,7 +1771,7 @@ const ServicosTable = () => {
                     <span title={placaTip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '5px', border: `1.5px solid ${placaBorder}`, background: placaBg, transition: 'all 0.15s', flexShrink: 0 }}>
                       {placaMontada && (
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={placaColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
+                          <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
                     </span>
@@ -1814,8 +1811,8 @@ const ServicosTable = () => {
                       onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = s.numServ ? '#0f2544' : '#94a3b8'; }}>
                       {s.numServ || '—'}
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                       </svg>
                     </button>
                   </td>
@@ -1853,7 +1850,7 @@ const ServicosTable = () => {
                             onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
                             onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
                             {nextInfo.label}
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirMenu?.id === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirMenu?.id === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9" /></svg>
                           </button>
                         </div>
                       ) : (
@@ -1889,7 +1886,7 @@ const ServicosTable = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
                 style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === 1 ? '#f8fafc' : '#fff', color: safePage === 1 ? '#cbd5e1' : '#475569', cursor: safePage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
               {visiblePages[0] > 1 && (
                 <>
@@ -1911,7 +1908,7 @@ const ServicosTable = () => {
               )}
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
                 style={{ width: '30px', height: '30px', border: '1px solid #e2e8f0', borderRadius: '7px', background: safePage === totalPages ? '#f8fafc' : '#fff', color: safePage === totalPages ? '#cbd5e1' : '#475569', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
               </button>
             </div>
           </div>
@@ -1949,7 +1946,7 @@ const ServicosTable = () => {
                 style={{ width: '100%', padding: '10px 14px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#15803d', fontWeight: '600', textAlign: 'left' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
                 Executado
               </button>
               <button
@@ -1959,14 +1956,14 @@ const ServicosTable = () => {
                 style={{ width: '100%', padding: '10px 14px', border: 'none', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'inherit', fontSize: '12px', color: '#dc2626', fontWeight: '600', textAlign: 'left' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
                 Reprovado
               </button>
             </>
           ) : (
             <div style={{ padding: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
                 Motivo da reprovação
               </div>
               <textarea
@@ -2006,9 +2003,9 @@ const ServicosTable = () => {
           <div style={{ fontSize: '14px', fontWeight: '600' }}>
             {selecionados.size} serviço(s) selecionado(s)
           </div>
-          
+
           <div style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setDespacharOpen(!despacharOpen)}
               disabled={despacharLoading}
               style={{
@@ -2023,7 +2020,7 @@ const ServicosTable = () => {
               ) : (
                 <>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    <path d="M22 2L11 13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
                   </svg>
                   Despachar
                 </>
