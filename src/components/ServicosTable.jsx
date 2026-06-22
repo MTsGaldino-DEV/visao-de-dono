@@ -733,20 +733,22 @@ const ImportPopup = ({ onClose, onSuccess }) => {
         let validosCount = 0;
         let errosCount = 0;
 
-        const equipsNaPlanilha = Array.from(new Set(json.map(r => String(r['TRANSFORMADOR'] || '').trim()).filter(Boolean)));
+        const coordsNaPlanilha = Array.from(new Set(json.map(r => String(r['COORDENADA'] || '').trim()).filter(Boolean)));
         let existentesMap = new Set();
-        if (equipsNaPlanilha.length > 0) {
+        if (coordsNaPlanilha.length > 0) {
           const inChunks = [];
-          for (let i = 0; i < equipsNaPlanilha.length; i += 100) {
-            inChunks.push(equipsNaPlanilha.slice(i, i + 100));
+          for (let i = 0; i < coordsNaPlanilha.length; i += 100) {
+            inChunks.push(coordsNaPlanilha.slice(i, i + 100));
           }
           for (const chunk of inChunks) {
-            const { data: dbExistentes } = await supabase.from('servicos').select('equip, desc, data').in('equip', chunk);
+            const { data: dbExistentes } = await supabase.from('servicos').select('coord').in('coord', chunk);
             if (dbExistentes) {
-              dbExistentes.forEach(e => existentesMap.add(`${e.equip}|${e.desc}|${e.data}`));
+              dbExistentes.forEach(e => existentesMap.add(e.coord));
             }
           }
         }
+
+        let coordenadasNoArquivo = new Set();
 
         const processadas = json.map((row, index) => {
           const numLinha = index + 2;
@@ -778,7 +780,14 @@ const ImportPopup = ({ onClose, onSuccess }) => {
           if (!desc) errors.push('DESCRIÇÃO está vazia');
 
           const coord = String(row['COORDENADA'] || '').trim();
-          if (!coord) errors.push('COORDENADA está vazia');
+          if (!coord) {
+            errors.push('COORDENADA está vazia');
+          } else {
+            if (existentesMap.has(coord) || coordenadasNoArquivo.has(coord)) {
+              errors.push('Duplicidade: já existe um serviço com esta mesma Coordenada.');
+            }
+            coordenadasNoArquivo.add(coord);
+          }
 
           const equip = String(row['TRANSFORMADOR'] || '').trim();
           if (!equip) errors.push('TRANSFORMADOR está vazio');
@@ -789,11 +798,6 @@ const ImportPopup = ({ onClose, onSuccess }) => {
             errors.push('TIPO está vazio');
           } else if (!validTypes.includes(tipoRaw)) {
             errors.push(`TIPO inválido: "${tipoRaw}" (valores aceitos: NSIS, NSMP, RC02, INBE, NSCP)`);
-          }
-
-          const dupKey = `${equip}|${desc}|${parsedData}`;
-          if (existentesMap.has(dupKey)) {
-            avisos.push(`Possível duplicidade: já existe um serviço com este Transformador, Descrição e Data.`);
           }
 
           const hasError = errors.length > 0;
