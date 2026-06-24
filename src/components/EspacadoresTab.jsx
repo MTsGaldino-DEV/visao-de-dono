@@ -93,8 +93,9 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
           <div style={{ marginBottom: '20px' }}>
             <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>Informações do serviço</div>
             <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '4px 14px', border: '1px solid #e2e8f0' }}>
-              <InfoRow label="ID do serviço" value={servico.id} />
+              <InfoRow label="ID da Nota / Serviço" value={servico.id} />
               <InfoRow label="Tipo" value={servico.tipo || '—'} />
+              <InfoRow label="Descrição" value={servico.descricao || servico.nota || '—'} />
               <InfoRow label="Localidade" value={servico.local || '—'} />
               <InfoRow label="Equipamento" value={servico.equip || '—'} />
               <InfoRow label="Técnico" value={tecnico} />
@@ -399,7 +400,7 @@ const EspacadoresTab = () => {
               {aguardandoAprovacao.length === 0 ? (
                 <EmptyState text="Nenhum serviço aguardando aprovação." />
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {aguardandoAprovacao.map(s => {
                     const exec = s.execucao || {};
                     const tecnico = exec.tecnico?.nome || s.atribuido_para?.nome || 'Desconhecido';
@@ -410,62 +411,49 @@ const EspacadoresTab = () => {
                     return (
                       <div
                         key={s.id}
-                        style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.15s' }}
+                        style={{ display: 'flex', flexWrap: 'wrap', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', alignItems: 'center', justifyContent: 'space-between', gap: '20px', transition: 'box-shadow 0.15s' }}
                       >
-                        {/* Cabeçalho do card */}
-                        <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f2544' }}>{s.id}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>{s.local || 'Sem localidade'} — {s.equip || 'Sem equip.'}</div>
+                        {/* Info Principal */}
+                        <div style={{ flex: '1 1 250px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f2544' }}>{s.id}</span>
+                            <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', border: '1px solid #fde68a', whiteSpace: 'nowrap' }}>Aguardando</span>
                           </div>
-                          <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', border: '1px solid #fde68a', whiteSpace: 'nowrap' }}>
-                            Aguardando
-                          </span>
+                          <div style={{ fontSize: '13px', color: '#0f2544', fontWeight: '600', marginBottom: '2px' }}>{s.tipo || 'Sem tipo'}</div>
+                          <div style={{ fontSize: '13px', color: '#475569' }}>
+                            <span style={{ color: '#94a3b8' }}>Local:</span> {s.local || '—'} <br />
+                            <span style={{ color: '#94a3b8' }}>Equip.:</span> {s.equip || '—'}
+                          </div>
+                        </div>
+
+                        {/* Detalhes da Execução */}
+                        <div style={{ flex: '1 1 200px', fontSize: '13px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div><span style={{ color: '#94a3b8' }}>Técnico:</span> <span style={{ color: '#1d4ed8', fontWeight: '600' }}>{tecnico}</span></div>
+                          <div><span style={{ color: '#94a3b8' }}>Concluído em:</span> <span style={{ fontWeight: '500' }}>{dataFim}</span></div>
+                          {exec.material && <div><span style={{ color: '#94a3b8' }}>Material:</span> {exec.material} <span style={{ color: '#94a3b8', fontSize: '11px' }}>({exec.quantidade || 1} un)</span></div>}
                         </div>
 
                         {/* Miniaturas das fotos */}
-                        <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          {[{ url: exec.fotoAntes, label: 'Antes' }, { url: exec.fotoDepois, label: 'Depois' }].map(({ url, label }) => (
-                            <div key={label}>
-                              <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', marginBottom: '4px', letterSpacing: '0.4px' }}>{label.toUpperCase()}</div>
-                              {url ? (
-                                <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0', aspectRatio: '4/3', background: '#f1f5f9' }}>
-                                  <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </div>
-                              ) : (
-                                <div style={{ borderRadius: '8px', border: '1px dashed #e2e8f0', aspectRatio: '4/3', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', fontSize: '11px' }}>
-                                  Sem foto
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Info rápida */}
-                        <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                            <span style={{ color: '#94a3b8' }}>Técnico</span>
-                            <span style={{ color: '#1d4ed8', fontWeight: '500' }}>{tecnico}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                            <span style={{ color: '#94a3b8' }}>Concluído em</span>
-                            <span style={{ color: '#334155' }}>{dataFim}</span>
-                          </div>
-                          {exec.material && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                              <span style={{ color: '#94a3b8' }}>Material</span>
-                              <span style={{ color: '#334155', maxWidth: '60%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exec.material}</span>
-                            </div>
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                          {exec.fotoAntes ? (
+                            <img src={exec.fotoAntes} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} alt="Antes" title="Antes" />
+                          ) : (
+                            <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>Sem foto<br/>antes</div>
+                          )}
+                          {exec.fotoDepois ? (
+                            <img src={exec.fotoDepois} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} alt="Depois" title="Depois" />
+                          ) : (
+                            <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>Sem foto<br/>depois</div>
                           )}
                         </div>
 
                         {/* Botão revisar */}
-                        <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
+                        <div style={{ flexShrink: 0 }}>
                           <button
                             onClick={() => setModalServico(s)}
-                            style={{ width: '100%', padding: '11px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.2px' }}
+                            style={{ padding: '10px 24px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
                           >
-                            Revisar e decidir →
+                            Revisar <span>→</span>
                           </button>
                         </div>
                       </div>
