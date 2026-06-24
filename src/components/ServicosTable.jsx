@@ -1194,11 +1194,15 @@ const ServicosTable = () => {
   useEffect(() => {
     const carregar = async () => {
       const { data } = await supabase.from('servicos').select('*');
-      if (data) setServices(data.map(d => ({ ...d, _docId: d.id })));
+      if (data) setServices(data);
     };
     carregar();
     const channel = supabase.channel('servicos_table')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, carregar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, (payload) => {
+        if (payload.eventType === 'INSERT') setServices(prev => [...prev, payload.new]);
+        else if (payload.eventType === 'UPDATE') setServices(prev => prev.map(s => s.id === payload.new.id ? payload.new : s));
+        else if (payload.eventType === 'DELETE') setServices(prev => prev.filter(s => s.id !== payload.old.id));
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, []);
@@ -1304,7 +1308,7 @@ const ServicosTable = () => {
   // ── Ações Firebase ────────────────────────────────────────────────────────
   const atualizarStatus = async (docId, novoStatus, mensagem, extra = {}) => {
     try {
-      const atual = services.find(s => s._docId === docId);
+      const atual = services.find(s => s.id === docId);
       await supabase.from('servicos').update({
         status: novoStatus, ...extra,
         hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: mensagem }]
@@ -1315,7 +1319,7 @@ const ServicosTable = () => {
   const confirmarStatus = async (numServ) => {
     const { servico, novoStatus, mensagem } = confirmPending;
     const extra = numServ ? { numServ } : {};
-    await atualizarStatus(servico._docId, novoStatus, mensagem, extra);
+    await atualizarStatus(servico.id, novoStatus, mensagem, extra);
     if (novoStatus === 'enviado') setMensagemCemigServico(servico);
     setConfirmPending(null);
   };
@@ -1325,26 +1329,26 @@ const ServicosTable = () => {
     await supabase.from('servicos').update({
       numServ: num,
       hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Nº CEMIG registrado: ${num}` }]
-    }).eq('id', s._docId);
+    }).eq('id', s.id);
     setNumServPending(null);
   };
 
   const confirmarStatusDono = async (novoStatus) => {
     const s = statusDonoPending;
-    await atualizarStatus(s._docId, novoStatus, `Status alterado para "${STATUS_CONFIG[novoStatus]?.label}" pelo Dono.`);
+    await atualizarStatus(s.id, novoStatus, `Status alterado para "${STATUS_CONFIG[novoStatus]?.label}" pelo Dono.`);
     setStatusDonoPending(null);
     if (novoStatus === 'enviado') setMensagemCemigServico(s);
   };
 
   const confirmarCancelamento = async (motivo) => {
     const s = cancelPending;
-    await atualizarStatus(s._docId, 'cancelado', `Cancelado — Motivo: ${motivo}`, { obsCancelamento: motivo });
+    await atualizarStatus(s.id, 'cancelado', `Cancelado — Motivo: ${motivo}`, { obsCancelamento: motivo });
     setCancelPending(null);
   };
 
   const confirmarReprovado = async (motivo) => {
     const s = reprovadoPending;
-    await atualizarStatus(s._docId, 'reprovado', `Serviço reprovado: ${motivo}`, { motivoReprovacao: motivo });
+    await atualizarStatus(s.id, 'reprovado', `Serviço reprovado: ${motivo}`, { motivo_reprovacao: motivo });
     setReprovadoPending(null);
   };
 
@@ -1354,7 +1358,7 @@ const ServicosTable = () => {
       await supabase.from('servicos').update({
         local: novaLocal,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: `Localidade alterada de "${s.local}" para "${novaLocal}"` }]
-      }).eq('id', s._docId);
+      }).eq('id', s.id);
     } catch { alert('Erro ao atualizar localidade.'); }
     setAlterarLocalPending(null);
   };
@@ -1406,7 +1410,7 @@ const ServicosTable = () => {
     if (selecionados.size === pageServices.length && pageServices.length > 0) {
       setSelecionados(new Set());
     } else {
-      setSelecionados(new Set(pageServices.map(s => s._docId)));
+      setSelecionados(new Set(pageServices.map(s => s.id)));
     }
   };
 
@@ -1416,7 +1420,7 @@ const ServicosTable = () => {
     try {
       const ids = Array.from(selecionados);
       const updates = ids.map(id => {
-        const atual = services.find(s => s._docId === id);
+        const atual = services.find(s => s.id === id);
         return supabase.from('servicos').update({
           atribuido_para: {
             uid: tecnico.uid,
@@ -1702,7 +1706,7 @@ const ServicosTable = () => {
               const placaTip = !placaMontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
 
               return (
-                <tr key={s._docId} style={{
+                <tr key={s.id} style={{
                   opacity: (s.status === 'cancelado' || s.status === 'reprovado') ? 0.5 : 1,
                   textDecoration: (s.status === 'cancelado' || s.status === 'reprovado') ? 'line-through' : 'none',
                   background: globalIdx % 2 === 0 ? '#fff' : '#fafbfc', transition: 'background 0.1s',
@@ -1715,8 +1719,8 @@ const ServicosTable = () => {
                   <td style={{ ...td, textAlign: 'center' }}>
                     <input
                       type="checkbox"
-                      checked={selecionados.has(s._docId)}
-                      onChange={(e) => { e.stopPropagation(); toggleSelection(s._docId); }}
+                      checked={selecionados.has(s.id)}
+                      onChange={(e) => { e.stopPropagation(); toggleSelection(s.id); }}
                       style={{ cursor: 'pointer' }}
                     />
                   </td>
@@ -1737,9 +1741,9 @@ const ServicosTable = () => {
 
                       {/* Mais próximos */}
                       <button onClick={() => setServicoReferencia(s)} title="Buscar mais próximos a este"
-                        style={{ width: '28px', height: '28px', border: servicoReferencia?._docId === s._docId ? '1.5px solid #15803d' : '1px solid #bbf7d0', borderRadius: '6px', background: servicoReferencia?._docId === s._docId ? '#dcfce7' : '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
+                        style={{ width: '28px', height: '28px', border: servicoReferencia?.id === s.id ? '1.5px solid #15803d' : '1px solid #bbf7d0', borderRadius: '6px', background: servicoReferencia?.id === s.id ? '#dcfce7' : '#f0fdf4', color: '#15803d', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = servicoReferencia?._docId === s._docId ? '#dcfce7' : '#f0fdf4'; e.currentTarget.style.borderColor = servicoReferencia?._docId === s._docId ? '#15803d' : '#bbf7d0'; }}>
+                        onMouseLeave={e => { e.currentTarget.style.background = servicoReferencia?.id === s.id ? '#dcfce7' : '#f0fdf4'; e.currentTarget.style.borderColor = servicoReferencia?.id === s.id ? '#15803d' : '#bbf7d0'; }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                       </button>
 
@@ -1843,18 +1847,18 @@ const ServicosTable = () => {
                           <button
                             className="btn-concluir-trigger"
                             onClick={(e) => {
-                              if (concluirMenu?.id === s._docId) {
+                              if (concluirMenu?.id === s.id) {
                                 setConcluirMenu(null);
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                setConcluirMenu({ id: s._docId, x: rect.left, y: rect.bottom + 4, step: 'opcoes', servico: s, nextInfo });
+                                setConcluirMenu({ id: s.id, x: rect.left, y: rect.bottom + 4, step: 'opcoes', servico: s, nextInfo });
                               }
                             }}
                             style={{ fontSize: '11px', padding: '4px 10px', border: `1px solid ${nextInfo.color}22`, borderRadius: '6px', background: `${nextInfo.color}0d`, color: nextInfo.color, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: '500', fontFamily: 'inherit', transition: 'all 0.1s', display: 'flex', alignItems: 'center', gap: '4px' }}
                             onMouseEnter={e => { e.currentTarget.style.background = `${nextInfo.color}1a`; e.currentTarget.style.borderColor = `${nextInfo.color}44`; }}
                             onMouseLeave={e => { e.currentTarget.style.background = `${nextInfo.color}0d`; e.currentTarget.style.borderColor = `${nextInfo.color}22`; }}>
                             {nextInfo.label}
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirMenu?.id === s._docId ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9" /></svg>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ transform: concluirMenu?.id === s.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9" /></svg>
                           </button>
                         </div>
                       ) : (
@@ -1983,7 +1987,7 @@ const ServicosTable = () => {
                 <button
                   onClick={() => {
                     if (!concluirMenu.motivo?.trim()) return;
-                    atualizarStatus(concluirMenu.id, 'reprovado', `Serviço reprovado: ${concluirMenu.motivo.trim()}`, { motivoReprovacao: concluirMenu.motivo.trim() });
+                    atualizarStatus(concluirMenu.id, 'reprovado', `Serviço reprovado: ${concluirMenu.motivo.trim()}`, { motivo_reprovacao: concluirMenu.motivo.trim() });
                     setConcluirMenu(null);
                   }}
                   disabled={!concluirMenu.motivo?.trim()}
