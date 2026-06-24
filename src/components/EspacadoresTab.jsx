@@ -222,9 +222,9 @@ const EspacadoresTab = () => {
   // ── Filtragem: apenas serviços finalizados pelo app (têm execucao preenchida)
   const finalizadoNoApp = (s) => s.status === 'concluido' && s.execucao != null;
 
-  const aguardandoAprovacao = servicos.filter(s => finalizadoNoApp(s) && !s.aprovacaoEspacador);
-  const aguardandoOs = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoEspacador === 'aprovado' && !s.numServ);
-  const concluidos = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoEspacador === 'aprovado' && s.numServ);
+  const aguardandoAprovacao = servicos.filter(s => finalizadoNoApp(s) && !s.aprovacaoespacador);
+  const aguardandoOs = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && !s.numServ);
+  const concluidos = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && s.numServ);
 
   useEffect(() => {
     fetchServicos();
@@ -263,9 +263,9 @@ const EspacadoresTab = () => {
     }];
 
     const { error } = await supabase.from('servicos').update({
-      aprovacaoEspacador: 'aprovado',
-      dtAprovacaoEspacador: new Date().toISOString(),
-      aprovadoPor: { nome: user?.label, matricula: user?.matricula },
+      aprovacaoespacador: 'aprovado',
+      dtaprovacaoespacador: new Date().toISOString(),
+      aprovadopor: { nome: user?.label, matricula: user?.matricula },
       hist: newHist
     }).eq('id', servico.id);
 
@@ -284,8 +284,8 @@ const EspacadoresTab = () => {
 
     const { error } = await supabase.from('servicos').update({
       status: 'reprovado',
-      aprovacaoEspacador: 'reprovado',
-      motivoReprovacaoEspacador: motivo,
+      aprovacaoespacador: 'reprovado',
+      motivoreprovacaoespacador: motivo,
       hist: newHist
     }).eq('id', servico.id);
 
@@ -483,7 +483,7 @@ const EspacadoresTab = () => {
                       <td colSpan="5" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum serviço aguardando OS.</td>
                     </tr>
                   ) : aguardandoOs.map(s => {
-                    const dataAprov = s.dtAprovacaoEspacador ? new Date(s.dtAprovacaoEspacador).toLocaleString('pt-BR') : '—';
+                    const dataAprov = s.dtaprovacaoespacador ? new Date(s.dtaprovacaoespacador).toLocaleString('pt-BR') : '—';
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '12px 16px' }}>
@@ -493,7 +493,7 @@ const EspacadoresTab = () => {
                         <td style={{ padding: '12px 16px', color: '#334155' }}>{s.equip || '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
-                            {s.aprovadoPor?.nome || '—'}
+                            {s.aprovadopor?.nome || '—'}
                           </span>
                         </td>
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '12px' }}>{dataAprov}</td>
@@ -545,7 +545,7 @@ const EspacadoresTab = () => {
                       <td colSpan="5" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum serviço concluído.</td>
                     </tr>
                   ) : concluidos.map(s => {
-                    const dataAprov = s.dtAprovacaoEspacador ? new Date(s.dtAprovacaoEspacador).toLocaleString('pt-BR') : '—';
+                    const dataAprov = s.dtaprovacaoespacador ? new Date(s.dtaprovacaoespacador).toLocaleString('pt-BR') : '—';
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '12px 16px' }}>
@@ -559,7 +559,7 @@ const EspacadoresTab = () => {
                           </span>
                         </td>
                         <td style={{ padding: '12px 16px' }}>
-                          <span style={{ color: '#475569', fontSize: '12px' }}>{s.aprovadoPor?.nome || '—'}</span>
+                          <span style={{ color: '#475569', fontSize: '12px' }}>{s.aprovadopor?.nome || '—'}</span>
                         </td>
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '12px' }}>{dataAprov}</td>
                       </tr>
