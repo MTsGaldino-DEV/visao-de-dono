@@ -5,24 +5,24 @@ import { supabase } from '../lib/supabase';
 // ── Localidades por posto ────────────────────────────────────────────────────
 const POSTOS = {
   'Posto 1 — Pedro': [
-    'Frei Inocêncio','Alpercata','Alvarenga','Capitão Andrade','Engenheiro Caldas',
-    'Fernandes Tourinho','Governador Valadares','Itanhomi','Jampruca','Jataí',
-    'Mathias Lobato','São Geraldo do Tumiritinga','Sobrália','Tarumirim','Tumiritinga',
+    'Frei Inocêncio', 'Alpercata', 'Alvarenga', 'Capitão Andrade', 'Engenheiro Caldas',
+    'Fernandes Tourinho', 'Governador Valadares', 'Itanhomi', 'Jampruca', 'Jataí',
+    'Mathias Lobato', 'São Geraldo do Tumiritinga', 'Sobrália', 'Tarumirim', 'Tumiritinga',
   ],
   'Posto 2 — Elton': [
-    'Coluna','São Geraldo da Piedade','Água Boa','José Raydan','Paulistas',
-    'Cantagalo','Peçanha','São João Evangelista','São José do Jacuri',
-    'Santa Efigênia de Minas','Gonzaga','Santa Maria do Suaçuí','Frei Lago Negro',
-    'São Pedro do Suaçuí','São Sebastião do Maranhão','Sardoá',
+    'Coluna', 'São Geraldo da Piedade', 'Água Boa', 'José Raydan', 'Paulistas',
+    'Cantagalo', 'Peçanha', 'São João Evangelista', 'São José do Jacuri',
+    'Santa Efigênia de Minas', 'Gonzaga', 'Santa Maria do Suaçuí', 'Frei Lago Negro',
+    'São Pedro do Suaçuí', 'São Sebastião do Maranhão', 'Sardoá',
   ],
   'Posto 3 — Vinicius': [
-    'Cuparaque','Conselheiro Pena','Resplendor','Aimorés','Goiabeira',
-    'Itueta','Santa Rita do Itueto','São Geraldo do Baixio','Galileia',
+    'Cuparaque', 'Conselheiro Pena', 'Resplendor', 'Aimorés', 'Goiabeira',
+    'Itueta', 'Santa Rita do Itueto', 'São Geraldo do Baixio', 'Galileia',
   ],
   'Posto 4 — Victor': [
-    'Itabirinha de Mantena','Divino das Laranjeiras','Central de Minas','Mendes Pimentel',
-    'Nova Belém','São Félix de Minas','Tipiti','Mantena','São João do Manteninha',
-    'Marilac','Coroaci','Virgolândia','Nacip Raydan','São José da Safira',
+    'Itabirinha de Mantena', 'Divino das Laranjeiras', 'Central de Minas', 'Mendes Pimentel',
+    'Nova Belém', 'São Félix de Minas', 'Tipiti', 'Mantena', 'São João do Manteninha',
+    'Marilac', 'Coroaci', 'Virgolândia', 'Nacip Raydan', 'São José da Safira',
   ],
 };
 
@@ -34,26 +34,26 @@ const TODAS_LOCALIDADES = Object.entries(POSTOS).flatMap(([posto, locs]) =>
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const POSTO_COLORS = {
-  'Posto 1 — Pedro':    '#1d4ed8',
-  'Posto 2 — Elton':    '#7c3aed',
+  'Posto 1 — Pedro': '#1d4ed8',
+  'Posto 2 — Elton': '#7c3aed',
   'Posto 3 — Vinicius': '#0369a1',
-  'Posto 4 — Victor':   '#15803d',
+  'Posto 4 — Victor': '#15803d',
 };
 
 const STATUS_BADGE = {
-  cadastrado:     { bg: '#B5D4F4', fg: '#0C447C' },
+  cadastrado: { bg: '#B5D4F4', fg: '#0C447C' },
   'em andamento': { bg: '#FAC775', fg: '#633806' },
-  executado:      { bg: '#C0DD97', fg: '#27500A' },
+  executado: { bg: '#C0DD97', fg: '#27500A' },
 };
 
 // ── Select pesquisável com agrupamento por posto ──────────────────────────────
 const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur }) => {
-  const [query, setQuery]             = useState('');
-  const [open, setOpen]               = useState(false);
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const containerRef = useRef(null);
-  const inputRef     = useRef(null);
-  const listRef      = useRef(null);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
 
   const resultados = query.trim()
     ? TODAS_LOCALIDADES.filter(({ loc }) => norm(loc).includes(norm(query)))
@@ -95,19 +95,19 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
 
   const handleKeyDown = (e) => {
     if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) { setOpen(true); return; }
-    if (e.key === 'ArrowDown')      { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
-    else if (e.key === 'ArrowUp')   { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { setHighlighted(h => Math.min(h + 1, flat.length - 1)); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { setHighlighted(h => Math.max(h - 1, 0)); e.preventDefault(); }
     else if (e.key === 'Enter' && flat[highlighted]) { selecionar(flat[highlighted].loc); e.preventDefault(); }
-    else if (e.key === 'Escape')    { setOpen(false); setQuery(''); }
+    else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
-  const borderColor = hasError  ? '#ef4444'
-                    : focused   ? '#3b82f6'
-                    : value     ? '#a5b4fc'
-                    : '#e2e8f0';
-  const boxShadow   = hasError  ? '0 0 0 3px rgba(239,68,68,0.1)'
-                    : focused   ? '0 0 0 3px rgba(59,130,246,0.1)'
-                    : 'none';
+  const borderColor = hasError ? '#ef4444'
+    : focused ? '#3b82f6'
+      : value ? '#a5b4fc'
+        : '#e2e8f0';
+  const boxShadow = hasError ? '0 0 0 3px rgba(239,68,68,0.1)'
+    : focused ? '0 0 0 3px rgba(59,130,246,0.1)'
+      : 'none';
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
@@ -124,7 +124,7 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
 
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"
           style={{ flexShrink: 0, marginLeft: '11px' }}>
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
 
         <input
@@ -174,7 +174,7 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
         ) : (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5"
             style={{ marginRight: '10px', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-            <polyline points="6 9 12 15 18 9"/>
+            <polyline points="6 9 12 15 18 9" />
           </svg>
         )}
       </div>
@@ -192,7 +192,7 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
           )}
           {grupos.map(({ posto, itens }) => {
             const color = POSTO_COLORS[posto];
-            const postoNome  = posto.split('—')[0].trim();
+            const postoNome = posto.split('—')[0].trim();
             const supervisor = posto.split('—')[1]?.trim() || '';
             return (
               <div key={posto}>
@@ -209,8 +209,8 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
                 </div>
                 {itens.map(({ loc }) => {
                   const flatIdx = flat.findIndex(f => f.loc === loc);
-                  const isHigh  = flatIdx === highlighted;
-                  const isSel   = loc === value;
+                  const isHigh = flatIdx === highlighted;
+                  const isSel = loc === value;
                   return (
                     <button
                       key={loc}
@@ -230,7 +230,7 @@ const LocalidadeSelect = ({ value, onChange, focused, hasError, onFocus, onBlur 
                       {loc}
                       {isSel && (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <polyline points="20 6 9 17 4 12"/>
+                          <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
                     </button>
@@ -267,7 +267,7 @@ const SuccessPopup = ({ onClose }) => (
     <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '36px 40px', textAlign: 'center', maxWidth: '340px', width: '100%', boxShadow: '0 20px 60px rgba(15,37,68,0.18)', animation: 'popIn 0.2s ease' }}>
       <style>{`@keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
       <div style={{ width: '56px', height: '56px', background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
       </div>
       <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f2544', marginBottom: '6px' }}>Serviço cadastrado!</div>
       <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px', lineHeight: '1.5' }}>O serviço foi registrado com sucesso e já aparece na lista.</div>
@@ -285,7 +285,7 @@ const DuplicidadePanel = ({ servicos, placa, loading }) => {
         <div style={{ padding: '11px 14px', fontSize: '12px', color: '#993C1D', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#993C1D" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeDasharray="28" strokeDashoffset="10"/>
+            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeDasharray="28" strokeDashoffset="10" />
           </svg>
           Verificando serviços com a placa {placa}...
         </div>
@@ -294,9 +294,9 @@ const DuplicidadePanel = ({ servicos, placa, loading }) => {
           {/* Cabeçalho */}
           <div style={{ padding: '9px 14px', borderBottom: '1px solid #F5C4B3', display: 'flex', alignItems: 'center', gap: '7px', background: '#F5C4B3' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#993C1D" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
             <span style={{ fontSize: '12px', fontWeight: '600', color: '#712B13' }}>
               {servicos.length} serviço{servicos.length > 1 ? 's' : ''} encontrado{servicos.length > 1 ? 's' : ''} para a placa {placa} — verifique antes de cadastrar
@@ -343,14 +343,14 @@ const CadastroForm = () => {
   const [formData, setFormData] = useState({
     data: '', local: '', desc: '', tipo: '', equip: '', coord: '', foto: '', orig: '', obs: ''
   });
-  const [loading, setLoading]         = useState(false);
-  const [focused, setFocused]         = useState('');
+  const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [errors, setErrors]           = useState({});
+  const [errors, setErrors] = useState({});
 
   // ── Anti-duplicidade ──────────────────────────────────────────────────────
   const [equipServicos, setEquipServicos] = useState([]);
-  const [loadingEquip, setLoadingEquip]   = useState(false);
+  const [loadingEquip, setLoadingEquip] = useState(false);
 
   const buscarPorEquip = async (placa) => {
     if (!placa?.trim()) { setEquipServicos([]); return; }
@@ -369,7 +369,7 @@ const CadastroForm = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   const hoje = new Date();
-  const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}T23:59:59`;
+  const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}T23:59:59`;
   const minDate = '2025-01-01T00:00:00';
 
   const handleChange = (e) => {
@@ -381,17 +381,17 @@ const CadastroForm = () => {
 
   const inp = (id) => ({
     ...inputStyle,
-    borderColor: errors[id]    ? '#ef4444'
-                : focused === id ? '#3b82f6'
-                : id === 'equip' && equipServicos.length > 0 ? '#F0997B'
-                : '#e2e8f0',
-    background:  errors[id]    ? '#fff5f5'
-                : focused === id ? '#fff'
-                : id === 'equip' && equipServicos.length > 0 ? '#FAECE7'
-                : '#f8fafc',
-    boxShadow:   errors[id]    ? '0 0 0 3px rgba(239,68,68,0.1)'
-                : focused === id ? '0 0 0 3px rgba(59,130,246,0.1)'
-                : 'none',
+    borderColor: errors[id] ? '#ef4444'
+      : focused === id ? '#3b82f6'
+        : id === 'equip' && equipServicos.length > 0 ? '#F0997B'
+          : '#e2e8f0',
+    background: errors[id] ? '#fff5f5'
+      : focused === id ? '#fff'
+        : id === 'equip' && equipServicos.length > 0 ? '#FAECE7'
+          : '#f8fafc',
+    boxShadow: errors[id] ? '0 0 0 3px rgba(239,68,68,0.1)'
+      : focused === id ? '0 0 0 3px rgba(59,130,246,0.1)'
+        : 'none',
   });
 
   const cadastrar = async () => {
@@ -441,7 +441,7 @@ const CadastroForm = () => {
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(to right, #f8fafc, #fff)' }}>
           <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #0f2544, #1d4ed8)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </div>
           <div>
@@ -584,8 +584,8 @@ const CadastroForm = () => {
               {loading ? 'Cadastrando...' : (
                 <>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
                   </svg>
                   Cadastrar serviço
                 </>

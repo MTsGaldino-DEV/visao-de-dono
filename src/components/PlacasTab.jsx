@@ -6,40 +6,40 @@ import LotesPlacas from './LotesPlacas';
 
 const POSTOS = {
   'Posto 1 — Pedro': [
-    'FREI INOCENCIO','ALPERCATA','ALVARENGA','CAPITAO ANDRADE','ENGENHEIRO CALDAS',
-    'FERNANDES TOURINHO','GOVERNADOR VALADARES','ITANHOMI','JAMPRUCA','JATAI',
-    'MATHIAS LOBATO','SAO GERALDO TUMIRITINGA','SOBRALIA','TARUMIRIM','TUMIRITINGA',
+    'FREI INOCENCIO', 'ALPERCATA', 'ALVARENGA', 'CAPITAO ANDRADE', 'ENGENHEIRO CALDAS',
+    'FERNANDES TOURINHO', 'GOVERNADOR VALADARES', 'ITANHOMI', 'JAMPRUCA', 'JATAI',
+    'MATHIAS LOBATO', 'SAO GERALDO TUMIRITINGA', 'SOBRALIA', 'TARUMIRIM', 'TUMIRITINGA',
   ],
   'Posto 2 — Elton': [
-    'COLUNA','SAO GERALDO DA PIEDADE','AGUA BOA','JOSE RAYDAN','PAULISTAS',
-    'CANTAGALO','PECANHA','SAO JOAO EVANGELISTA','SAO JOSE DO JACURI',
-    'SANTA EFIGENIA DE MINAS','GONZAGA','SANTA MARIA DO SUACUI','FREI LAGO NEGRO',
-    'SAO PEDRO DO SUACUI','SAO SEBASTIAO DO MARANHAO','SARDOA',
+    'COLUNA', 'SAO GERALDO DA PIEDADE', 'AGUA BOA', 'JOSE RAYDAN', 'PAULISTAS',
+    'CANTAGALO', 'PECANHA', 'SAO JOAO EVANGELISTA', 'SAO JOSE DO JACURI',
+    'SANTA EFIGENIA DE MINAS', 'GONZAGA', 'SANTA MARIA DO SUACUI', 'FREI LAGO NEGRO',
+    'SAO PEDRO DO SUACUI', 'SAO SEBASTIAO DO MARANHAO', 'SARDOA',
   ],
   'Posto 3 — Vinicius': [
-    'CUPARAQUE','CONSELHEIRO PENA','RESPLENDOR','AIMORES','GOIABEIRA',
-    'ITUETA','SANTA RITA DO ITUETO','SAO GERALDO DO BAIXIO','GALILEIA',
+    'CUPARAQUE', 'CONSELHEIRO PENA', 'RESPLENDOR', 'AIMORES', 'GOIABEIRA',
+    'ITUETA', 'SANTA RITA DO ITUETO', 'SAO GERALDO DO BAIXIO', 'GALILEIA',
   ],
   'Posto 4 — Victor': [
-    'ITABIRINHA DE MANTENA','DIVINO LARANJEIRAS','CENTRAL DE MINAS','MENDES PIMENTEL',
-    'NOVA BELEM','SAO FELIX DE MINAS','TIPITI','MANTENA','SAO JOAO DO MANTENINHA',
-    'MARILAC','COROACI','VIRGOLANDIA','NACIP RAYDAN','SAO JOSE DA SAFIRA',
+    'ITABIRINHA DE MANTENA', 'DIVINO LARANJEIRAS', 'CENTRAL DE MINAS', 'MENDES PIMENTEL',
+    'NOVA BELEM', 'SAO FELIX DE MINAS', 'TIPITI', 'MANTENA', 'SAO JOAO DO MANTENINHA',
+    'MARILAC', 'COROACI', 'VIRGOLANDIA', 'NACIP RAYDAN', 'SAO JOSE DA SAFIRA',
   ],
 };
 
 const POSTO_COLORS = {
-  'Posto 1 — Pedro':    { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', stroke: '#3b82f6' },
-  'Posto 2 — Elton':    { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', stroke: '#a78bfa' },
+  'Posto 1 — Pedro': { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', stroke: '#3b82f6' },
+  'Posto 2 — Elton': { color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe', stroke: '#a78bfa' },
   'Posto 3 — Vinicius': { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', stroke: '#38bdf8' },
-  'Posto 4 — Victor':   { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', stroke: '#4ade80' },
+  'Posto 4 — Victor': { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', stroke: '#4ade80' },
 };
 
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
-  enviado:    { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
-  pendente:   { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
-  concluido:  { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
-  cancelado:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
+  enviado: { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  pendente: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
+  concluido: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
+  cancelado: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
 };
 
 const PAGE_SIZE = 50;
@@ -65,14 +65,14 @@ const digitosDeEquip = (equip) => {
 // ── Exportar ──────────────────────────────────────────────────────────────────
 const exportarXLSX = (dados, nomeAba, nomeArquivo) => {
   const linhas = dados.map(s => ({
-    'ID':                  s.id || '—',
-    'Nº Serviço':          s.numServ || '—',
-    'Localidade':          s.local || '—',
-    'Posto':               postoDeLocalidade(s.local) || '—',
-    'Equipamento':         s.equip || '—',
-    'Descrição':           s.desc || '—',
-    'Status':              STATUS_CONFIG[s.status]?.label || s.status || '—',
-    'Enviado Supervisor':  s.enviadoSupervisor ? 'Sim' : 'Não',
+    'ID': s.id || '—',
+    'Nº Serviço': s.numServ || '—',
+    'Localidade': s.local || '—',
+    'Posto': postoDeLocalidade(s.local) || '—',
+    'Equipamento': s.equip || '—',
+    'Descrição': s.desc || '—',
+    'Status': STATUS_CONFIG[s.status]?.label || s.status || '—',
+    'Enviado Supervisor': s.enviadoSupervisor ? 'Sim' : 'Não',
   }));
   const ws = XLSX.utils.json_to_sheet(linhas);
   const wb = XLSX.utils.book_new();
@@ -99,7 +99,7 @@ const BotaoExportar = ({ onClick, disabled }) => (
     onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
   >
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
     </svg>
     Exportar
   </button>
@@ -137,7 +137,7 @@ const MultiSelect = ({ options, selected, onChange }) => {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
           style={{ flexShrink: 0, marginLeft: '6px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <polyline points="6 9 12 15 18 9"/>
+          <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       {open && (
@@ -183,9 +183,9 @@ const MultiSelect = ({ options, selected, onChange }) => {
 // ── Paginação ─────────────────────────────────────────────────────────────────
 const Paginacao = ({ totalItems, currentPage, onPageChange }) => {
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const safePage   = Math.min(currentPage, totalPages);
-  const pageStart  = (safePage - 1) * PAGE_SIZE;
-  const pageEnd    = Math.min(pageStart + PAGE_SIZE, totalItems);
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, totalItems);
 
   const visiblePages = (() => {
     const pages = [];
@@ -209,7 +209,7 @@ const Paginacao = ({ totalItems, currentPage, onPageChange }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <button onClick={() => onPageChange(p => Math.max(1, p - 1))} disabled={safePage === 1}
           style={{ ...btnBase, width: '30px', color: safePage === 1 ? '#cbd5e1' : '#475569', cursor: safePage === 1 ? 'not-allowed' : 'pointer', background: safePage === 1 ? '#f8fafc' : '#fff' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
 
         {visiblePages[0] > 1 && (
@@ -235,7 +235,7 @@ const Paginacao = ({ totalItems, currentPage, onPageChange }) => {
 
         <button onClick={() => onPageChange(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
           style={{ ...btnBase, width: '30px', color: safePage === totalPages ? '#cbd5e1' : '#475569', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', background: safePage === totalPages ? '#f8fafc' : '#fff' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       </div>
     </div>
@@ -262,7 +262,7 @@ const DonutChart = ({ montadas, pendentes, postoAtivo }) => {
       <svg width="180" height="180" viewBox="0 0 180 180">
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
         {pendentes > 0 && <circle cx={CX} cy={CY} r={R} fill="none" stroke={pendColor} strokeWidth={stroke} strokeLinecap="butt" style={{ ...arc(seg2, pctMontadas + gap), transition: 'stroke-dasharray 0.5s ease' }} transform={`rotate(-90 ${CX} ${CY})`} />}
-        {montadas > 0  && <circle cx={CX} cy={CY} r={R} fill="none" stroke="#15803d"  strokeWidth={stroke} strokeLinecap="butt" style={{ ...arc(seg1, gap),              transition: 'stroke-dasharray 0.5s ease' }} transform={`rotate(-90 ${CX} ${CY})`} />}
+        {montadas > 0 && <circle cx={CX} cy={CY} r={R} fill="none" stroke="#15803d" strokeWidth={stroke} strokeLinecap="butt" style={{ ...arc(seg1, gap), transition: 'stroke-dasharray 0.5s ease' }} transform={`rotate(-90 ${CX} ${CY})`} />}
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
         <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f2544', lineHeight: 1 }}>{pctLabel}%</div>
@@ -273,25 +273,25 @@ const DonutChart = ({ montadas, pendentes, postoAtivo }) => {
 };
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
-const card       = { background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' };
+const card = { background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' };
 const inputStyle = { width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', background: '#fff', color: '#1e293b', outline: 'none', fontFamily: "'Segoe UI', system-ui, sans-serif", boxSizing: 'border-box' };
-const labelUp    = { fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px', display: 'block' };
-const th         = { textAlign: 'left', fontSize: '10px', color: '#94a3b8', fontWeight: '700', padding: '9px 12px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase' };
-const td         = { padding: '10px 12px', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle', fontSize: '12px', color: '#334155', whiteSpace: 'nowrap' };
+const labelUp = { fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '5px', display: 'block' };
+const th = { textAlign: 'left', fontSize: '10px', color: '#94a3b8', fontWeight: '700', padding: '9px 12px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase' };
+const td = { padding: '10px 12px', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle', fontSize: '12px', color: '#334155', whiteSpace: 'nowrap' };
 
 // ── Componente principal ──────────────────────────────────────────────────────
 const PlacasTab = () => {
   const { user } = useAuth();
 
-  const [servicos, setServicos]               = useState([]);
-  const [estoque, setEstoque]                 = useState(Array(10).fill(0));
-  const [postoFilter, setPostoFilter]         = useState('');
-  const [dashPosto, setDashPosto]             = useState('');
+  const [servicos, setServicos] = useState([]);
+  const [estoque, setEstoque] = useState(Array(10).fill(0));
+  const [postoFilter, setPostoFilter] = useState('');
+  const [dashPosto, setDashPosto] = useState('');
   const [editandoEstoque, setEditandoEstoque] = useState(false);
-  const [estoqueTemp, setEstoqueTemp]         = useState(Array(10).fill(0));
-  const [savingEstoque, setSavingEstoque]     = useState(false);
-  const [buscaEquip, setBuscaEquip]           = useState('');
-  const [expandidoLoc, setExpandidoLoc]       = useState({});
+  const [estoqueTemp, setEstoqueTemp] = useState(Array(10).fill(0));
+  const [savingEstoque, setSavingEstoque] = useState(false);
+  const [buscaEquip, setBuscaEquip] = useState('');
+  const [expandidoLoc, setExpandidoLoc] = useState({});
 
   // Paginação pendentes
   const [pagePendentes, setPagePendentes] = useState(1);
@@ -313,7 +313,7 @@ const PlacasTab = () => {
       try {
         const { data } = await supabase.from('config').select('*').eq('id', 'estoque').single();
         if (data) setEstoque(data.digitos || Array(10).fill(0));
-      } catch {}
+      } catch { }
     };
     load();
   }, []);
@@ -331,9 +331,9 @@ const PlacasTab = () => {
     finally { setSavingEstoque(false); }
   };
 
-  const todasPlacas        = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
-  const pendentesMontagem  = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
-  const todasMontadas      = todasPlacas.filter(s => s.placaMontada);
+  const todasPlacas = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
+  const pendentesMontagem = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
+  const todasMontadas = todasPlacas.filter(s => s.placaMontada);
 
   const equipTermos = buscaEquip.trim()
     ? buscaEquip.split(/[,;\n\s]+/).map(t => t.trim()).filter(Boolean)
@@ -343,7 +343,7 @@ const PlacasTab = () => {
   const filtrados = pendentesMontagem.filter(s => {
     if (postoFilter && postoDeLocalidade(s.local) !== postoFilter) return false;
     if (equipTermos.length > 0) {
-      const equip   = norm(s.equip || '');
+      const equip = norm(s.equip || '');
       const numServ = norm(s.numServ || '');
       return equipTermos.some(t => equip.includes(norm(t)) || numServ.includes(norm(t)));
     }
@@ -351,16 +351,16 @@ const PlacasTab = () => {
   });
 
   const safePendentesPage = Math.min(pagePendentes, Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE)));
-  const filtradosPage     = filtrados.slice((safePendentesPage - 1) * PAGE_SIZE, safePendentesPage * PAGE_SIZE);
+  const filtradosPage = filtrados.slice((safePendentesPage - 1) * PAGE_SIZE, safePendentesPage * PAGE_SIZE);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
-  const dashPlacas    = dashPosto ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto) : todasPlacas;
-  const dashMontadas  = dashPlacas.filter(s => s.placaMontada).length;
+  const dashPlacas = dashPosto ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto) : todasPlacas;
+  const dashMontadas = dashPlacas.filter(s => s.placaMontada).length;
   const dashPendentes = dashPlacas.length - dashMontadas;
 
   const dadosPosto = Object.keys(POSTOS).map(posto => {
-    const ps     = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
-    const mont   = ps.filter(s => s.placaMontada).length;
+    const ps = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
+    const mont = ps.filter(s => s.placaMontada).length;
     const locMap = {};
     ps.forEach(s => {
       const loc = s.local || 'Desconhecida';
@@ -377,7 +377,7 @@ const PlacasTab = () => {
     for (let i = 0; i <= 9; i++) { if (i === 9) continue; digitosNecessarios[i] += d[i]; }
   });
 
-  const qtdEnviados    = todasMontadas.filter(s =>  s.enviadoSupervisor).length;
+  const qtdEnviados = todasMontadas.filter(s => s.enviadoSupervisor).length;
   const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadoSupervisor).length;
 
   // ── Ações Firebase ────────────────────────────────────────────────────────
@@ -407,10 +407,10 @@ const PlacasTab = () => {
       {/* ── Cards resumo ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
         {[
-          { label: 'Total de placas',        value: todasPlacas.length,       color: '#0f2544' },
-          { label: 'Montadas',               value: todasMontadas.length,      color: '#15803d' },
-          { label: 'Enviadas ao supervisor', value: qtdEnviados,               color: '#7c3aed' },
-          { label: 'Pendentes montagem',     value: pendentesMontagem.length,  color: '#c2410c' },
+          { label: 'Total de placas', value: todasPlacas.length, color: '#0f2544' },
+          { label: 'Montadas', value: todasMontadas.length, color: '#15803d' },
+          { label: 'Enviadas ao supervisor', value: qtdEnviados, color: '#7c3aed' },
+          { label: 'Pendentes montagem', value: pendentesMontagem.length, color: '#c2410c' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ ...card, padding: '16px 20px' }}>
             <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>{label}</div>
@@ -429,7 +429,7 @@ const PlacasTab = () => {
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {['', ...Object.keys(POSTOS)].map(p => {
               const ativo = dashPosto === p;
-              const cfg   = p ? POSTO_COLORS[p] : null;
+              const cfg = p ? POSTO_COLORS[p] : null;
               return (
                 <button key={p || 'todos'} onClick={() => setDashPosto(p)} style={{
                   fontSize: '11px', padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
@@ -462,17 +462,17 @@ const PlacasTab = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {dadosPosto.filter(d => d.total > 0 && (!dashPosto || d.posto === dashPosto)).map(({ posto, total, montadas, pendentes, locMap }) => {
-              const cfg        = POSTO_COLORS[posto];
-              const pct        = total > 0 ? Math.round((montadas / total) * 100) : 0;
-              const exp        = expandidoLoc[posto];
-              const postoNome  = posto.split('—')[0].trim();
+              const cfg = POSTO_COLORS[posto];
+              const pct = total > 0 ? Math.round((montadas / total) * 100) : 0;
+              const exp = expandidoLoc[posto];
+              const postoNome = posto.split('—')[0].trim();
               const supervisor = posto.split('—')[1]?.trim() || '';
               return (
                 <div key={posto} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <button onClick={() => setExpandidoLoc(prev => ({ ...prev, [posto]: !prev[posto] }))}
                     style={{ width: '100%', padding: '10px 0', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
-                      <polyline points="9 18 15 12 9 6"/>
+                      <polyline points="9 18 15 12 9 6" />
                     </svg>
                     <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 9px', borderRadius: '20px', background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>{postoNome}</span>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>{supervisor}</span>
@@ -490,8 +490,8 @@ const PlacasTab = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
                         {Object.entries(locMap).sort((a, b) => b[1].total - a[1].total).map(([loc, d]) => {
                           const pctLoc = d.total > 0 ? Math.round((d.montadas / d.total) * 100) : 0;
-                          const tudo   = pctLoc === 100;
-                          const nada   = pctLoc === 0;
+                          const tudo = pctLoc === 100;
+                          const nada = pctLoc === 0;
                           return (
                             <div key={loc} style={{ padding: '8px 10px', borderRadius: '8px', border: tudo ? '1px solid #bbf7d0' : nada ? '1px solid #fecaca' : '1px solid #e2e8f0', background: tudo ? '#f0fdf4' : nada ? '#fef2f2' : '#f8fafc' }}>
                               <div style={{ fontSize: '11px', fontWeight: '600', color: '#334155', marginBottom: '5px' }}>{loc}</div>
@@ -541,13 +541,13 @@ const PlacasTab = () => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '8px' }}>
           {[0, 1, 2, 3, 4, 5, '6/9', 7, 8].map((d) => {
-            const slot       = d === '6/9' ? 6 : d;
-            const qtd        = editandoEstoque ? estoqueTemp[slot] : estoque[slot];
+            const slot = d === '6/9' ? 6 : d;
+            const qtd = editandoEstoque ? estoqueTemp[slot] : estoque[slot];
             const necessario = digitosNecessarios[slot];
-            const falta      = Math.max(0, necessario - estoque[slot]);
+            const falta = Math.max(0, necessario - estoque[slot]);
             const semEstoque = !editandoEstoque && estoque[slot] === 0;
-            const baixo      = !editandoEstoque && estoque[slot] > 0 && estoque[slot] < necessario;
-            const isCombo    = d === '6/9';
+            const baixo = !editandoEstoque && estoque[slot] > 0 && estoque[slot] < necessario;
+            const isCombo = d === '6/9';
             return (
               <div key={String(d)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '10px 6px', borderRadius: '10px', border: semEstoque ? '1px solid #fecaca' : baixo ? '1px solid #fed7aa' : isCombo ? '1px solid #ddd6fe' : '1px solid #e2e8f0', background: semEstoque ? '#fef2f2' : baixo ? '#fff7ed' : isCombo ? '#faf5ff' : '#f8fafc' }}>
                 <div style={{ fontSize: isCombo ? '16px' : '20px', fontWeight: '800', color: semEstoque ? '#b91c1c' : baixo ? '#c2410c' : isCombo ? '#7c3aed' : '#0f2544', lineHeight: 1 }}>{isCombo ? '6/9' : d}</div>
@@ -587,7 +587,7 @@ const PlacasTab = () => {
               <label style={labelUp}>Buscar por nº equipamento ou nº serviço (separe por vírgula)</label>
               <div style={{ position: 'relative' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input type="text" placeholder="Ex: 240539792, 240800668 — ou cole uma lista"
                   value={buscaEquip} onChange={e => setBuscaEquip(e.target.value)}
@@ -630,15 +630,15 @@ const PlacasTab = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
               <tr>
-                <th style={{ ...th, width: '80px'  }}>ID</th>
+                <th style={{ ...th, width: '80px' }}>ID</th>
                 <th style={{ ...th, width: '120px' }}>Localidade</th>
                 <th style={{ ...th, width: '100px' }}>Posto</th>
                 <th style={th}>Descrição</th>
                 <th style={{ ...th, width: '110px' }}>Equipamento</th>
                 <th style={{ ...th, width: '110px' }}>Dígitos</th>
-                <th style={{ ...th, width: '90px'  }}>Status nota</th>
+                <th style={{ ...th, width: '90px' }}>Status nota</th>
                 <th style={{ ...th, width: '100px' }}>Estoque</th>
-                <th style={{ ...th, width: '90px'  }}>Ação</th>
+                <th style={{ ...th, width: '90px' }}>Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -648,10 +648,10 @@ const PlacasTab = () => {
                 </td></tr>
               )}
               {filtradosPage.map((s, i) => {
-                const posto     = postoDeLocalidade(s.local);
+                const posto = postoDeLocalidade(s.local);
                 const haEstoque = temEstoque(s);
-                const digStr    = (s.equip || '').replace(/\D/g, '');
-                const scfg      = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
+                const digStr = (s.equip || '').replace(/\D/g, '');
+                const scfg = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
                 return (
                   <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
@@ -668,7 +668,7 @@ const PlacasTab = () => {
                       {digStr ? (
                         <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
                           {digStr.split('').map((d, idx) => {
-                            const slot   = d === '9' ? 6 : parseInt(d);
+                            const slot = d === '9' ? 6 : parseInt(d);
                             const semEst = estoque[slot] === 0;
                             return (
                               <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', background: semEst ? '#fef2f2' : '#eff6ff', color: semEst ? '#b91c1c' : '#1d4ed8', border: `1px solid ${semEst ? '#fecaca' : '#bfdbfe'}` }}>
@@ -686,8 +686,8 @@ const PlacasTab = () => {
                     </td>
                     <td style={td}>
                       {s.equip ? (haEstoque
-                        ? <span style={{ fontSize: '11px', color: '#15803d', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Suficiente</span>
-                        : <span style={{ fontSize: '11px', color: '#b91c1c', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Insuficiente</span>
+                        ? <span style={{ fontSize: '11px', color: '#15803d', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>Suficiente</span>
+                        : <span style={{ fontSize: '11px', color: '#b91c1c', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>Insuficiente</span>
                       ) : <span style={{ color: '#94a3b8', fontSize: '11px' }}>Sem equip.</span>}
                     </td>
                     <td style={td}>
@@ -695,7 +695,7 @@ const PlacasTab = () => {
                         style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', color: '#15803d', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#86efac'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#bbf7d0'; }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
                         Montar
                       </button>
                     </td>
