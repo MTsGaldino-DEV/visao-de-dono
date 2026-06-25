@@ -402,19 +402,23 @@ const PlacasTab = () => {
   const safeMontadasPage = Math.min(pageMontadas, Math.max(1, Math.ceil(filtradosMontadas.length / PAGE_SIZE)));
   const filtradosMontadasPage = filtradosMontadas.slice((safeMontadasPage - 1) * PAGE_SIZE, safeMontadasPage * PAGE_SIZE);
 
-  // ── Ações Firebase ────────────────────────────────────────────────────────
+  // ── Ações Supabase ────────────────────────────────────────────────────────
   const marcarMontada = async (s) => {
     try {
       const novoEstoque = [...estoque];
       const d = digitosDeEquip(s.equip);
       for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]); }
-      await supabase.from('servicos').update({
+      const { error } = await supabase.from('servicos').update({
         placamontada: true, enviadosupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
       }).eq('id', s.id);
+      if (error) {
+        alert('Erro ao marcar placa como montada: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
       await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
       setEstoque(novoEstoque);
-    } catch { alert('Erro ao marcar placa como montada.'); }
+    } catch (e) { alert('Erro ao marcar placa como montada: ' + e.message); }
   };
 
   const reverterMontagem = async (s) => {
