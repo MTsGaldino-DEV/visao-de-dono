@@ -681,7 +681,7 @@ const exportarExcel = (dados) => {
       esc(STATUS_CONFIG[s.status]?.label || s.status), esc(s.numServ),
       esc(s.atribuido_para ? `${s.atribuido_para.nome} (${s.atribuido_para.matricula})` : ''),
       esc(s.orig), esc(s.coord),
-      esc(s.obs), esc(s.obsCancelamento), esc(s.placaMontada ? 'Sim' : 'Não'),
+      esc(s.obs), esc(s.obsCancelamento), esc(s.placamontada ? 'Sim' : 'Não'),
     ].join(';'))
   ];
   const bom = '\uFEFF';
@@ -1258,12 +1258,12 @@ const ServicosTable = () => {
     if (tipoFilter.length > 0) lista = lista.filter(s => tipoFilter.includes(s.tipo));
 
     // Filtro placa montada
-    if (placaFilter === 'montada') lista = lista.filter(s => s.placaMontada === true);
-    if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placaMontada);
+    if (placaFilter === 'montada') lista = lista.filter(s => s.placamontada === true);
+    if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placamontada);
 
     // Filtro placa enviada ao supervisor
-    if (enviadoSupFilter === 'sim') lista = lista.filter(s => s.enviadoSupervisor === true);
-    if (enviadoSupFilter === 'nao') lista = lista.filter(s => s.placaMontada && !s.enviadoSupervisor);
+    if (enviadoSupFilter === 'sim') lista = lista.filter(s => s.enviadosupervisor === true);
+    if (enviadoSupFilter === 'nao') lista = lista.filter(s => s.placamontada && !s.enviadosupervisor);
 
     if (servicoReferencia) {
       lista.forEach(s => {
@@ -1389,13 +1389,13 @@ const ServicosTable = () => {
     const n = (s.desc || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return n.includes('PLACA');
   });
-  const qtdMontadas = services.filter(s => s.placaMontada === true && s.status !== 'cancelado').length;
-  const qtdNaoMontadas = services.filter(s => !s.placaMontada && s.status !== 'cancelado').length;
+  const qtdMontadas = services.filter(s => s.placamontada === true && s.status !== 'cancelado').length;
+  const qtdNaoMontadas = services.filter(s => !s.placamontada && s.status !== 'cancelado').length;
 
   const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos' || enviadoSupFilter !== 'todos';
 
   // Há serviços com placa montada no conjunto filtrado? (para exibir filtro de supervisor)
-  const temPlacaMontadaFiltrada = filteredServices.some(s => s.placaMontada === true);
+  const temPlacaMontadaFiltrada = filteredServices.some(s => s.placamontada === true);
 
   const toggleSelection = (id) => {
     setSelecionados(prev => {
@@ -1692,18 +1692,18 @@ const ServicosTable = () => {
           <tbody>
             {pageServices.map((s, i) => {
               const nextInfo = NEXT_STATUS[s.status];
-              const placaMontada = s.placaMontada === true;
-              const enviadoSup = s.enviadoSupervisor === true;
+              const placamontada = s.placamontada === true;
+              const enviadoSup = s.enviadosupervisor === true;
               const globalIdx = pageStart + i;
 
               // Aparência do checkbox de placa:
               // · Não montada  → quadrado vazio cinza
               // · Montada, não enviada → quadrado verde com check
               // · Montada + enviada ao supervisor → quadrado roxo com check
-              const placaColor = !placaMontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
-              const placaBg = !placaMontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
-              const placaBorder = !placaMontada ? '#cbd5e1' : enviadoSup ? '#ddd6fe' : '#bbf7d0';
-              const placaTip = !placaMontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
+              const placaColor = !placamontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
+              const placaBg = !placamontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
+              const placaBorder = !placamontada ? '#cbd5e1' : enviadoSup ? '#ddd6fe' : '#bbf7d0';
+              const placaTip = !placamontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
 
               return (
                 <tr key={s.id} style={{
@@ -1777,7 +1777,7 @@ const ServicosTable = () => {
                   {/* ── [NOVO] Checkbox de placa — verde = montada, roxo = enviada ao supervisor ── */}
                   <td style={{ ...td, textAlign: 'center', padding: '10px 6px' }}>
                     <span title={placaTip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '5px', border: `1.5px solid ${placaBorder}`, background: placaBg, transition: 'all 0.15s', flexShrink: 0 }}>
-                      {placaMontada && (
+                      {placamontada && (
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={placaColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>

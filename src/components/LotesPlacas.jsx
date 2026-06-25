@@ -167,12 +167,12 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
 
   if (!isOpen) return null;
 
-  // Placas montadas disponíveis (não canceladas, com desc PLACA, placaMontada e sem lote atribuído ou atribuído a este lote)
+  // Placas montadas disponíveis (não canceladas, com desc PLACA, placamontada e sem lote atribuído ou atribuído a este lote)
   const placasMontadas = servicos.filter(
     (s) =>
       s.status !== 'cancelado' &&
       norm(s.desc).includes('PLACA') &&
-      s.placaMontada &&
+      s.placamontada &&
       (!s.loteId || s.loteId === lote?.id)
   );
 
@@ -313,7 +313,7 @@ const LoteModal = ({ isOpen, onClose, lote, servicos, user, onSaved }) => {
         await Promise.all(
           (lote.placas || []).map((docId) =>
             supabase.from('servicos').update({
-              enviadoSupervisor: true,
+              enviadosupervisor: true,
               hist: [
                 ...(servicos.find((s) => s._docId === docId)?.hist || []),
                 {

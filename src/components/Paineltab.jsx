@@ -246,7 +246,7 @@ const PainelTab = () => {
   const pctGeral = servicosAtivos.length > 0 ? Math.round((progressoConcluidos / servicosAtivos.length) * 100) : 0;
 
   const totalPlacas = ativos.filter(s => norm(s.desc).includes('PLACA')).length;
-  const placasMontadas = ativos.filter(s => s.placaMontada).length;
+  const placasMontadas = ativos.filter(s => s.placamontada).length;
   const pctPlacas = totalPlacas > 0 ? Math.round((placasMontadas / totalPlacas) * 100) : 0;
 
   // ── Dados por posto ────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ const PainelTab = () => {
     const ps = ativos.filter(s => postoDeLocalidade(s.local) === posto);
     const concluidos = ps.filter(s => s.status === 'concluido').length;
     const placasP = ps.filter(s => norm(s.desc).includes('PLACA')).length;
-    const montadasP = ps.filter(s => s.placaMontada).length;
+    const montadasP = ps.filter(s => s.placamontada).length;
     const porStatus = {};
     STATUS_ORDER.forEach(st => { porStatus[st] = ps.filter(s => s.status === st).length; });
     return {

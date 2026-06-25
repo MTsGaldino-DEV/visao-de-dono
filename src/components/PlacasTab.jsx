@@ -71,7 +71,7 @@ const exportarXLSX = (dados, nomeAba, nomeArquivo) => {
     'Equipamento': s.equip || '—',
     'Descrição': s.desc || '—',
     'Status': STATUS_CONFIG[s.status]?.label || s.status || '—',
-    'Enviado Supervisor': s.enviadoSupervisor ? 'Sim' : 'Não',
+    'Enviado Supervisor': s.enviadosupervisor ? 'Sim' : 'Não',
   }));
   const ws = XLSX.utils.json_to_sheet(linhas);
   const wb = XLSX.utils.book_new();
@@ -336,8 +336,8 @@ const PlacasTab = () => {
   };
 
   const todasPlacas = servicos.filter(s => s.status !== 'cancelado' && norm(s.desc).includes('PLACA'));
-  const pendentesMontagem = todasPlacas.filter(s => !s.placaMontada && s.status === 'pendente');
-  const todasMontadas = todasPlacas.filter(s => s.placaMontada);
+  const pendentesMontagem = todasPlacas.filter(s => !s.placamontada && s.status === 'pendente');
+  const todasMontadas = todasPlacas.filter(s => s.placamontada);
 
   const equipTermos = buscaEquip.trim()
     ? buscaEquip.split(/[,;\n\s]+/).map(t => t.trim()).filter(Boolean)
@@ -359,18 +359,18 @@ const PlacasTab = () => {
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const dashPlacas = dashPosto ? todasPlacas.filter(s => postoDeLocalidade(s.local) === dashPosto) : todasPlacas;
-  const dashMontadas = dashPlacas.filter(s => s.placaMontada).length;
+  const dashMontadas = dashPlacas.filter(s => s.placamontada).length;
   const dashPendentes = dashPlacas.length - dashMontadas;
 
   const dadosPosto = Object.keys(POSTOS).map(posto => {
     const ps = todasPlacas.filter(s => postoDeLocalidade(s.local) === posto);
-    const mont = ps.filter(s => s.placaMontada).length;
+    const mont = ps.filter(s => s.placamontada).length;
     const locMap = {};
     ps.forEach(s => {
       const loc = s.local || 'Desconhecida';
       if (!locMap[loc]) locMap[loc] = { total: 0, montadas: 0 };
       locMap[loc].total++;
-      if (s.placaMontada) locMap[loc].montadas++;
+      if (s.placamontada) locMap[loc].montadas++;
     });
     return { posto, total: ps.length, montadas: mont, pendentes: ps.length - mont, locMap };
   });
@@ -381,8 +381,8 @@ const PlacasTab = () => {
     for (let i = 0; i <= 9; i++) { if (i === 9) continue; digitosNecessarios[i] += d[i]; }
   });
 
-  const qtdEnviados = todasMontadas.filter(s => s.enviadoSupervisor).length;
-  const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadoSupervisor).length;
+  const qtdEnviados = todasMontadas.filter(s => s.enviadosupervisor).length;
+  const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadosupervisor).length;
 
   // ── Filtros montadas ──────────────────────────────────────────────────────
   const equipMontadasTermos = buscaMontadas.trim()
@@ -409,7 +409,7 @@ const PlacasTab = () => {
       const d = digitosDeEquip(s.equip);
       for (let i = 0; i <= 9; i++) { if (i === 9) continue; novoEstoque[i] = Math.max(0, novoEstoque[i] - d[i]); }
       await supabase.from('servicos').update({
-        placaMontada: true, enviadoSupervisor: false,
+        placamontada: true, enviadosupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
       }).eq('id', s.id);
       await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
@@ -426,13 +426,24 @@ const PlacasTab = () => {
         novoEstoque[i] += d[i];
       }
       await supabase.from('servicos').update({
-        placaMontada: false,
+        placamontada: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Montagem de placa revertida.' }],
       }).eq('id', s.id);
       await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
       setEstoque(novoEstoque);
     } catch {
       alert('Erro ao reverter montagem.');
+    }
+  };
+
+  const enviarAoSupervisor = async (s) => {
+    try {
+      await supabase.from('servicos').update({
+        enviadosupervisor: true,
+        hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa enviada ao supervisor.' }],
+      }).eq('id', s.id);
+    } catch {
+      alert('Erro ao enviar placa ao supervisor.');
     }
   };
 
@@ -830,13 +841,29 @@ const PlacasTab = () => {
                       </span>
                     </td>
                     <td style={{ ...td, textAlign: 'center' }}>
-                      <button onClick={() => { if (window.confirm('Tem certeza que deseja reverter a montagem desta placa? O estoque será reposto.')) reverterMontagem(s); }}
-                        style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
-                        Reverter
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        {!s.enviadosupervisor ? (
+                          <button onClick={() => enviarAoSupervisor(s)}
+                            style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #ddd6fe', borderRadius: '6px', background: '#faf5ff', color: '#7c3aed', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#f3e8ff'; e.currentTarget.style.borderColor = '#c084fc'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#faf5ff'; e.currentTarget.style.borderColor = '#ddd6fe'; }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="22 2 11 13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                            Enviar
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '6px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                            Enviada
+                          </span>
+                        )}
+                        <button onClick={() => { if (window.confirm('Tem certeza que deseja reverter a montagem desta placa? O estoque será reposto.')) reverterMontagem(s); }}
+                          style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
+                          Reverter
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
