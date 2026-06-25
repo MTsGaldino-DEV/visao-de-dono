@@ -65,7 +65,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
         tipo: service.tipo || '',
         equip: service.equip || '',
         coord: service.coord || '',
-        data: service.data || '',
+        data: service.data ? service.data.substring(0, 19) : '',
         foto: service.foto || '',
         orig: service.orig || '',
         obs: service.obs || '',
@@ -103,7 +103,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
           when: new Date().toISOString(),
           msg: 'Dados do serviço atualizados.',
         }],
-      }).eq('id', service._docId);
+      }).eq('id', service.id);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch { alert('Erro ao salvar alterações.'); }
@@ -190,7 +190,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                               when: new Date().toISOString(),
                               msg: `Localidade alterada de "${formData.local || '—'}" para "${novaLocal}"`,
                             }],
-                          }).eq('id', service._docId);
+                          }).eq('id', service.id);
                           setFormData(prev => ({ ...prev, local: novaLocal }));
                         } catch { alert('Erro ao salvar localidade.'); }
                         finally { setSavingLocal(false); setEditandoLocal(false); }
