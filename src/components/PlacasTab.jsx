@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import LotesPlacas from './LotesPlacas';
 
 const POSTOS = {
   'Posto 1 — Pedro': [
@@ -293,13 +292,15 @@ const PlacasTab = () => {
   const [buscaEquip, setBuscaEquip] = useState('');
   const [expandidoLoc, setExpandidoLoc] = useState({});
 
-  // Paginação pendentes
+  // Paginação
   const [pagePendentes, setPagePendentes] = useState(1);
+  const [pageMontadas, setPageMontadas] = useState(1);
+  const [buscaMontadas, setBuscaMontadas] = useState('');
 
   useEffect(() => {
     const carregar = async () => {
       const { data } = await supabase.from('servicos').select('*');
-      if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
+      if (data) setServicos(data);
     };
     carregar();
     const channel = supabase.channel('servicos_placas')
@@ -319,7 +320,10 @@ const PlacasTab = () => {
   }, []);
 
   // Reseta página ao mudar filtros
-  useEffect(() => { setPagePendentes(1); }, [postoFilter, buscaEquip]);
+  useEffect(() => {
+    setPagePendentes(1);
+    setPageMontadas(1);
+  }, [postoFilter, buscaEquip, buscaMontadas]);
 
   const salvarEstoque = async () => {
     setSavingEstoque(true);
@@ -380,6 +384,24 @@ const PlacasTab = () => {
   const qtdEnviados = todasMontadas.filter(s => s.enviadoSupervisor).length;
   const qtdNaoEnviados = todasMontadas.filter(s => !s.enviadoSupervisor).length;
 
+  // ── Filtros montadas ──────────────────────────────────────────────────────
+  const equipMontadasTermos = buscaMontadas.trim()
+    ? buscaMontadas.split(/[,;\n\s]+/).map(t => t.trim()).filter(Boolean)
+    : [];
+
+  const filtradosMontadas = todasMontadas.filter(s => {
+    if (postoFilter && postoDeLocalidade(s.local) !== postoFilter) return false;
+    if (equipMontadasTermos.length > 0) {
+      const equip = norm(s.equip || '');
+      const numServ = norm(s.numServ || '');
+      return equipMontadasTermos.some(t => equip.includes(norm(t)) || numServ.includes(norm(t)));
+    }
+    return true;
+  });
+
+  const safeMontadasPage = Math.min(pageMontadas, Math.max(1, Math.ceil(filtradosMontadas.length / PAGE_SIZE)));
+  const filtradosMontadasPage = filtradosMontadas.slice((safeMontadasPage - 1) * PAGE_SIZE, safeMontadasPage * PAGE_SIZE);
+
   // ── Ações Firebase ────────────────────────────────────────────────────────
   const marcarMontada = async (s) => {
     try {
@@ -389,10 +411,29 @@ const PlacasTab = () => {
       await supabase.from('servicos').update({
         placaMontada: true, enviadoSupervisor: false,
         hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Placa montada.' }],
-      }).eq('id', s._docId);
+      }).eq('id', s.id);
       await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
       setEstoque(novoEstoque);
     } catch { alert('Erro ao marcar placa como montada.'); }
+  };
+
+  const reverterMontagem = async (s) => {
+    try {
+      const novoEstoque = [...estoque];
+      const d = digitosDeEquip(s.equip);
+      for (let i = 0; i <= 9; i++) {
+        if (i === 9) continue;
+        novoEstoque[i] += d[i];
+      }
+      await supabase.from('servicos').update({
+        placaMontada: false,
+        hist: [...(s.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Montagem de placa revertida.' }],
+      }).eq('id', s.id);
+      await supabase.from('config').upsert({ id: 'estoque', digitos: novoEstoque });
+      setEstoque(novoEstoque);
+    } catch {
+      alert('Erro ao reverter montagem.');
+    }
   };
 
   const temEstoque = (s) => {
@@ -653,7 +694,7 @@ const PlacasTab = () => {
                 const digStr = (s.equip || '').replace(/\D/g, '');
                 const scfg = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
                 return (
-                  <tr key={s._docId} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
+                  <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
                     onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
                   >
@@ -708,8 +749,103 @@ const PlacasTab = () => {
         <Paginacao totalItems={filtrados.length} currentPage={safePendentesPage} onPageChange={setPagePendentes} />
       </div>
 
-      {/* ── Lotes de envio ao supervisor ── */}
-      <LotesPlacas servicos={servicos} />
+      {/* ── Placas montadas ── */}
+      <div style={card}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2544', marginBottom: '10px' }}>Placas montadas</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', alignItems: 'end' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelUp}>Buscar por nº equipamento ou nº serviço</label>
+              <div style={{ position: 'relative' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" placeholder="Pesquisar..."
+                  value={buscaMontadas} onChange={e => setBuscaMontadas(e.target.value)}
+                  style={{ ...inputStyle, paddingLeft: '30px' }} />
+              </div>
+            </div>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', borderRadius: '20px', padding: '3px 10px', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                {filtradosMontadas.length} {filtradosMontadas.length === 1 ? 'placa montada' : 'placas montadas'}
+              </div>
+              {filtradosMontadas.length > 0 && (
+                <BotaoExportar
+                  onClick={() => exportarXLSX(filtradosMontadas, 'Placas Montadas', 'placas_montadas')}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, width: '80px' }}>ID</th>
+                <th style={{ ...th, width: '120px' }}>Localidade</th>
+                <th style={{ ...th, width: '100px' }}>Posto</th>
+                <th style={th}>Descrição</th>
+                <th style={{ ...th, width: '110px' }}>Equipamento</th>
+                <th style={{ ...th, width: '110px' }}>Dígitos</th>
+                <th style={{ ...th, width: '90px' }}>Status nota</th>
+                <th style={{ ...th, width: '90px', textAlign: 'center' }}>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtradosMontadasPage.length === 0 && (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>
+                  {equipMontadasTermos.length > 0 ? 'Nenhuma placa montada encontrada para a busca.' : 'Nenhuma placa montada no momento.'}
+                </td></tr>
+              )}
+              {filtradosMontadasPage.map((s, i) => {
+                const posto = postoDeLocalidade(s.local);
+                const digStr = (s.equip || '').replace(/\D/g, '');
+                const scfg = STATUS_CONFIG[s.status] || { label: s.status, color: '#475569', bg: '#f1f5f9', border: '#e2e8f0' };
+                return (
+                  <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
+                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
+                  >
+                    <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
+                    <td style={td}>{s.local || '—'}</td>
+                    <td style={{ ...td, fontSize: '11px', color: '#64748b' }}>
+                      {posto ? posto.split('—')[0].trim() : <span style={{ color: '#ef4444' }}>Não mapeado</span>}
+                    </td>
+                    <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.desc}</td>
+                    <td style={{ ...td, fontWeight: '600', letterSpacing: '0.05em' }}>{s.equip || '—'}</td>
+                    <td style={td}>
+                      {digStr ? (
+                        <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                          {digStr.split('').map((d, idx) => (
+                            <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                    </td>
+                    <td style={td}>
+                      <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: scfg.bg, color: scfg.color, border: `1px solid ${scfg.border}` }}>
+                        {scfg.label}
+                      </span>
+                    </td>
+                    <td style={{ ...td, textAlign: 'center' }}>
+                      <button onClick={() => { if (window.confirm('Tem certeza que deseja reverter a montagem desta placa? O estoque será reposto.')) reverterMontagem(s); }}
+                        style={{ fontSize: '11px', padding: '5px 12px', border: '1px solid #fecaca', borderRadius: '6px', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fecaca'; }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" /></svg>
+                        Reverter
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <Paginacao totalItems={filtradosMontadas.length} currentPage={safeMontadasPage} onPageChange={setPageMontadas} />
+      </div>
 
     </div>
   );
