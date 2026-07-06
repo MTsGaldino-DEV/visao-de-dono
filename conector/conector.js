@@ -307,8 +307,13 @@ async function gerarUmServico(s) {
   }
 
   // ── Passo 4: Serviço a ser Executado (Desc_Serv) ──
-  debug(`Preenchendo Desc_Serv...`, s.id);
-  await preencherCampoSeExistir(page, 'textarea[name="Desc_Serv"], #Desc_Serv', s.desc);
+  const descCompleta = s.coord ? `${s.desc} / COORD: ${s.coord}` : s.desc;
+  debug(`Preenchendo Desc_Serv: ${descCompleta}`, s.id);
+  await preencherCampoSeExistir(page, 'textarea[name="Desc_Serv"], #Desc_Serv', descCompleta);
+
+  // ── Passo 4b: Referência (campo de referência da OS) ──
+  debug(`Preenchendo Referência: ${s.id}`, s.id);
+  await preencherCampoSeExistir(page, 'input[name="Referencia"], #Referencia, input[name="referencia"], input[placeholder*="eferencia"]', s.id);
 
   // ── Passo 5: Observação (Observ) ──
   debug(`Preenchendo Observação...`, s.id);

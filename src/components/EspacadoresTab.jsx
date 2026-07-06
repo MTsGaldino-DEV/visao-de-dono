@@ -22,7 +22,24 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
   const quantidade = exec.quantidade != null ? exec.quantidade : '—';
   const gps = exec.gps || null;
   const fotoAntes = exec.fotoAntes || null;
-  const fotoDepois = exec.fotoDepois || null;
+  const fotosFechamento = servico.fotos_fechamento || exec.fotos_fechamento || [];
+  if (fotosFechamento.length === 0 && exec.fotoDepois) {
+    fotosFechamento.push(exec.fotoDepois);
+  }
+
+  const fotosParaRenderizar = [
+    { url: fotoAntes, label: 'ANTES' }
+  ];
+
+  if (fotosFechamento.length === 0) {
+    fotosParaRenderizar.push({ url: null, label: 'DEPOIS' });
+  } else if (fotosFechamento.length === 1) {
+    fotosParaRenderizar.push({ url: fotosFechamento[0], label: 'DEPOIS' });
+  } else {
+    fotosFechamento.forEach((url, index) => {
+      fotosParaRenderizar.push({ url, label: `DEPOIS (${index + 1}/${fotosFechamento.length})` });
+    });
+  }
 
   const InfoRow = ({ label, value, href }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #f1f5f9', gap: '12px' }}>
@@ -65,8 +82,8 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
           {/* Fotos */}
           <div style={{ marginBottom: '20px' }}>
             <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>Fotos do serviço</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {[{ url: fotoAntes, label: 'ANTES' }, { url: fotoDepois, label: 'DEPOIS' }].map(({ url, label }) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+              {fotosParaRenderizar.map(({ url, label }) => (
                 <div key={label}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', letterSpacing: '0.5px' }}>{label}</div>
                   {url ? (
@@ -440,11 +457,28 @@ const EspacadoresTab = () => {
                           ) : (
                             <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>Sem foto<br/>antes</div>
                           )}
-                          {exec.fotoDepois ? (
-                            <img src={exec.fotoDepois} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} alt="Depois" title="Depois" />
-                          ) : (
-                            <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>Sem foto<br/>depois</div>
-                          )}
+                          {(() => {
+                            const fotosFech = s.fotos_fechamento || exec.fotos_fechamento || [];
+                            if (fotosFech.length === 0 && exec.fotoDepois) fotosFech.push(exec.fotoDepois);
+                            
+                            if (fotosFech.length > 0) {
+                              return (
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  {fotosFech.slice(0, 2).map((f, i) => (
+                                    <img key={i} src={f} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} alt="Depois" title="Depois" />
+                                  ))}
+                                  {fotosFech.length > 2 && (
+                                    <div style={{ width: '60px', height: '60px', borderRadius: '8px', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: '#64748b' }}>
+                                      +{fotosFech.length - 2}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>Sem foto<br/>depois</div>
+                            );
+                          })()}
                         </div>
 
                         {/* Botão revisar */}

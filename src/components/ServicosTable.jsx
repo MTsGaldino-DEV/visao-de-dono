@@ -8,6 +8,8 @@ import * as XLSX from 'xlsx';
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
   enviado: { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  acionado: { bg: '#f59e0b', color: '#ffffff', border: '#d97706', label: 'Acionado' },
+  em_execucao: { bg: '#3b82f6', color: '#ffffff', border: '#2563eb', label: 'Em Execução' },
   pendente: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
   concluido: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
   cancelado: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },
@@ -15,8 +17,8 @@ const STATUS_CONFIG = {
 };
 
 // STATUS_ORDER sem 'cancelado' para o popup StatusDono
-const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
-const STATUS_ORDER_SEM_CANCEL = ['cadastrado', 'enviado', 'pendente', 'concluido'];
+const STATUS_ORDER = ['cadastrado', 'enviado', 'acionado', 'em_execucao', 'pendente', 'concluido', 'cancelado', 'reprovado'];
+const STATUS_ORDER_SEM_CANCEL = ['cadastrado', 'enviado', 'acionado', 'em_execucao', 'pendente', 'concluido'];
 
 const NEXT_STATUS = {
   cadastrado: { next: 'enviado', msg: 'Enviado à CEMIG', label: 'Enviar', color: '#7c3aed' },
@@ -1442,6 +1444,30 @@ const ServicosTable = () => {
     }
   };
 
+  const cancelarAtribuicaoSelecionados = async () => {
+    if (selecionados.size === 0) return;
+    if (!window.confirm(`Tem certeza que deseja cancelar a atribuição de ${selecionados.size} serviço(s)?`)) return;
+    setDespacharLoading(true);
+    try {
+      const ids = Array.from(selecionados);
+      const updates = ids.map(id => {
+        const atual = services.find(s => s.id === id);
+        return supabase.from('servicos').update({
+          atribuido_para: null,
+          dtAtribuicao: null,
+          hist: [...(atual?.hist || []), { who: user.label, matricula: user.matricula, when: new Date().toISOString(), msg: 'Atribuição cancelada' }]
+        }).eq('id', id);
+      });
+      await Promise.all(updates);
+      setSelecionados(new Set());
+      setDespacharOpen(false);
+    } catch {
+      alert('Erro ao cancelar atribuição.');
+    } finally {
+      setDespacharLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* Popups */}
@@ -2045,6 +2071,16 @@ const ServicosTable = () => {
                 <div style={{ padding: '8px', fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Selecionar Técnico
                 </div>
+                <button onClick={cancelarAtribuicaoSelecionados} style={{
+                    width: '100%', padding: '10px 12px', border: 'none', background: 'transparent',
+                    textAlign: 'left', cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', color: '#dc2626', marginBottom: '4px'
+                  }} onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    <span style={{ fontSize: '13px', fontWeight: '600' }}>Remover Atribuição</span>
+                </button>
+                <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 8px' }}></div>
                 {tecnicos.length === 0 ? (
                   <div style={{ padding: '8px', fontSize: '13px', color: '#64748b' }}>Nenhum técnico disponível</div>
                 ) : (

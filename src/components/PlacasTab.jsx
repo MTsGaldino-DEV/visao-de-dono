@@ -36,6 +36,8 @@ const POSTO_COLORS = {
 const STATUS_CONFIG = {
   cadastrado: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Cadastrado' },
   enviado: { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe', label: 'Enviado CEMIG' },
+  acionado: { bg: '#f59e0b', color: '#ffffff', border: '#d97706', label: 'Acionado' },
+  em_execucao: { bg: '#3b82f6', color: '#ffffff', border: '#2563eb', label: 'Em Execução' },
   pendente: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', label: 'Pendente' },
   concluido: { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', label: 'Concluído' },
   cancelado: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Cancelado' },

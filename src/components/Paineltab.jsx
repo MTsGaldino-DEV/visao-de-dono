@@ -38,13 +38,15 @@ const POSTOS = {
 const STATUS_CONFIG = {
   cadastrado: { label: 'Cadastrado', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
   enviado: { label: 'Enviado CEMIG', color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe' },
+  acionado: { label: 'Acionado', color: '#ffffff', bg: '#f59e0b', border: '#d97706' },
+  em_execucao: { label: 'Em Execução', color: '#ffffff', bg: '#3b82f6', border: '#2563eb' },
   pendente: { label: 'Pendente', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' },
   concluido: { label: 'Concluído', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
   cancelado: { label: 'Cancelado', color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
   reprovado: { label: 'Reprovado', color: '#dc2626', bg: '#fff1f2', border: '#fecdd3' },
 };
 
-const STATUS_ORDER = ['cadastrado', 'enviado', 'pendente', 'concluido', 'cancelado', 'reprovado'];
+const STATUS_ORDER = ['cadastrado', 'enviado', 'acionado', 'em_execucao', 'pendente', 'concluido', 'cancelado', 'reprovado'];
 
 const POSTO_CFG = {
   'Posto 1 — Pedro': { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', track: '#dbeafe' },

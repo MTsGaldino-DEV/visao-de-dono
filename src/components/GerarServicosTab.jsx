@@ -130,18 +130,22 @@ const GerarServicosTab = () => {
                 setStatusLinhas(prev => ({ ...prev, [docId]: { tipo: 'sucesso', msg: ev.msg, numGerado: ev.numGerado } }));
                 addLog('sucesso', `[${ev.id}] Criado com sucesso${ev.numGerado ? ` — NS Nº ${ev.numGerado}` : ' (nº não capturado)'}`, ev.id);
                 // Salva numServ e status no Supabase
-                if (docId && ev.numGerado) {
-                    supabase.from('servicos').update({
-                        numServ: ev.numGerado,
-                        status: 'gerado',
-                    }).eq('id', docId).then(({ error }) => {
+                if (docId) {
+                    const updatePayload = {
+                        status: 'enviado',
+                        ...(ev.numGerado ? { numServ: ev.numGerado } : {}),
+                    };
+                    supabase.from('servicos').update(updatePayload).eq('id', docId).then(({ error }) => {
                         if (error) {
-                            addLog('aviso', `Supabase: erro ao salvar numServ — ${error.message}`);
-                            console.warn('Erro ao salvar numServ no Supabase:', error);
+                            addLog('aviso', `Supabase: erro ao atualizar status — ${error.message}`);
+                            console.warn('Erro ao atualizar Supabase:', error);
+                        } else {
+                            addLog('info', `[${ev.id}] Status atualizado para "Enviado CEMIG" no sistema.`);
                         }
                     });
-                } else if (docId && !ev.numGerado) {
-                    addLog('aviso', `[${ev.id}] Serviço criado mas número não foi capturado. Verifique manualmente.`);
+                    if (!ev.numGerado) {
+                        addLog('aviso', `[${ev.id}] Serviço criado mas número não foi capturado. Verifique manualmente.`);
+                    }
                 }
             }
             if (ev.tipo === 'erro') {
@@ -248,6 +252,7 @@ const GerarServicosTab = () => {
                 _docId: s._docId,
                 id: s.id,
                 desc: s.desc,
+                coord: s.coord || '',
                 transformador,
                 executor: executores[docId] || executorGlobal,
             };

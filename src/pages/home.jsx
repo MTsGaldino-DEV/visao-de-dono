@@ -9,6 +9,9 @@ import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
 import UsuariosTab from '../components/UsuariosTab';
 import EspacadoresTab from '../components/EspacadoresTab';
+import LevantamentosTab from '../components/LevantamentosTab';
+import MapaTab from '../components/MapaTab';
+import { supabase } from '../lib/supabase';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
@@ -35,9 +38,34 @@ const Home = () => {
     }
   }, [user, activeTab]);
 
+  const [pendentesCount, setPendentesCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendentes = async () => {
+      const { count } = await supabase
+        .from('levantamentos')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pendente');
+      setPendentesCount(count || 0);
+    };
+
+    if (user) {
+      fetchPendentes();
+      const channel = supabase.channel('home_levantamentos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'levantamentos' }, () => {
+          fetchPendentes();
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [user]);
+
   const tabs = [
     ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
     { key: 'despacho', label: 'Despacho' },
+    { key: 'levantamentos', label: 'Levantamentos' },
+    { key: 'mapa', label: 'Mapa' },
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     ...(isDono ? [{ key: 'admin', label: 'Admin' }] : []),
@@ -166,6 +194,19 @@ const Home = () => {
               onMouseLeave={e => { if (activeTab !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
             >
               {label}
+              {key === 'levantamentos' && pendentesCount > 0 && (
+                <span style={{
+                  marginLeft: '6px',
+                  background: activeTab === key ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                  color: activeTab === key ? '#fff' : '#475569',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '2px 7px',
+                  display: 'inline-block',
+                  verticalAlign: 'middle',
+                }}>{pendentesCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -261,6 +302,14 @@ const Home = () => {
 
         <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'espacadores' ? 'block' : 'none' }}>
           <EspacadoresTab />
+        </div>
+
+        <div style={{ display: activeTab === 'levantamentos' ? 'block' : 'none' }}>
+          {activeTab === 'levantamentos' && <LevantamentosTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'mapa' ? 'block' : 'none' }}>
+          {activeTab === 'mapa' && <MapaTab />}
         </div>
 
         <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
