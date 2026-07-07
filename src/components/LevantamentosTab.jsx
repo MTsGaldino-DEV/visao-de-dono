@@ -247,10 +247,17 @@ const LevantamentosTab = () => {
       if (erroTecnico || !tecnico) throw new Error('Técnico não encontrado na base de usuários.');
 
       // 2. Gerar novo ID
-      const { count } = await supabase
+      const { data: lastRecord } = await supabase
         .from('servicos')
-        .select('id', { count: 'exact', head: true });
-      const novoIdGerado = `VD${String((count || 0) + 1).padStart(4, '0')}`;
+        .select('id')
+        .order('dtCadastro', { ascending: false })
+        .limit(1);
+
+      let nextIdNum = 1;
+      if (lastRecord && lastRecord.length > 0 && lastRecord[0].id) {
+        nextIdNum = (parseInt(lastRecord[0].id.replace('VD', ''), 10) || 0) + 1;
+      }
+      const novoIdGerado = `VD${String(nextIdNum).padStart(4, '0')}`;
 
       // 3. Inserir em servicos com atribuição correta
       const { error: errorInsert } = await supabase.from('servicos').insert({

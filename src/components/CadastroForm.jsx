@@ -409,8 +409,12 @@ const CadastroForm = () => {
     }
     setLoading(true);
     try {
-      const { count } = await supabase.from('servicos').select('id', { count: 'exact', head: true });
-      const novoId = `VD${String((count || 0) + 1).padStart(4, '0')}`;
+      const { data: lastRecord } = await supabase.from('servicos').select('id').order('dtCadastro', { ascending: false }).limit(1);
+      let nextIdNum = 1;
+      if (lastRecord && lastRecord.length > 0 && lastRecord[0].id) {
+        nextIdNum = (parseInt(lastRecord[0].id.replace('VD', ''), 10) || 0) + 1;
+      }
+      const novoId = `VD${String(nextIdNum).padStart(4, '0')}`;
       await supabase.from('servicos').insert({
         ...formData,
         id: novoId,
