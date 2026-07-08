@@ -9,26 +9,26 @@ import DetalheModal from './DetalheModal';
 // ── Cores por status (mesma paleta dos badges) ──────────────────────────────
 const STATUS_COLORS = {
   cadastrado: '#1d4ed8',
-  enviado:    '#7c3aed',
-  acionado:   '#f59e0b',
-  em_execucao:'#3b82f6',
-  pendente:   '#94a3b8',
-  concluido:  '#15803d',
-  cancelado:  '#94a3b8',
-  reprovado:  '#dc2626',
-  executado:  '#15803d',
+  enviado: '#7c3aed',
+  acionado: '#f59e0b',
+  em_execucao: '#3b82f6',
+  pendente: '#94a3b8',
+  concluido: '#15803d',
+  cancelado: '#94a3b8',
+  reprovado: '#dc2626',
+  executado: '#15803d',
 };
 
 const STATUS_LABELS = {
   cadastrado: 'Cadastrado',
-  enviado:    'Enviado CEMIG',
-  acionado:   'Acionado',
-  em_execucao:'Em Execução',
-  pendente:   'Pendente',
-  concluido:  'Concluído',
-  cancelado:  'Cancelado',
-  reprovado:  'Reprovado',
-  executado:  'Executado',
+  enviado: 'Enviado CEMIG',
+  acionado: 'Acionado',
+  em_execucao: 'Em Execução',
+  pendente: 'Pendente',
+  concluido: 'Concluído',
+  cancelado: 'Cancelado',
+  reprovado: 'Reprovado',
+  executado: 'Executado',
 };
 
 // ── SVG marker factory ──────────────────────────────────────────────────────
