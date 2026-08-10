@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 // ─── Modal de Revisão ────────────────────────────────────────────────────────
-const RevisaoModal = ({ levantamento, onClose, onAprovar, onReprovar }) => {
+const RevisaoModal = ({ levantamento, onClose, onAprovar, onReprovar, readOnly }) => {
   const [motivoReprovacao, setMotivoReprovacao] = useState('');
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
@@ -126,9 +126,9 @@ const RevisaoModal = ({ levantamento, onClose, onAprovar, onReprovar }) => {
         </div>
 
         {/* Rodapé de ações */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
-          {levantamento.status === 'pendente' && (
-            mostrarReprovacao ? (
+        {!readOnly && levantamento.status === 'pendente' && (
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            {mostrarReprovacao ? (
               <div>
                 <textarea
                   autoFocus
@@ -151,7 +151,7 @@ const RevisaoModal = ({ levantamento, onClose, onAprovar, onReprovar }) => {
                     disabled={isSubmitting}
                     style={{ flex: 1, padding: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
                   >
-                    {isSubmitting ? 'Processando...' : '✗ Confirmar Reprovação'}
+                    {isSubmitting ? 'Processando...' : 'Confirmar Reprovação'}
                   </button>
                 </div>
               </div>
@@ -162,19 +162,19 @@ const RevisaoModal = ({ levantamento, onClose, onAprovar, onReprovar }) => {
                   disabled={isSubmitting}
                   style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
                 >
-                  ✗ Reprovar
+                  Reprovar
                 </button>
                 <button
                   onClick={handleAprovarClick}
                   disabled={isSubmitting}
                   style={{ flex: 1, padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
                 >
-                  {isSubmitting ? 'Processando...' : '✓ Aprovar e Gerar OS'}
+                  {isSubmitting ? 'Processando...' : 'Aprovar e Gerar OS'}
                 </button>
               </div>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Foto ampliada */}
@@ -205,10 +205,19 @@ const LevantamentosTab = () => {
 
   // Modal de revisão
   const [modalLevantamento, setModalLevantamento] = useState(null);
+  const [modalReadOnly, setModalReadOnly] = useState(false);
+  const [buscaHistorico, setBuscaHistorico] = useState('');
 
-  const pendentes = levantamentos.filter(l => l.status === 'pendente');
-  const aprovados = levantamentos.filter(l => l.status === 'aprovado');
-  const reprovados = levantamentos.filter(l => l.status === 'reprovado');
+  let pendentes = levantamentos.filter(l => l.status === 'pendente');
+  let aprovados = levantamentos.filter(l => l.status === 'aprovado');
+  let reprovados = levantamentos.filter(l => l.status === 'reprovado');
+
+  if (buscaHistorico.trim() && activeSection !== 1) {
+    const term = buscaHistorico.toLowerCase();
+    const filterFn = l => (l.id || '').toLowerCase().includes(term) || (l.local || '').toLowerCase().includes(term) || (l.tecnico_origem || '').toLowerCase().includes(term);
+    if (activeSection === 2) aprovados = aprovados.filter(filterFn);
+    if (activeSection === 3) reprovados = reprovados.filter(filterFn);
+  }
 
   useEffect(() => {
     fetchLevantamentos();
@@ -444,7 +453,15 @@ const LevantamentosTab = () => {
 
           {/* ── SEÇÃO 2: Aprovados ── */}
           {activeSection === 2 && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                type="text" 
+                placeholder="Buscar por ID, Localidade ou Técnico..." 
+                value={buscaHistorico} 
+                onChange={e => setBuscaHistorico(e.target.value)}
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', maxWidth: '400px' }}
+              />
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
                   <tr>
@@ -453,12 +470,13 @@ const LevantamentosTab = () => {
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Serviço Gerado</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Aprovado por</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Data Aprovação</th>
+                    <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'right' }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {aprovados.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum levantamento aprovado.</td>
+                      <td colSpan="6" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum levantamento aprovado.</td>
                     </tr>
                   ) : aprovados.map(l => {
                     const dataAprov = l.dt_aprovacao ? new Date(l.dt_aprovacao).toLocaleString('pt-BR') : '—';
@@ -483,17 +501,31 @@ const LevantamentosTab = () => {
                           </span>
                         </td>
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '12px' }}>{dataAprov}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <button onClick={() => { setModalLevantamento(l); setModalReadOnly(true); }} style={{ padding: '6px 14px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                            Ver detalhes
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+            </div>
           )}
 
           {/* ── SEÇÃO 3: Reprovados ── */}
           {activeSection === 3 && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                type="text" 
+                placeholder="Buscar por ID, Localidade ou Técnico..." 
+                value={buscaHistorico} 
+                onChange={e => setBuscaHistorico(e.target.value)}
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', maxWidth: '400px' }}
+              />
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
                   <tr>
@@ -501,12 +533,13 @@ const LevantamentosTab = () => {
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Técnico / Local</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Motivo</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Reprovado por</th>
+                    <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'right' }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reprovados.length === 0 ? (
                     <tr>
-                      <td colSpan="4" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum levantamento reprovado.</td>
+                      <td colSpan="5" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum levantamento reprovado.</td>
                     </tr>
                   ) : reprovados.map(l => {
                     return (
@@ -528,11 +561,17 @@ const LevantamentosTab = () => {
                           <div style={{ fontSize: '12px', color: '#475569' }}>{l.aprovado_por?.nome || '—'}</div>
                           <div style={{ fontSize: '11px', color: '#94a3b8' }}>{l.dt_aprovacao ? new Date(l.dt_aprovacao).toLocaleString('pt-BR') : ''}</div>
                         </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <button onClick={() => { setModalLevantamento(l); setModalReadOnly(true); }} style={{ padding: '6px 14px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                            Ver detalhes
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
         </>
@@ -542,7 +581,8 @@ const LevantamentosTab = () => {
       {modalLevantamento && (
         <RevisaoModal
           levantamento={modalLevantamento}
-          onClose={() => setModalLevantamento(null)}
+          readOnly={modalReadOnly}
+          onClose={() => { setModalLevantamento(null); setModalReadOnly(false); }}
           onAprovar={handleAprovar}
           onReprovar={handleReprovar}
         />

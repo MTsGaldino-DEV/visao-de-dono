@@ -38,8 +38,8 @@ const POSTOS = {
 const STATUS_CONFIG = {
   cadastrado: { label: 'Cadastrado', color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
   enviado: { label: 'Enviado CEMIG', color: '#7c3aed', bg: '#faf5ff', border: '#ddd6fe' },
-  acionado: { label: 'Acionado', color: '#ffffff', bg: '#f59e0b', border: '#d97706' },
-  em_execucao: { label: 'Em Execução', color: '#ffffff', bg: '#3b82f6', border: '#2563eb' },
+  acionado: { label: 'Acionado', color: '#790077ff', bg: '#f59e0b', border: '#d97706' },
+  em_execucao: { label: 'Em Execução', color: '#0fdf00ff', bg: '#3b82f6', border: '#2563eb' },
   pendente: { label: 'Pendente', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' },
   concluido: { label: 'Concluído', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },
   cancelado: { label: 'Cancelado', color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },

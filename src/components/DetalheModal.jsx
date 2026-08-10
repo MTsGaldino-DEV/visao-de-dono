@@ -46,7 +46,7 @@ const Field = ({ label, children, fullWidth }) => (
   </div>
 );
 
-const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarLocalidade }) => {
+const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarLocalidade, readOnly: readOnlyProp }) => {
   const { user } = useAuth();
   // Qualquer usuário pode editar os próprios campos; dono tem acesso total
   const isDono = isDonoProp;
@@ -57,6 +57,9 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const [saved, setSaved] = useState(false);
   const [editandoLocal, setEditandoLocal] = useState(false);
   const [savingLocal, setSavingLocal] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+
+  const readOnly = readOnlyProp || (service && (service.status === 'concluido' || service.status === 'reprovado' || service.status === 'cancelado'));
 
   useEffect(() => {
     if (service) {
@@ -114,7 +117,29 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
 
   const statusCfg = STATUS_CONFIG[service.status] || { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', label: service.status };
 
+  const exec = service.execucao || {};
+  const fotoAntes = exec.fotoAntes || null;
+  const fotosFechamento = [...(service.fotos_fechamento || exec.fotos_fechamento || [])];
+  if (fotosFechamento.length === 0 && exec.fotoDepois) {
+    fotosFechamento.push(exec.fotoDepois);
+  }
+
+  const fotosParaRenderizar = [];
+  if (fotoAntes || fotosFechamento.length > 0) {
+    fotosParaRenderizar.push({ url: fotoAntes, label: 'ANTES' });
+    if (fotosFechamento.length === 0) {
+      fotosParaRenderizar.push({ url: null, label: 'DEPOIS' });
+    } else if (fotosFechamento.length === 1) {
+      fotosParaRenderizar.push({ url: fotosFechamento[0], label: 'DEPOIS' });
+    } else {
+      fotosFechamento.forEach((url, index) => {
+        fotosParaRenderizar.push({ url, label: `DEPOIS (${index + 1}/${fotosFechamento.length})` });
+      });
+    }
+  }
+
   return (
+    <>
     <div
       style={{
         position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.6)',
@@ -168,7 +193,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               <Field label="Data do levantamento" fullWidth>
                 <input type="datetime-local" step="1" name="data"
                   min="2025-01-01T00:00:00" max={maxDate}
-                  value={formData.data} onChange={handleChange}
+                  value={formData.data} onChange={handleChange} disabled={readOnly}
                   style={inp('data')} onFocus={() => setFocused('data')} onBlur={() => setFocused('')}
                 />
               </Field>
@@ -215,6 +240,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#1e293b' }}>
                     <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formData.local || 'Não informada'}</span>
+                    {!readOnly && (
                     <button onClick={() => setEditandoLocal(true)} title="Editar localidade"
                       style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 4px', borderRadius: '4px' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
@@ -224,11 +250,12 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                         <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                       </svg>
                     </button>
+                    )}
                   </div>
                 )}
               </Field>
               <Field label="Tipo de serviço">
-                <select name="tipo" value={formData.tipo} onChange={handleChange}
+                <select name="tipo" value={formData.tipo} onChange={handleChange} disabled={readOnly}
                   style={inp('tipo')} onFocus={() => setFocused('tipo')} onBlur={() => setFocused('')}>
                   <option value="NSIS">NSIS</option>
                   <option value="NSMP">NSMP</option>
@@ -239,7 +266,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               </Field>
               <Field label="Descrição" fullWidth>
                 <textarea name="desc" rows={3} placeholder="Descrição do serviço..."
-                  value={formData.desc} onChange={handleChange}
+                  value={formData.desc} onChange={handleChange} disabled={readOnly}
                   style={{ ...inp('desc'), resize: 'vertical' }}
                   onFocus={() => setFocused('desc')} onBlur={() => setFocused('')}
                 />
@@ -253,26 +280,26 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <Field label="Equipamento (nº da placa)">
                 <input type="text" name="equip" placeholder="Ex: 13867"
-                  value={formData.equip} onChange={handleChange}
+                  value={formData.equip} onChange={handleChange} disabled={readOnly}
                   style={inp('equip')} onFocus={() => setFocused('equip')} onBlur={() => setFocused('')}
                 />
               </Field>
               <Field label="Coordenada">
                 <input type="text" name="coord" placeholder="-18.517, -41.936"
-                  value={formData.coord} onChange={handleChange}
+                  value={formData.coord} onChange={handleChange} disabled={readOnly}
                   style={inp('coord')} onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
                 />
               </Field>
               <Field label="Técnico de origem">
                 <input type="text" name="orig" placeholder="Nome do técnico"
-                  value={formData.orig} onChange={handleChange}
+                  value={formData.orig} onChange={handleChange} disabled={readOnly}
                   style={inp('orig')} onFocus={() => setFocused('orig')} onBlur={() => setFocused('')}
                 />
               </Field>
               <Field label="Link da foto">
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input type="text" name="foto" placeholder="https://..."
-                    value={formData.foto} onChange={handleChange}
+                    value={formData.foto} onChange={handleChange} disabled={readOnly}
                     style={{ ...inp('foto'), flex: 1 }}
                     onFocus={() => setFocused('foto')} onBlur={() => setFocused('')}
                   />
@@ -295,7 +322,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               </Field>
               <Field label="Observações" fullWidth>
                 <input type="text" name="obs" placeholder="Observações adicionais"
-                  value={formData.obs} onChange={handleChange}
+                  value={formData.obs} onChange={handleChange} disabled={readOnly}
                   style={inp('obs')} onFocus={() => setFocused('obs')} onBlur={() => setFocused('')}
                 />
               </Field>
@@ -308,12 +335,49 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <Field label="Nº do serviço CEMIG">
                 <input type="text" name="numServ" placeholder="Ex: 240850456"
-                  value={formData.numServ} onChange={handleChange}
+                  value={formData.numServ} onChange={handleChange} disabled={readOnly}
                   style={inp('numServ')} onFocus={() => setFocused('numServ')} onBlur={() => setFocused('')}
                 />
               </Field>
             </div>
           </div>
+
+          {/* ── Bloco: Fotos da Execução ── */}
+          {fotosParaRenderizar.length > 0 && (
+            <div style={{ background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9', padding: '16px' }}>
+              <SectionTitle>Fotos da Execução</SectionTitle>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                {fotosParaRenderizar.map(({ url, label }, index) => (
+                  <div key={`${label}-${index}`}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', letterSpacing: '0.5px' }}>{label}</div>
+                    {url ? (
+                      <div
+                        onClick={() => setFotoAmpliada(url)}
+                        style={{ borderRadius: '10px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #e2e8f0', aspectRatio: '4/3', background: '#f1f5f9', position: 'relative' }}
+                      >
+                        <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', padding: '16px 10px 8px', color: '#fff', fontSize: '11px', fontWeight: '600' }}>
+                          🔍 Clique para ampliar
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ borderRadius: '10px', border: '1px dashed #cbd5e1', aspectRatio: '4/3', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                        Sem foto
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {exec.observacao && (
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', letterSpacing: '0.5px' }}>OBSERVAÇÃO DO TÉCNICO</div>
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px', fontSize: '13px', color: '#78350f', lineHeight: '1.5', fontStyle: exec.observacao === '—' ? 'italic' : 'normal' }}>
+                    {exec.observacao}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Histórico ── */}
           <div style={{ background: '#f8fafc', borderRadius: '10px', border: '1px solid #f1f5f9', padding: '16px' }}>
@@ -364,6 +428,7 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               >
                 Fechar
               </button>
+              {!readOnly && (
               <button onClick={salvar} disabled={loading} style={{
                 padding: '8px 20px', border: 'none', borderRadius: '8px',
                 background: saved
@@ -384,12 +449,23 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
                   </>
                 ) : loading ? 'Salvando...' : 'Salvar alterações'}
               </button>
+              )}
             </div>
           </div>
 
         </div>
       </div>
     </div>
+    {fotoAmpliada && (
+      <div
+        onClick={() => setFotoAmpliada(null)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+      >
+        <img src={fotoAmpliada} alt="Ampliada" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }} />
+        <button onClick={() => setFotoAmpliada(null)} style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', width: '40px', height: '40px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+      </div>
+    )}
+    </>
   );
 };
 

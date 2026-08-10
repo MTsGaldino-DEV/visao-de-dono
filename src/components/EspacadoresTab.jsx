@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import ServicosTable from './ServicosTable';
 import { useAuth } from '../context/AuthContext';
 
 // ─── Modal de Aprovação ───────────────────────────────────────────────────────
-const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
+const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar, readOnly, onVoltarStatus, onUploadFoto, onDescartarServico }) => {
   const [motivoReprovacao, setMotivoReprovacao] = useState('');
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
@@ -21,24 +22,29 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
   const material = exec.material || '—';
   const quantidade = exec.quantidade != null ? exec.quantidade : '—';
   const gps = exec.gps || null;
-  const fotoAntes = exec.fotoAntes || null;
-  const fotosFechamento = servico.fotos_fechamento || exec.fotos_fechamento || [];
-  if (fotosFechamento.length === 0 && exec.fotoDepois) {
-    fotosFechamento.push(exec.fotoDepois);
+  const arrAntes = servico.fotos_antes || [];
+  const arrDepois = servico.fotos_depois || [];
+  const oldAntes = exec.fotoAntes ? [exec.fotoAntes] : [];
+  const oldDepois = exec.fotoDepois ? [exec.fotoDepois] : [];
+  
+  const finalAntes = arrAntes.length > 0 ? arrAntes : oldAntes;
+  const finalDepois = arrDepois.length > 0 ? arrDepois : (servico.fotos_fechamento?.length > 0 ? servico.fotos_fechamento : oldDepois);
+
+  const fotosParaRenderizar = [];
+  if (finalAntes.length === 0) {
+    fotosParaRenderizar.push({ url: null, label: 'ANTES' });
+  } else if (finalAntes.length === 1) {
+    fotosParaRenderizar.push({ url: finalAntes[0], label: 'ANTES' });
+  } else {
+    finalAntes.forEach((url, i) => fotosParaRenderizar.push({ url, label: `ANTES (${i+1}/${finalAntes.length})` }));
   }
 
-  const fotosParaRenderizar = [
-    { url: fotoAntes, label: 'ANTES' }
-  ];
-
-  if (fotosFechamento.length === 0) {
+  if (finalDepois.length === 0) {
     fotosParaRenderizar.push({ url: null, label: 'DEPOIS' });
-  } else if (fotosFechamento.length === 1) {
-    fotosParaRenderizar.push({ url: fotosFechamento[0], label: 'DEPOIS' });
+  } else if (finalDepois.length === 1) {
+    fotosParaRenderizar.push({ url: finalDepois[0], label: 'DEPOIS' });
   } else {
-    fotosFechamento.forEach((url, index) => {
-      fotosParaRenderizar.push({ url, label: `DEPOIS (${index + 1}/${fotosFechamento.length})` });
-    });
+    finalDepois.forEach((url, i) => fotosParaRenderizar.push({ url, label: `DEPOIS (${i+1}/${finalDepois.length})` }));
   }
 
   const InfoRow = ({ label, value, href }) => (
@@ -156,8 +162,9 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
         </div>
 
         {/* Rodapé de ações */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
-          {mostrarReprovacao ? (
+        {!readOnly ? (
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            {mostrarReprovacao ? (
             <div>
               <textarea
                 autoFocus
@@ -201,6 +208,40 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
             </div>
           )}
         </div>
+        ) : servico.aprovacaoespacador === 'aprovado' && onVoltarStatus && (
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <label style={{ flex: 1, padding: '10px', background: '#e2e8f0', color: '#475569', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textAlign: 'center' }}>
+                📷 Adicionar Foto (Antes)
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                  if (e.target.files[0]) onUploadFoto(servico, e.target.files[0], 'antes');
+                  e.target.value = null;
+                }} />
+              </label>
+              <label style={{ flex: 1, padding: '10px', background: '#e2e8f0', color: '#475569', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textAlign: 'center' }}>
+                📷 Adicionar Foto (Depois)
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                  if (e.target.files[0]) onUploadFoto(servico, e.target.files[0], 'depois');
+                  e.target.value = null;
+                }} />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => onDescartarServico(servico)}
+                style={{ flex: 1, padding: '10px', background: 'transparent', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                🗑 Descartar Serviço
+              </button>
+              <button
+                onClick={() => onVoltarStatus(servico)}
+                style={{ flex: 2, padding: '10px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                ⟲ Voltar para Revisão
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Foto ampliada */}
@@ -226,11 +267,15 @@ const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar }) => {
 const EspacadoresTab = () => {
   const { user } = useAuth();
   const [servicos, setServicos] = useState([]);
-  const [activeSection, setActiveSection] = useState(1);
+  const [activeSection, setActiveSection] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Modal de aprovação
   const [modalServico, setModalServico] = useState(null);
+  const [modalReadOnly, setModalReadOnly] = useState(false);
+
+  // Busca histórico
+  const [buscaHistorico, setBuscaHistorico] = useState('');
 
   // Gerar OS inline
   const [gerarOsId, setGerarOsId] = useState(null);
@@ -240,8 +285,15 @@ const EspacadoresTab = () => {
   const finalizadoNoApp = (s) => s.status === 'concluido' && s.execucao != null;
 
   const aguardandoAprovacao = servicos.filter(s => finalizadoNoApp(s) && !s.aprovacaoespacador);
-  const aguardandoOs = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && !s.numServ);
-  const concluidos = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && s.numServ);
+  let aguardandoOs = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && !s.numServ);
+  let concluidos = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado');
+
+  if (buscaHistorico.trim() && activeSection !== 1) {
+    const term = buscaHistorico.toLowerCase();
+    const filterFn = s => (s.id || '').toLowerCase().includes(term) || (s.local || '').toLowerCase().includes(term);
+    if (activeSection === 2) aguardandoOs = aguardandoOs.filter(filterFn);
+    if (activeSection === 3) concluidos = concluidos.filter(filterFn);
+  }
 
   useEffect(() => {
     fetchServicos();
@@ -300,7 +352,6 @@ const EspacadoresTab = () => {
     }];
 
     const { error } = await supabase.from('servicos').update({
-      status: 'reprovado',
       aprovacaoespacador: 'reprovado',
       motivoreprovacaoespacador: motivo,
       hist: newHist
@@ -331,6 +382,86 @@ const EspacadoresTab = () => {
 
     setModalServico(null);
   };
+  // ── Voltar para Revisão ───────────────────────────────────────────────────
+  const handleVoltarRevisao = async (servico) => {
+    if (!window.confirm("Deseja voltar este serviço para revisão (Aguardando Aprovação)?")) return;
+    
+    const newHist = [...(servico.hist || []), {
+      who: user?.label || 'Despachante',
+      matricula: user?.matricula,
+      when: new Date().toISOString(),
+      msg: 'Voltou serviço para revisão'
+    }];
+
+    const { error } = await supabase.from('servicos').update({
+      aprovacaoespacador: null,
+      dtaprovacaoespacador: null,
+      hist: newHist
+    }).eq('id', servico.id);
+
+    if (error) alert('Erro ao voltar status: ' + error.message);
+    else {
+      setModalServico(null);
+      setModalReadOnly(false);
+    }
+  };
+
+  // ── Descartar Serviço ─────────────────────────────────────────────────────
+  const handleDescartarServico = async (servico) => {
+    if (!window.confirm("Deseja realmente DESCARTAR este serviço? Ele será cancelado e removido desta lista.")) return;
+
+    const newHist = [...(servico.hist || []), {
+      who: user?.label || 'Despachante',
+      matricula: user?.matricula,
+      when: new Date().toISOString(),
+      msg: 'Serviço descartado (cancelado) pela aba de concluídos'
+    }];
+
+    const { error } = await supabase.from('servicos').update({
+      status: 'cancelado',
+      hist: newHist
+    }).eq('id', servico.id);
+
+    if (error) alert('Erro ao descartar serviço: ' + error.message);
+    else {
+      setModalServico(null);
+      setModalReadOnly(false);
+    }
+  };
+
+  // ── Upload de Foto Manual ─────────────────────────────────────────────────
+  const handleUploadFotoManual = async (servico, file, tipo) => {
+    try {
+      const path = `fechamentos/${servico.id}/${tipo}_manual_${Date.now()}.jpg`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('levantamentos')
+        .upload(path, file);
+      
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from('levantamentos')
+        .getPublicUrl(path);
+
+      const url = publicData.publicUrl;
+      const key = tipo === 'antes' ? 'fotos_antes' : 'fotos_depois';
+      const arrFotos = servico[key] || [];
+
+      const { error: dbError } = await supabase.from('servicos').update({
+        [key]: [...arrFotos, url]
+      }).eq('id', servico.id);
+
+      if (dbError) throw dbError;
+
+      alert(`Foto (${tipo}) adicionada com sucesso!`);
+      // Atualiza o estado local para refletir na UI imediatamente
+      setServicos(prev => prev.map(s => s.id === servico.id ? { ...s, [key]: [...arrFotos, url] } : s));
+      setModalServico(prev => ({ ...prev, [key]: [...arrFotos, url] }));
+    } catch (e) {
+      alert('Erro ao enviar foto: ' + e.message);
+    }
+  };
+
 
   // ── Gerar OS ──────────────────────────────────────────────────────────────
   const handleGerarOsConfirm = async () => {
@@ -355,6 +486,7 @@ const EspacadoresTab = () => {
   };
 
   const tabs = [
+    { id: 0, label: `Lista de Serviços`, count: null },
     { id: 1, label: `Aguardando Aprovação`, count: aguardandoAprovacao.length },
     { id: 2, label: `Aguardando OS`, count: aguardandoOs.length },
     { id: 3, label: `Concluídos`, count: concluidos.length },
@@ -391,26 +523,31 @@ const EspacadoresTab = () => {
             }}
           >
             {tab.label}
-            {tab.count > 0 && (
-              <span style={{
-                background: activeSection === tab.id ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                color: activeSection === tab.id ? '#fff' : '#64748b',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '1px 7px',
-                minWidth: '20px',
-                textAlign: 'center'
-              }}>{tab.count}</span>
-            )}
+              {tab.count !== null && tab.count > 0 && (
+                <span style={{
+                  background: activeSection === tab.id ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                  color: activeSection === tab.id ? '#fff' : '#64748b',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '1px 7px',
+                  minWidth: '20px',
+                  textAlign: 'center'
+                }}>{tab.count}</span>
+              )}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>Carregando serviços...</div>
+        <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>Carregando serviços de espaçadores...</div>
       ) : (
         <>
+          {/* ── SEÇÃO 0: Lista de Serviços (Geral) ── */}
+          {activeSection === 0 && (
+            <ServicosTable filterType="espacadores" />
+          )}
+
           {/* ── SEÇÃO 1: Aguardando Aprovação ── */}
           {activeSection === 1 && (
             <div>
@@ -500,7 +637,15 @@ const EspacadoresTab = () => {
 
           {/* ── SEÇÃO 2: Aguardando OS ── */}
           {activeSection === 2 && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                type="text" 
+                placeholder="Buscar por ID ou Localidade..." 
+                value={buscaHistorico} 
+                onChange={e => setBuscaHistorico(e.target.value)}
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', maxWidth: '400px' }}
+              />
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
                   <tr>
@@ -547,9 +692,14 @@ const EspacadoresTab = () => {
                               <button onClick={() => { setGerarOsId(null); setNumeroDigitado(''); }} style={{ padding: '6px 10px', background: 'transparent', color: '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '12px' }}>✕</button>
                             </div>
                           ) : (
-                            <button onClick={() => setGerarOsId(s.id)} style={{ padding: '6px 14px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                              Gerar OS
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button onClick={() => { setModalServico(s); setModalReadOnly(true); }} style={{ padding: '6px 14px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                Ver detalhes
+                              </button>
+                              <button onClick={() => setGerarOsId(s.id)} style={{ padding: '6px 14px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                Gerar OS
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -558,11 +708,20 @@ const EspacadoresTab = () => {
                 </tbody>
               </table>
             </div>
+            </div>
           )}
 
           {/* ── SEÇÃO 3: Concluídos ── */}
           {activeSection === 3 && (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                type="text" 
+                placeholder="Buscar por ID ou Localidade..." 
+                value={buscaHistorico} 
+                onChange={e => setBuscaHistorico(e.target.value)}
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', maxWidth: '400px' }}
+              />
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
                   <tr>
@@ -571,12 +730,13 @@ const EspacadoresTab = () => {
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Nº OS</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Aprovado por</th>
                     <th style={{ padding: '12px 16px', fontWeight: '600' }}>Data aprovação</th>
+                    <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'right' }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {concluidos.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum serviço concluído.</td>
+                      <td colSpan="6" style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Nenhum serviço concluído.</td>
                     </tr>
                   ) : concluidos.map(s => {
                     const dataAprov = s.dtaprovacaoespacador ? new Date(s.dtaprovacaoespacador).toLocaleString('pt-BR') : '—';
@@ -596,11 +756,35 @@ const EspacadoresTab = () => {
                           <span style={{ color: '#475569', fontSize: '12px' }}>{s.aprovadopor?.nome || '—'}</span>
                         </td>
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '12px' }}>{dataAprov}</td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {/* Botão Ver detalhes — ícone olho */}
+                            <button
+                              onClick={() => { setModalServico(s); setModalReadOnly(true); }}
+                              title="Ver detalhes"
+                              style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', padding: 0 }}
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                              </svg>
+                            </button>
+                            {/* Botão Descartar — X */}
+                            <button
+                              onClick={() => handleDescartarServico(s)}
+                              title="Descartar serviço"
+                              style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', padding: 0, color: '#dc2626', fontSize: '18px', lineHeight: 1, fontWeight: '400' }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
         </>
@@ -610,9 +794,13 @@ const EspacadoresTab = () => {
       {modalServico && (
         <AprovacaoModal
           servico={modalServico}
-          onClose={() => setModalServico(null)}
+          readOnly={modalReadOnly}
+          onClose={() => { setModalServico(null); setModalReadOnly(false); }}
           onAprovar={handleAprovar}
           onReprovar={handleReprovar}
+          onVoltarStatus={handleVoltarRevisao}
+          onUploadFoto={handleUploadFotoManual}
+          onDescartarServico={handleDescartarServico}
         />
       )}
     </div>

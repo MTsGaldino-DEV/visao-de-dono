@@ -64,7 +64,6 @@ const Home = () => {
   const tabs = [
     ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
     { key: 'despacho', label: 'Despacho' },
-    { key: 'levantamentos', label: 'Levantamentos' },
     { key: 'mapa', label: 'Mapa' },
     ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
     ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
@@ -75,6 +74,7 @@ const Home = () => {
     { key: 'servicos', label: 'Serviços' },
     { key: 'placas', label: 'Placas' },
     { key: 'espacadores', label: 'Espaçadores' },
+    { key: 'levantamentos', label: 'Levantamentos' },
   ];
 
   const adminTabs = [
@@ -194,19 +194,6 @@ const Home = () => {
               onMouseLeave={e => { if (activeTab !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
             >
               {label}
-              {key === 'levantamentos' && pendentesCount > 0 && (
-                <span style={{
-                  marginLeft: '6px',
-                  background: activeTab === key ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
-                  color: activeTab === key ? '#fff' : '#475569',
-                  borderRadius: '20px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  padding: '2px 7px',
-                  display: 'inline-block',
-                  verticalAlign: 'middle',
-                }}>{pendentesCount}</span>
-              )}
             </button>
           ))}
         </nav>
@@ -243,6 +230,19 @@ const Home = () => {
                 onMouseLeave={e => { if (activeSubTabDespacho !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
               >
                 {label}
+                {key === 'levantamentos' && pendentesCount > 0 && (
+                  <span style={{
+                    marginLeft: '6px',
+                    background: activeSubTabDespacho === key ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activeSubTabDespacho === key ? '#fff' : '#475569',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 7px',
+                    display: 'inline-block',
+                    verticalAlign: 'middle',
+                  }}>{pendentesCount}</span>
+                )}
               </button>
             ))}
           </nav>
@@ -304,8 +304,8 @@ const Home = () => {
           <EspacadoresTab />
         </div>
 
-        <div style={{ display: activeTab === 'levantamentos' ? 'block' : 'none' }}>
-          {activeTab === 'levantamentos' && <LevantamentosTab />}
+        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' ? 'block' : 'none' }}>
+          {activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' && <LevantamentosTab />}
         </div>
 
         <div style={{ display: activeTab === 'mapa' ? 'block' : 'none' }}>

@@ -1138,7 +1138,7 @@ const calcularDistancia = (coord1, coord2) => {
 };
 
 // ── Componente principal ──────────────────────────────────────────────────────
-const ServicosTable = () => {
+const ServicosTable = ({ filterType }) => {
   const { user } = useAuth();
   const isDono = user?.role === 'dono';
 
@@ -1199,7 +1199,8 @@ const ServicosTable = () => {
       if (data) setServices(data);
     };
     carregar();
-    const channel = supabase.channel('servicos_table')
+    const channelName = `servicos_table_${Math.random().toString(36).slice(2, 8)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, (payload) => {
         if (payload.eventType === 'INSERT') setServices(prev => [...prev, payload.new]);
         else if (payload.eventType === 'UPDATE') setServices(prev => prev.map(s => s.id === payload.new.id ? payload.new : s));
@@ -1223,6 +1224,14 @@ const ServicosTable = () => {
 
   useEffect(() => {
     let lista = [...services];
+
+    if (filterType === 'espacadores') {
+      // Cobre: espaçador, espacador, espaçadores, espacadores e erros comuns de digitação
+      // normStr já remove acentos → "espaçador" vira "espacador"
+      // Regex: esp + até 2 chars flex + ac + até 1 char flex + dor
+      const espacadorRegex = /esp.{0,2}ac.{0,2}dor/;
+      lista = lista.filter(s => espacadorRegex.test(normStr(s.desc || '')));
+    }
 
     if (busca.trim()) {
       const raw = busca.trim();
