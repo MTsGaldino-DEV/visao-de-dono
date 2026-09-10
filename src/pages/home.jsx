@@ -9,6 +9,7 @@ import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
 import UsuariosTab from '../components/UsuariosTab';
 import EspacadoresTab from '../components/EspacadoresTab';
+import DuplicidadeTab from '../components/DuplicidadeTab';
 import LevantamentosTab from '../components/LevantamentosTab';
 import MapaTab from '../components/MapaTab';
 import { supabase } from '../lib/supabase';
@@ -79,6 +80,7 @@ const Home = () => {
 
   const adminTabs = [
     { key: 'gerar-os', label: 'Gerar OS' },
+    { key: 'duplicidade', label: 'Duplicidade' },
     { key: 'usuarios', label: 'Usuários' },
     { key: 'logs', label: 'Logs' },
   ];
@@ -322,6 +324,10 @@ const Home = () => {
 
         <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' ? 'block' : 'none' }}>
           {activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' && <GerarServicosTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'duplicidade' ? 'block' : 'none' }}>
+          {activeTab === 'admin' && activeSubTabAdmin === 'duplicidade' && <DuplicidadeTab />}
         </div>
 
         <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'logs' ? 'block' : 'none' }}>
