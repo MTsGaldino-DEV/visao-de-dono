@@ -1,0 +1,204 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { MAX_VAOS, podeEnviarParaFechamento, formatarData } from '../../lib/espacadores';
+import {
+  carregarServico, carregarVaos, adicionarVao, removerVao, anexarFotos, removerFoto,
+  anexarCroqui, aplicarTransicao, assinarMudancas,
+} from '../../lib/espacadoresApi';
+import VaoCard from './VaoCard';
+import EtapaBadge from './EtapaBadge';
+
+const secao = { fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px' };
+
+const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
+  const { user } = useAuth();
+  const [servico, setServico] = useState(null);
+  const [vaos, setVaos] = useState([]);
+  const [enviando, setEnviando] = useState({});
+  const [ocupado, setOcupado] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+  const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
+  const [motivo, setMotivo] = useState('');
+
+  const recarregar = useCallback(async () => {
+    try {
+      const [s, v] = await Promise.all([carregarServico(servicoId), carregarVaos(servicoId)]);
+      setServico(s);
+      setVaos(v);
+    } catch (e) {
+      alert('Erro ao carregar a instalação: ' + e.message);
+    }
+  }, [servicoId]);
+
+  useEffect(() => {
+    recarregar();
+    return assinarMudancas(`instalacao_${servicoId}`, recarregar);
+  }, [servicoId, recarregar]);
+
+  if (!servico) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        Carregando…
+      </div>
+    );
+  }
+
+  const editavel = modo === 'edicao' && servico.etapa_espacador === 'instalacao';
+  const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
+
+  const executar = async (fn) => {
+    setOcupado(true);
+    try { await fn(); } catch (e) { alert(e.message); }
+    finally { setOcupado(false); recarregar(); }
+  };
+
+  const comEnvio = async (chave, fn) => {
+    setEnviando(p => ({ ...p, [chave]: true }));
+    try { await fn(); } catch (e) { alert('Erro ao enviar arquivo: ' + e.message); }
+    finally { setEnviando(p => ({ ...p, [chave]: false })); recarregar(); }
+  };
+
+  const transicionar = async (acao, opcoes = {}) => {
+    setOcupado(true);
+    try {
+      await aplicarTransicao(servico, acao, { user, ...opcoes });
+      onClose();
+    } catch (e) {
+      alert(e.message);
+      setOcupado(false);
+      recarregar();
+    }
+  };
+
+  const handleRemoverVao = (vao) => {
+    if (!window.confirm(`Remover o Vão ${vao.numero} com todas as fotos e o croqui?`)) return;
+    executar(() => removerVao(vao.id));
+  };
+
+  const handleRemoverFoto = (vao, tipo, url) => {
+    if (!window.confirm('Remover esta foto?')) return;
+    executar(() => removerFoto(vao, tipo, url));
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, background: '#f8fafc', borderRadius: '16px', width: '94%', maxWidth: '960px', maxHeight: '92vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(15,37,68,0.25)' }}>
+
+        {/* Cabeçalho */}
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Instalação de espaçadores</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '18px', fontWeight: '800', color: '#0f2544' }}>{servico.id}</span>
+              <EtapaBadge etapa={servico.etapa_espacador} />
+            </div>
+            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>
+              <span style={{ color: '#94a3b8' }}>Trafo:</span> <b>{servico.equip || '—'}</b>
+              <span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span>
+              <span style={{ color: '#94a3b8' }}>Local:</span> {servico.local || '—'}
+              {servico.numServ && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMP:</span> <b>{servico.numServ}</b></>}
+              {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMC:</span> <b>{servico.nsmc}</b></>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '18px', cursor: 'pointer', color: '#64748b', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Corpo */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {servico.etapa_espacador === 'instalacao' && servico.motivo_reprovacao_fechamento && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '10px', padding: '12px 14px', fontSize: '13px' }}>
+              <b>Reprovado pelo fechamento:</b> {servico.motivo_reprovacao_fechamento}
+            </div>
+          )}
+
+          <div style={secao}>Vãos ({vaos.length}/{MAX_VAOS})</div>
+          {vaos.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', border: '1px dashed #cbd5e1', borderRadius: '12px', fontSize: '13px', background: '#fff' }}>
+              Nenhum vão ainda.{editavel && ' Clique em "+ Adicionar Vão".'}
+            </div>
+          )}
+          {vaos.map(vao => (
+            <VaoCard
+              key={vao.id}
+              vao={vao}
+              editavel={editavel}
+              enviando={{ antes: enviando[`${vao.id}:antes`], depois: enviando[`${vao.id}:depois`], croqui: enviando[`${vao.id}:croqui`] }}
+              onAnexarFotos={(v, tipo, files) => comEnvio(`${v.id}:${tipo}`, () => anexarFotos(v, tipo, files))}
+              onRemoverFoto={handleRemoverFoto}
+              onAnexarCroqui={(v, file) => comEnvio(`${v.id}:croqui`, () => anexarCroqui(v, file))}
+              onRemover={handleRemoverVao}
+              onAmpliar={setFotoAmpliada}
+            />
+          ))}
+          {editavel && (
+            <button
+              onClick={() => executar(() => adicionarVao(servico.id))}
+              disabled={ocupado || vaos.length >= MAX_VAOS}
+              style={{ padding: '14px', background: '#fff', color: '#0f2544', border: '2px dashed #cbd5e1', borderRadius: '12px', fontSize: '14px', fontWeight: '700', cursor: ocupado || vaos.length >= MAX_VAOS ? 'not-allowed' : 'pointer', opacity: vaos.length >= MAX_VAOS ? 0.5 : 1 }}
+            >
+              {vaos.length >= MAX_VAOS ? `Limite de ${MAX_VAOS} vãos atingido` : '+ Adicionar Vão'}
+            </button>
+          )}
+
+          {servico.hist?.length > 0 && (
+            <details style={{ marginTop: '8px' }}>
+              <summary style={{ ...secao, cursor: 'pointer', marginBottom: 0 }}>Histórico ({servico.hist.length})</summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                {[...servico.hist].reverse().map((h, i) => (
+                  <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px' }}>
+                    <div><b style={{ color: '#0f2544' }}>{h.who}</b> <span style={{ color: '#475569' }}>{h.msg}</span></div>
+                    <div style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatarData(h.when)}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+
+        {/* Rodapé */}
+        {editavel && (
+          <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>
+              {podeEnviarParaFechamento(vaos) ? 'Tudo pronto para o fechamento.' : 'Cada vão precisa de foto de antes, foto de depois e croqui.'}
+            </span>
+            <button
+              onClick={() => transicionar('enviar')}
+              disabled={ocupado || !podeEnviarParaFechamento(vaos)}
+              style={{ padding: '12px 22px', background: podeEnviarParaFechamento(vaos) ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !podeEnviarParaFechamento(vaos) ? 'not-allowed' : 'pointer' }}
+            >
+              Enviar para fechamento →
+            </button>
+          </div>
+        )}
+        {podeRevisar && (
+          <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#fff' }}>
+            {mostrarReprovacao ? (
+              <div>
+                <textarea autoFocus placeholder="Descreva o motivo da reprovação..." value={motivo} onChange={e => setMotivo(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #fca5a5', fontSize: '13px', marginBottom: '10px', resize: 'vertical', minHeight: '72px', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => { setMostrarReprovacao(false); setMotivo(''); }} style={{ padding: '10px 20px', background: 'transparent', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Cancelar</button>
+                  <button onClick={() => transicionar('reprovar', { motivo })} disabled={ocupado} style={{ flex: 1, padding: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>✗ Confirmar reprovação</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setMostrarReprovacao(true)} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✗ Reprovar</button>
+                <button onClick={() => transicionar('aprovar')} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✓ Aprovar</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {fotoAmpliada && (
+        <div onClick={() => setFotoAmpliada(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', cursor: 'zoom-out' }}>
+          <img src={fotoAmpliada} alt="Ampliada" style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px' }} />
+        </div>
+      )}
+    </>
+  );
+};
+
+export default InstalacaoModal;
