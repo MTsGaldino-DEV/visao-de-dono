@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
+const PERFIS = {
+  tecnico: { label: 'Técnico', style: { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } },
+  despachante: { label: 'Despachante', style: { background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' } },
+  fechamento: { label: 'Fechamento', style: { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' } },
+  levantador: { label: 'Levantador', style: { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' } },
+  dono: { label: 'Dono', style: { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' } },
+};
+
 const UsuariosTab = () => {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
@@ -191,6 +199,7 @@ const UsuariosTab = () => {
               <select value={role} onChange={(e) => setRole(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#fff' }}>
                 <option value="tecnico">Técnico</option>
                 <option value="despachante">Despachante</option>
+                <option value="fechamento">Fechamento</option>
               </select>
             </div>
             
@@ -226,6 +235,7 @@ const UsuariosTab = () => {
                 <option value="todos">Todos Roles</option>
                 <option value="tecnico">Técnicos</option>
                 <option value="despachante">Despachantes</option>
+                <option value="fechamento">Fechamento</option>
               </select>
               <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#64748b', backgroundColor: '#fff' }}>
                 <option value="todos">Todos Status</option>
@@ -258,6 +268,7 @@ const UsuariosTab = () => {
                           <select value={novaRole} onChange={e => setNovaRole(e.target.value)} style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', backgroundColor: '#fff' }}>
                             <option value="tecnico">Técnico</option>
                             <option value="despachante">Despachante</option>
+                            <option value="fechamento">Fechamento</option>
                             <option value="dono">Dono</option>
                           </select>
                           <button onClick={() => handleAlterarRole(u.uid)} style={{ padding: '4px 8px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Salvar</button>
@@ -267,9 +278,9 @@ const UsuariosTab = () => {
                         <>
                           <div style={{ 
                             display: 'inline-block', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600',
-                            ...(u.role === 'tecnico' ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : u.role === 'despachante' ? { background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' } : { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' })
+                            ...(PERFIS[u.role] || PERFIS.dono).style
                           }}>
-                            {u.role === 'tecnico' ? 'Técnico' : u.role === 'despachante' ? 'Despachante' : 'Dono'}
+                            {(PERFIS[u.role] || { label: u.role }).label}
                           </div>
                           <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{u.equipe || '-'}</div>
                         </>

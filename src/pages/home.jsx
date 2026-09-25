@@ -12,13 +12,13 @@ import EspacadoresTab from '../components/EspacadoresTab';
 import DuplicidadeTab from '../components/DuplicidadeTab';
 import LevantamentosTab from '../components/LevantamentosTab';
 import MapaTab from '../components/MapaTab';
+import FechamentoTab from '../components/FechamentoTab';
+import { abasDoPerfil, abaInicial } from '../lib/navegacao';
 import { supabase } from '../lib/supabase';
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
-  const isDono = user?.role === 'dono';
-
-  const defaultTab = (role) => (role === 'dono' ? 'cadastrar' : 'despacho');
+  const soFechamento = user?.role === 'fechamento';
 
   const [activeTab, setActiveTab] = useState(
     () => localStorage.getItem('vd_tab') || ''
@@ -30,12 +30,13 @@ const Home = () => {
     () => localStorage.getItem('vd_subtab_admin') || 'gerar-os'
   );
 
-  // Define aba padrão quando o usuário carrega pela primeira vez
+  // Garante uma aba permitida para o perfil (inclusive quando a aba salva no navegador não serve)
   useEffect(() => {
-    if (user && !activeTab) {
-      const def = defaultTab(user.role);
-      setActiveTab(def);
-      localStorage.setItem('vd_tab', def);
+    if (!user) return;
+    const aba = abaInicial(user.role, activeTab);
+    if (aba !== activeTab) {
+      setActiveTab(aba);
+      localStorage.setItem('vd_tab', aba);
     }
   }, [user, activeTab]);
 
@@ -62,14 +63,7 @@ const Home = () => {
     }
   }, [user]);
 
-  const tabs = [
-    ...(isDono ? [{ key: 'cadastrar', label: 'Cadastrar' }] : []),
-    { key: 'despacho', label: 'Despacho' },
-    { key: 'mapa', label: 'Mapa' },
-    ...(isDono ? [{ key: 'painel', label: 'Painel' }] : []),
-    ...(isDono ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
-    ...(isDono ? [{ key: 'admin', label: 'Admin' }] : []),
-  ];
+  const tabs = abasDoPerfil(user?.role);
 
   const despachoTabs = [
     { key: 'servicos', label: 'Serviços' },
@@ -290,21 +284,25 @@ const Home = () => {
         {/* CONTEÚDO DAS TABS
             Mantemos CadastroForm e ServicosTable sempre montados (display none/block)
             para evitar que desmonte ao trocar de aba e perca o estado/listener do Firebase */}
-        <div style={{ display: activeTab === 'cadastrar' ? 'block' : 'none' }}>
-          <CadastroForm />
-        </div>
+        {!soFechamento && (
+          <>
+            <div style={{ display: activeTab === 'cadastrar' ? 'block' : 'none' }}>
+              <CadastroForm />
+            </div>
 
-        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'servicos' ? 'block' : 'none' }}>
-          <ServicosTable />
-        </div>
+            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'servicos' ? 'block' : 'none' }}>
+              <ServicosTable />
+            </div>
 
-        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'placas' ? 'block' : 'none' }}>
-          <PlacasTab />
-        </div>
+            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'placas' ? 'block' : 'none' }}>
+              <PlacasTab />
+            </div>
 
-        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'espacadores' ? 'block' : 'none' }}>
-          <EspacadoresTab />
-        </div>
+            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'espacadores' ? 'block' : 'none' }}>
+              <EspacadoresTab />
+            </div>
+          </>
+        )}
 
         <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' ? 'block' : 'none' }}>
           {activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' && <LevantamentosTab />}
@@ -314,12 +312,18 @@ const Home = () => {
           {activeTab === 'mapa' && <MapaTab />}
         </div>
 
-        <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
-          <PainelTab />
-        </div>
+        {!soFechamento && (
+          <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
+            <PainelTab />
+          </div>
+        )}
 
         <div style={{ display: activeTab === 'faturamento' ? 'block' : 'none' }}>
           {activeTab === 'faturamento' && <FaturamentoTab />}
+        </div>
+
+        <div style={{ display: activeTab === 'fechamento' ? 'block' : 'none' }}>
+          {activeTab === 'fechamento' && <FechamentoTab />}
         </div>
 
         <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' ? 'block' : 'none' }}>
