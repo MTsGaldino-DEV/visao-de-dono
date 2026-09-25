@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { agruparVaos } from '../../lib/espacadores';
+import { agruparVaos, ativosNoFluxo } from '../../lib/espacadores';
 import { carregarServicosFluxo, carregarTodosVaos, assinarMudancas } from '../../lib/espacadoresApi';
 
 // Serviços do fluxo novo (com etapa) + vãos agrupados por serviço, com realtime
@@ -11,7 +11,7 @@ export const useFluxoEspacadores = (canal) => {
   const recarregar = useCallback(async () => {
     try {
       const [s, v] = await Promise.all([carregarServicosFluxo(), carregarTodosVaos()]);
-      setServicos(s);
+      setServicos(ativosNoFluxo(s));
       setVaosPorServico(agruparVaos(v));
     } catch (e) {
       console.error('Erro ao carregar instalações:', e);

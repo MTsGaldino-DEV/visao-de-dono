@@ -3,7 +3,7 @@ import {
   MAX_VAOS, isEspacador, ordenarResultadosTrafo, pendenciasVao, vaoCompleto,
   podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, filtrarPorBusca,
-  validarArquivo, caminhoArquivo,
+  validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -134,5 +134,30 @@ describe('arquivos', () => {
     expect(caminhoArquivo('VD0001', 3, 'antes', 'IMG_1.JPG', '17-0')).toBe('espacadores/VD0001/vao-3/antes-17-0.jpg');
     expect(caminhoArquivo('VD0001', 3, 'depois', 'semextensao', '17-1')).toBe('espacadores/VD0001/vao-3/depois-17-1.jpg');
     expect(caminhoArquivo('VD0001', 3, 'croqui', 'rede.PDF', '17')).toBe('espacadores/VD0001/vao-3/croqui-17.pdf');
+  });
+});
+
+describe('convivência com o fluxo antigo (revisão final)', () => {
+  it('Gerar OS ignora serviços do fluxo novo e os que já têm número', () => {
+    expect(elegivelGerarOs({ numServ: '' })).toBe(true);
+    expect(elegivelGerarOs({ numServ: null })).toBe(true);
+    expect(elegivelGerarOs({ numServ: '  ' })).toBe(true);
+    expect(elegivelGerarOs({ numServ: '123' })).toBe(false);
+    expect(elegivelGerarOs({ numServ: '', etapa_espacador: 'instalacao' })).toBe(false);
+    expect(elegivelGerarOs({ numServ: '', etapa_espacador: 'aguardando_nsmp' })).toBe(false);
+  });
+
+  it('Nova instalação não assume serviço já executado ou com OS pelo fluxo antigo', () => {
+    expect(bloqueioNovaInstalacao({ status: 'cadastrado', numServ: '' })).toBeNull();
+    expect(bloqueioNovaInstalacao({ numServ: '12345' })).toMatch(/12345/);
+    expect(bloqueioNovaInstalacao({ execucao: { dtConclusao: 'x' } })).toMatch(/app/);
+    expect(bloqueioNovaInstalacao({ aprovacaoespacador: 'aprovado' })).toMatch(/app/);
+    // serviço que já está no fluxo novo pode ser aberto, mesmo com NSMP
+    expect(bloqueioNovaInstalacao({ etapa_espacador: 'pago', numServ: '999' })).toBeNull();
+  });
+
+  it('listas do fluxo novo escondem serviços cancelados', () => {
+    const lista = [{ id: 'A', status: 'concluido' }, { id: 'B', status: 'cancelado' }, { id: 'C', status: 'cadastrado' }];
+    expect(ativosNoFluxo(lista).map(s => s.id)).toEqual(['A', 'C']);
   });
 });

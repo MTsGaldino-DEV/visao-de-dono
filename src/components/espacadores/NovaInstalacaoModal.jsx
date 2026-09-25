@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { buscarServicosPorTrafo, criarServicoEspacador, iniciarInstalacao } from '../../lib/espacadoresApi';
+import { bloqueioNovaInstalacao } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
 import EtapaBadge from './EtapaBadge';
 
@@ -21,13 +22,15 @@ const NovaInstalacaoModal = ({ onClose, onAbrir }) => {
     try {
       const r = await buscarServicosPorTrafo(texto);
       setResultados(r);
-      if (r.length === 0) setNovo({ equip: texto.trim(), local: '', coord: '' });
+      if (!r.some(s => !bloqueioNovaInstalacao(s))) setNovo({ equip: texto.trim(), local: '', coord: '' });
     } catch (e) {
       alert('Erro na busca: ' + e.message);
     } finally {
       setBuscando(false);
     }
   };
+
+  const utilizaveis = (resultados || []).filter(s => !bloqueioNovaInstalacao(s));
 
   const usar = async (servico) => {
     if (servico.etapa_espacador) { onAbrir(servico.id); return; }
@@ -80,7 +83,7 @@ const NovaInstalacaoModal = ({ onClose, onAbrir }) => {
             </div>
           </div>
 
-          {resultados && resultados.length > 1 && (
+          {resultados && utilizaveis.length > 1 && (
             <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: '8px', padding: '10px 12px', fontSize: '12px' }}>
               Há mais de um serviço para este trafo — considere resolver na aba Duplicidade.
             </div>
@@ -88,28 +91,36 @@ const NovaInstalacaoModal = ({ onClose, onAbrir }) => {
 
           {resultados && resultados.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {resultados.map(s => (
-                <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ fontSize: '13px', color: '#475569' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                      <b style={{ color: '#0f2544' }}>{s.id}</b>
-                      <EtapaBadge etapa={s.etapa_espacador} />
+              {resultados.map(s => {
+                const bloqueio = bloqueioNovaInstalacao(s);
+                return (
+                  <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', opacity: bloqueio ? 0.7 : 1 }}>
+                    <div style={{ fontSize: '13px', color: '#475569' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                        <b style={{ color: '#0f2544' }}>{s.id}</b>
+                        <EtapaBadge etapa={s.etapa_espacador} />
+                      </div>
+                      <div><span style={{ color: '#94a3b8' }}>Trafo:</span> {s.equip} <span style={{ color: '#cbd5e1' }}>·</span> {s.local || '—'}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>Status: {s.status}</div>
+                      {bloqueio && <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>{bloqueio}</div>}
                     </div>
-                    <div><span style={{ color: '#94a3b8' }}>Trafo:</span> {s.equip} <span style={{ color: '#cbd5e1' }}>·</span> {s.local || '—'}</div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>Status: {s.status}</div>
+                    {!bloqueio && (
+                      <button onClick={() => usar(s)} disabled={salvando} style={{ padding: '8px 14px', background: s.etapa_espacador ? '#f8fafc' : '#1d4ed8', color: s.etapa_espacador ? '#0f2544' : '#fff', border: s.etapa_espacador ? '1px solid #e2e8f0' : 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        {s.etapa_espacador ? 'Abrir instalação' : 'Usar este serviço'}
+                      </button>
+                    )}
                   </div>
-                  <button onClick={() => usar(s)} disabled={salvando} style={{ padding: '8px 14px', background: s.etapa_espacador ? '#f8fafc' : '#1d4ed8', color: s.etapa_espacador ? '#0f2544' : '#fff', border: s.etapa_espacador ? '1px solid #e2e8f0' : 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {s.etapa_espacador ? 'Abrir instalação' : 'Usar este serviço'}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {resultados && resultados.length === 0 && (
+          {resultados && utilizaveis.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
               <div style={{ fontSize: '13px', color: '#475569' }}>
-                Nenhum serviço de espaçador ativo para este trafo. Cadastre um novo:
+                {resultados.length === 0
+                  ? 'Nenhum serviço de espaçador ativo para este trafo. Cadastre um novo:'
+                  : 'Nenhum dos serviços acima pode receber a instalação. Cadastre um novo:'}
               </div>
               <div>
                 <label style={rotulo}>Trafo</label>

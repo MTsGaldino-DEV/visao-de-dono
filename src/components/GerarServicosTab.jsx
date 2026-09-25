@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
+import { elegivelGerarOs } from '../lib/espacadores';
 
 const CONECTOR_URL = 'http://localhost:3333';
 
@@ -179,7 +180,7 @@ const GerarServicosTab = () => {
     // ── Filtra serviços disponíveis para gerar ────────────────────────────────
     const disponiveis = servicos.filter(s => {
         if (!isEspacador(s)) return false;
-        if (s.numServ && s.numServ.trim() !== '') return false;
+        if (!elegivelGerarOs(s)) return false;
         if (busca) {
             const hay = [s.id, s.local, s.desc, s.equip].join(' ').toLowerCase();
             if (!hay.includes(busca.toLowerCase())) return false;
@@ -188,7 +189,7 @@ const GerarServicosTab = () => {
         return true;
     });
 
-    const localidades = [...new Set(servicos.filter(s => isEspacador(s) && !s.numServ).map(s => s.local).filter(Boolean))].sort();
+    const localidades = [...new Set(servicos.filter(s => isEspacador(s) && elegivelGerarOs(s)).map(s => s.local).filter(Boolean))].sort();
 
     const toggleSelecionado = (docId) => {
         setSelecionados(prev =>

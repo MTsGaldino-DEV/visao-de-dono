@@ -146,4 +146,20 @@ export const caminhoArquivo = (servicoId, numero, tipo, nomeArquivo, sufixo) => 
   return `espacadores/${servicoId}/vao-${numero}/${tipo}-${sufixo}.${ext}`;
 };
 
-export const formatarData = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+// ── Convivência com o fluxo antigo (app de celular / Gerar OS) ────────────────
+
+// Gerar OS: só serviços sem número e fora do fluxo novo (a NSMP do fluxo novo é informada no Fechamento)
+export const elegivelGerarOs = (s) => !s.etapa_espacador && !String(s.numServ || '').trim();
+
+// Nova instalação não pode assumir um serviço já executado/aprovado ou com OS pelo fluxo antigo
+export const bloqueioNovaInstalacao = (s) => {
+  if (s.etapa_espacador) return null;
+  const os = String(s.numServ || '').trim();
+  if (os) return `Já tem OS ${os} pelo fluxo antigo — cadastre um serviço novo para este trafo.`;
+  if (s.execucao || s.aprovacaoespacador) return 'Já foi executado pelo app de celular — cadastre um serviço novo para este trafo.';
+  return null;
+};
+
+export const ativosNoFluxo = (lista) => lista.filter(s => s.status !== 'cancelado');
+
+export const formatarData =(iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
