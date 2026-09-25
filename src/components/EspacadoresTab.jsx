@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import ServicosTable from './ServicosTable';
 import { useAuth } from '../context/AuthContext';
+import InstalacoesSection from './espacadores/InstalacoesSection';
 
 // ─── Modal de Aprovação ───────────────────────────────────────────────────────
 const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar, readOnly, onVoltarStatus, onUploadFoto, onDescartarServico }) => {
@@ -281,8 +282,8 @@ const EspacadoresTab = () => {
   const [gerarOsId, setGerarOsId] = useState(null);
   const [numeroDigitado, setNumeroDigitado] = useState('');
 
-  // ── Filtragem: apenas serviços finalizados pelo app (têm execucao preenchida)
-  const finalizadoNoApp = (s) => s.status === 'concluido' && s.execucao != null;
+  // ── Filtragem: apenas serviços finalizados pelo app (têm execucao preenchida) e fora do fluxo novo por vão
+  const finalizadoNoApp = (s) => s.status === 'concluido' && s.execucao != null && !s.etapa_espacador;
 
   const aguardandoAprovacao = servicos.filter(s => finalizadoNoApp(s) && !s.aprovacaoespacador);
   let aguardandoOs = servicos.filter(s => finalizadoNoApp(s) && s.aprovacaoespacador === 'aprovado' && !s.numServ);
@@ -487,6 +488,7 @@ const EspacadoresTab = () => {
 
   const tabs = [
     { id: 0, label: `Lista de Serviços`, count: null },
+    { id: 4, label: `Instalações`, count: null },
     { id: 1, label: `Aguardando Aprovação`, count: aguardandoAprovacao.length },
     { id: 2, label: `Aguardando OS`, count: aguardandoOs.length },
     { id: 3, label: `Concluídos`, count: concluidos.length },
@@ -547,6 +549,9 @@ const EspacadoresTab = () => {
           {activeSection === 0 && (
             <ServicosTable filterType="espacadores" />
           )}
+
+          {/* ── SEÇÃO 4: Instalações por vão (fluxo novo) ── */}
+          {activeSection === 4 && <InstalacoesSection />}
 
           {/* ── SEÇÃO 1: Aguardando Aprovação ── */}
           {activeSection === 1 && (
