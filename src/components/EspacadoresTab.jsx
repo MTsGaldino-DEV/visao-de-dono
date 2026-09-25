@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import ServicosTable from './ServicosTable';
 import { useAuth } from '../context/AuthContext';
 
@@ -311,11 +311,11 @@ const EspacadoresTab = () => {
 
   const fetchServicos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await fetchAll(() => supabase
       .from('servicos')
       .select('*')
       .eq('status', 'concluido')
-      .not('execucao', 'is', null); // Apenas finalizados pelo app
+      .not('execucao', 'is', null)); // Apenas finalizados pelo app
 
     if (error) console.error('Erro ao buscar serviços:', error);
     else setServicos(data || []);

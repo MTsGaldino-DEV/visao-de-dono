@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 10;
@@ -55,10 +55,10 @@ const DuplicidadeTab = () => {
 
   const fetchServicos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await fetchAll(() => supabase
       .from('servicos')
       .select('*')
-      .not('equip', 'is', null);
+      .not('equip', 'is', null));
 
     if (error) console.error('Erro ao buscar serviços:', error);
     else setServicos(data || []);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const norm = (s) =>
@@ -819,7 +819,7 @@ const LotesPlacas = ({ servicos }) => {
 
   useEffect(() => {
     const carregar = async () => {
-      const { data } = await supabase.from('lotes').select('*').order('criadoEm', { ascending: false });
+      const { data } = await fetchAll(() => supabase.from('lotes').select('*').order('criadoEm', { ascending: false }));
       if (data) setLotes(data.map((d) => ({ ...d, _docId: d.id })));
     };
     carregar();

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 
 // ── Localidades por posto ────────────────────────────────────────────────────
 const POSTOS = {
@@ -356,7 +356,7 @@ const CadastroForm = () => {
     if (!placa?.trim()) { setEquipServicos([]); return; }
     setLoadingEquip(true);
     try {
-      const { data } = await supabase.from('servicos').select('*');
+      const { data } = await fetchAll(() => supabase.from('servicos').select('*'));
       const encontrados = (data || [])
         .filter(s =>
           s.equip?.trim().toLowerCase() === placa.trim().toLowerCase() &&

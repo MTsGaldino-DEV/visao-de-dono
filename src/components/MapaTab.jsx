@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import DetalheModal from './DetalheModal';
 
@@ -104,10 +104,10 @@ const MapaTab = () => {
   useEffect(() => {
     const carregar = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await fetchAll(() => supabase
         .from('servicos')
         .select('*')
-        .not('status', 'eq', 'cancelado');
+        .not('status', 'eq', 'cancelado'));
       if (error) console.error('Erro ao buscar serviços:', error);
       else setServicos(data || []);
       setLoading(false);

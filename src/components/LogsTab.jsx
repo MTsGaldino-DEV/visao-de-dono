@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 
 const norm = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -41,7 +41,7 @@ const LogsTab = () => {
 
   useEffect(() => {
     const carregar = async () => {
-      const { data } = await supabase.from('servicos').select('*');
+      const { data } = await fetchAll(() => supabase.from('servicos').select('*'));
       if (data) {
         const allLogs = [];
         data.forEach(s => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 
 const CONECTOR_URL = 'http://localhost:3333';
 
@@ -80,7 +80,7 @@ const GerarServicosTab = () => {
     // ── Carrega serviços cadastrados ──────────────────────────────────────────
     useEffect(() => {
         const carregar = async () => {
-            const { data } = await supabase.from('servicos').select('*');
+            const { data } = await fetchAll(() => supabase.from('servicos').select('*'));
             if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
         };
         carregar();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 // ─── Modal de Revisão ────────────────────────────────────────────────────────
@@ -233,10 +233,10 @@ const LevantamentosTab = () => {
 
   const fetchLevantamentos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await fetchAll(() => supabase
       .from('levantamentos')
       .select('*')
-      .order('criado_em', { ascending: false });
+      .order('criado_em', { ascending: false }));
 
     if (error) console.error('Erro ao buscar levantamentos:', error);
     else setLevantamentos(data || []);

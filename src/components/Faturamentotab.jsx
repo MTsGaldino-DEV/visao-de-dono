@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,7 +322,7 @@ const FaturamentoTab = () => {
     // Carregar serviços do Supabase
     useEffect(() => {
         const carregar = async () => {
-            const { data } = await supabase.from('servicos').select('*');
+            const { data } = await fetchAll(() => supabase.from('servicos').select('*'));
             if (data) setServicos(data.map(d => ({ ...d, _docId: d.id })));
         };
         carregar();

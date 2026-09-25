@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import DetalheModal from './DetalheModal';
 import * as XLSX from 'xlsx';
 
@@ -1195,7 +1195,7 @@ const ServicosTable = ({ filterType }) => {
 
   useEffect(() => {
     const carregar = async () => {
-      const { data } = await supabase.from('servicos').select('*');
+      const { data } = await fetchAll(() => supabase.from('servicos').select('*'));
       if (data) setServices(data);
     };
     carregar();
