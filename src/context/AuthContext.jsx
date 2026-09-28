@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { ehColaborador, MSG_COLABORADOR_WEB } from '../lib/colaboradores';
 
 const AuthContext = createContext();
 
@@ -53,6 +54,14 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Usuário não autorizado ou perfil não encontrado no sistema');
       }
 
+      // Colaboradores usam só o app de celular
+      if (ehColaborador(fullUser)) {
+        await supabase.auth.signOut();
+        const bloqueio = new Error(MSG_COLABORADOR_WEB);
+        bloqueio.code = 'colaborador';
+        throw bloqueio;
+      }
+
       setUser(fullUser);
       console.log('✅ Login realizado com sucesso:', fullUser.label);
       return fullUser;
@@ -75,7 +84,9 @@ export const AuthProvider = ({ children }) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const profile = await fetchProfile(session.user.id);
-          if (mounted && profile) {
+          if (profile && ehColaborador(profile)) {
+            await supabase.auth.signOut();
+          } else if (mounted && profile) {
             setUser(profile);
             console.log('👤 Usuário logado via sessão inicial:', profile.matricula);
           }
@@ -93,7 +104,9 @@ export const AuthProvider = ({ children }) => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const profile = await fetchProfile(session.user.id);
-        if (mounted && profile) {
+        if (profile && ehColaborador(profile)) {
+          // o login() já encerra a sessão e mostra o aviso
+        } else if (mounted && profile) {
           setUser(profile);
           console.log('👤 Usuário logado via onAuthStateChange:', profile.matricula);
         }

@@ -17,7 +17,7 @@ export default function LoginPage() {
       await login(form.matricula, form.senha);
       navigate("/");
     } catch (err) {
-      setError("Matrícula ou senha inválidos");
+      setError(err.code === 'colaborador' ? err.message : "Matrícula ou senha inválidos");
     } finally {
       setLoading(false);
     }
