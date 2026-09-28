@@ -8,6 +8,7 @@ import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
 import UsuariosTab from '../components/UsuariosTab';
+import ColaboradoresTab from '../components/colaboradores/ColaboradoresTab';
 import EspacadoresTab from '../components/EspacadoresTab';
 import DuplicidadeTab from '../components/DuplicidadeTab';
 import LevantamentosTab from '../components/LevantamentosTab';
@@ -165,6 +166,10 @@ const Home = () => {
 
           <div style={mostrar('usuarios')}>
             {tela === 'usuarios' && <UsuariosTab />}
+          </div>
+
+          <div style={mostrar('colaboradores')}>
+            {tela === 'colaboradores' && <ColaboradoresTab />}
           </div>
         </div>
       </main>
