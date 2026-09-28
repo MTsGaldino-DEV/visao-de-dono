@@ -10,6 +10,26 @@ const PERFIS = {
   dono: { label: 'Dono', style: { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' } },
 };
 
+// O supabase-js troca o erro da Edge Function por "non-2xx status code";
+// lê o corpo da resposta para mostrar o motivo real (ex.: Forbidden, matrícula já cadastrada)
+const chamarGerenciarUsuarios = async (acao, dados) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
+    body: { acao, dados },
+    headers: { Authorization: `Bearer ${session?.access_token}` }
+  });
+  if (error) {
+    let motivo = error.message;
+    try {
+      const corpo = await error.context?.json();
+      if (corpo?.error) motivo = `${corpo.error} (HTTP ${error.context.status})`;
+    } catch { /* corpo não é JSON: fica a mensagem original */ }
+    throw new Error(motivo);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+};
+
 const UsuariosTab = () => {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
@@ -78,15 +98,8 @@ const UsuariosTab = () => {
     setErroForm('');
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-        body: { acao: 'criar', dados: { nome, matricula, senha, role, equipe } },
-        headers: { Authorization: `Bearer ${session?.access_token}` }
-      });
-      
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-      
+      await chamarGerenciarUsuarios('criar', { nome, matricula, senha, role, equipe });
+
       setMensagem('Usuário cadastrado!');
       setNome('');
       setMatricula('');
@@ -113,14 +126,8 @@ const UsuariosTab = () => {
       return;
     }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-        body: { acao: 'trocar_senha', dados: { uid, novaSenha } },
-        headers: { Authorization: `Bearer ${session?.access_token}` }
-      });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-      
+      await chamarGerenciarUsuarios('trocar_senha', { uid, novaSenha });
+
       alert("Senha atualizada com sucesso!");
       setResetUid(null);
       setNovaSenha('');
@@ -143,13 +150,7 @@ const UsuariosTab = () => {
   const handleExcluir = async (uid, nomeUsuario) => {
     if (window.confirm(`Tem certeza que deseja excluir o usuário ${nomeUsuario}? Esta ação não pode ser desfeita.`)) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-          body: { acao: 'deletar', dados: { uid } },
-          headers: { Authorization: `Bearer ${session?.access_token}` }
-        });
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
+        await chamarGerenciarUsuarios('deletar', { uid });
       } catch (err) {
         alert("Erro ao excluir usuário: " + err.message);
       }
