@@ -7,20 +7,26 @@ describe('menuDoPerfil', () => {
   it('fechamento vê só Instalações', () => {
     expect(estrutura('fechamento')).toEqual([['despacho', ['instalacoes']]]);
   });
-  it('dono vê tudo, com Instalações no Despacho', () => {
+  it('dono vê tudo, com Usuários e Colaboradores no Admin', () => {
     expect(estrutura('dono')).toEqual([
       ['cadastro', ['cadastrar']],
       ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
       ['mapa', ['mapa']],
       ['gestao', ['painel', 'faturamento']],
-      ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'logs']],
+      ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'colaboradores', 'logs']],
     ]);
   });
-  it('despachante mantém Despacho e Mapa', () => {
+  it('despachante vê Despacho, Mapa e Colaboradores', () => {
     expect(estrutura('despachante')).toEqual([
       ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
       ['mapa', ['mapa']],
+      ['admin', ['colaboradores']],
     ]);
+  });
+  it('colaborador e perfis desconhecidos não veem nada no web', () => {
+    expect(estrutura('colaborador')).toEqual([]);
+    expect(estrutura('tecnico')).toEqual([]);
+    expect(estrutura(undefined)).toEqual([]);
   });
 });
 

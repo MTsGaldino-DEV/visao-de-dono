@@ -1,8 +1,8 @@
 // Menu lateral por perfil de usuário
 
 const DONO = ['dono'];
-const ESCRITORIO = null; // qualquer perfil, exceto fechamento
-const TODOS = 'todos';
+const ESCRITORIO = ['dono', 'despachante'];
+const COM_FECHAMENTO = ['dono', 'despachante', 'fechamento'];
 
 // Telas que mudaram de nome: a salva no navegador abre na nova
 const RENOMEADAS = { fechamento: 'instalacoes' };
@@ -15,7 +15,7 @@ const GRUPOS = [
     { key: 'servicos', label: 'Serviços', perfis: ESCRITORIO },
     { key: 'placas', label: 'Placas', perfis: ESCRITORIO },
     { key: 'espacadores', label: 'Espaçadores', perfis: ESCRITORIO },
-    { key: 'instalacoes', label: 'Instalações', perfis: TODOS },
+    { key: 'instalacoes', label: 'Instalações', perfis: COM_FECHAMENTO },
     { key: 'levantamentos', label: 'Levantamentos', perfis: ESCRITORIO },
   ] },
   { id: 'mapa', label: 'Mapa', itens: [
@@ -29,14 +29,12 @@ const GRUPOS = [
     { key: 'gerar-os', label: 'Gerar OS', perfis: DONO },
     { key: 'duplicidade', label: 'Duplicidade', perfis: DONO },
     { key: 'usuarios', label: 'Usuários', perfis: DONO },
+    { key: 'colaboradores', label: 'Colaboradores', perfis: ESCRITORIO },
     { key: 'logs', label: 'Logs', perfis: DONO },
   ] },
 ];
 
-const podeVer = (item, role) => {
-  if (item.perfis === TODOS) return true;
-  return item.perfis ? item.perfis.includes(role) : role !== 'fechamento';
-};
+const podeVer = (item, role) => item.perfis.includes(role);
 
 export const menuDoPerfil = (role) => GRUPOS
   .map(({ itens, ...grupo }) => ({
