@@ -3,7 +3,7 @@
 import { supabase, fetchAll } from './supabase';
 import {
   MAX_VAOS, isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD, proximoNumeroVao,
-  entradaHist, montarPayloadInicio, montarPayloadTransicao, validarArquivo, caminhoArquivo,
+  entradaHist, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, validarArquivo, caminhoArquivo,
 } from './espacadores';
 
 const BUCKET = 'levantamentos';
@@ -68,6 +68,19 @@ export const aplicarTransicao = async (servico, acao, opcoes = {}) => {
   if (error) throw error;
   if (!data?.length) throw new Error('Este serviço mudou de etapa enquanto você trabalhava. Confira a lista atualizada e tente de novo.');
   return data[0];
+};
+
+// Cancela o serviço (só se ainda estiver em instalação no banco) e apaga os vãos
+export const excluirInstalacao = async (servico, user) => {
+  const payload = montarPayloadExclusao(servico, { user, agora: agora() });
+  const { data, error } = await supabase
+    .from('servicos').update(payload)
+    .eq('id', servico.id).eq('etapa_espacador', 'instalacao').neq('status', 'cancelado')
+    .select();
+  if (error) throw error;
+  if (!data?.length) throw new Error('Este serviço mudou de etapa ou já foi excluído. Confira a lista atualizada.');
+  const { error: erroVaos } = await supabase.from('vaos').delete().eq('servico_id', servico.id);
+  if (erroVaos) throw erroVaos;
 };
 
 export const carregarServico = async (id) => {

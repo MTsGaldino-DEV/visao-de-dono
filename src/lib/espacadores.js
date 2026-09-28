@@ -129,13 +129,42 @@ export const montarPayloadTransicao = (servico, acao, { user, agora, numero, mot
   return payload;
 };
 
+// Excluir a instalação cancela o serviço; os vãos são apagados à parte
+export const montarPayloadExclusao = (servico, { user, agora }) => {
+  if (servico.etapa_espacador !== 'instalacao') {
+    const rotulo = ETAPAS[servico.etapa_espacador]?.label || servico.etapa_espacador || 'sem etapa';
+    throw new Error(`Não é possível excluir a instalação com o serviço na etapa "${rotulo}".`);
+  }
+  return {
+    status: 'cancelado',
+    dt_etapa: agora,
+    hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores excluída (serviço cancelado)', agora)],
+  };
+};
+
 export const filtrarPorBusca = (lista, termo) => {
   const t = normStr(termo).trim();
   if (!t) return lista;
   return lista.filter(s => [s.id, s.equip, s.local].some(v => normStr(v).includes(t)));
 };
 
-export const validarArquivo = (tipo, file) => {
+export const filtrarPorEtapa = (lista, etapa) =>
+  (etapa === 'todas' ? lista : lista.filter(s => s.etapa_espacador === etapa));
+
+export const contarPorEtapa = (lista) => {
+  const contagem = Object.fromEntries(Object.keys(ETAPAS).map(e => [e, 0]));
+  lista.forEach(s => { if (s.etapa_espacador in contagem) contagem[s.etapa_espacador]++; });
+  return { ...contagem, todas: lista.length };
+};
+
+// Quem preenche a instalação (instalar) e quem aprova/informa NSMP e NSMC (fechar)
+export const permissoesFluxo = (role) => ({
+  instalar: role === 'dono' || role === 'despachante',
+  fechar: role === 'dono' || role === 'fechamento',
+  filtroInicial: role === 'fechamento' ? 'revisao' : 'instalacao',
+});
+
+export const validarArquivo =(tipo, file) => {
   if (tipo === 'croqui') return file?.type === 'application/pdf' ? null : 'O croqui precisa ser um arquivo PDF.';
   return file?.type?.startsWith('image/') ? null : 'Envie apenas imagens.';
 };

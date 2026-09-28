@@ -1,27 +1,59 @@
 import { describe, it, expect } from 'vitest';
-import { abasDoPerfil, abaInicial } from './navegacao';
+import { menuDoPerfil, telaInicial, telaSalvaLegada, localizarTela } from './navegacao';
 
-const keys = (role) => abasDoPerfil(role).map(a => a.key);
+const estrutura = (role) => menuDoPerfil(role).map(g => [g.id, g.itens.map(i => i.key)]);
 
-describe('abasDoPerfil', () => {
-  it('fechamento vê só Fechamento', () => {
-    expect(keys('fechamento')).toEqual(['fechamento']);
+describe('menuDoPerfil', () => {
+  it('fechamento vê só Instalações', () => {
+    expect(estrutura('fechamento')).toEqual([['despacho', ['instalacoes']]]);
   });
-  it('dono vê tudo, incluindo Fechamento', () => {
-    expect(keys('dono')).toEqual(['cadastrar', 'despacho', 'mapa', 'painel', 'faturamento', 'fechamento', 'admin']);
+  it('dono vê tudo, com Instalações no Despacho', () => {
+    expect(estrutura('dono')).toEqual([
+      ['cadastro', ['cadastrar']],
+      ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
+      ['mapa', ['mapa']],
+      ['gestao', ['painel', 'faturamento']],
+      ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'logs']],
+    ]);
   });
   it('despachante mantém Despacho e Mapa', () => {
-    expect(keys('despachante')).toEqual(['despacho', 'mapa']);
+    expect(estrutura('despachante')).toEqual([
+      ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
+      ['mapa', ['mapa']],
+    ]);
   });
 });
 
-describe('abaInicial', () => {
-  it('mantém a aba salva quando ela é permitida', () => {
-    expect(abaInicial('dono', 'painel')).toBe('painel');
+describe('telaInicial', () => {
+  it('mantém a tela salva quando ela é permitida', () => {
+    expect(telaInicial('dono', 'painel')).toBe('painel');
+    expect(telaInicial('despachante', 'espacadores')).toBe('espacadores');
   });
-  it('troca aba salva não permitida pela primeira do perfil', () => {
-    expect(abaInicial('fechamento', 'despacho')).toBe('fechamento');
-    expect(abaInicial('despachante', 'fechamento')).toBe('despacho');
-    expect(abaInicial('dono', '')).toBe('cadastrar');
+  it('troca tela salva não permitida pela primeira do perfil', () => {
+    expect(telaInicial('fechamento', 'servicos')).toBe('instalacoes');
+    expect(telaInicial('despachante', 'painel')).toBe('servicos');
+    expect(telaInicial('dono', '')).toBe('cadastrar');
+  });
+  it('a antiga tela Fechamento abre em Instalações', () => {
+    expect(telaInicial('dono', 'fechamento')).toBe('instalacoes');
+    expect(telaInicial('fechamento', 'fechamento')).toBe('instalacoes');
+  });
+});
+
+describe('telaSalvaLegada', () => {
+  it('converte aba + sub-aba antigas na tela equivalente', () => {
+    expect(telaSalvaLegada({ aba: 'despacho', subDespacho: 'espacadores' })).toBe('espacadores');
+    expect(telaSalvaLegada({ aba: 'despacho' })).toBe('servicos');
+    expect(telaSalvaLegada({ aba: 'admin', subAdmin: 'logs' })).toBe('logs');
+    expect(telaSalvaLegada({ aba: 'admin' })).toBe('gerar-os');
+    expect(telaSalvaLegada({ aba: 'painel' })).toBe('painel');
+    expect(telaSalvaLegada({})).toBe('');
+  });
+});
+
+describe('localizarTela', () => {
+  it('devolve grupo e item para o título da página', () => {
+    expect(localizarTela('espacadores')).toMatchObject({ grupo: { label: 'Despacho' }, item: { label: 'Espaçadores' } });
+    expect(localizarTela('inexistente')).toBeNull();
   });
 });

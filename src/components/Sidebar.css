@@ -1,0 +1,300 @@
+/* Sidebar no estilo do Central-NEC, com a paleta do Visão de Dono */
+
+.vd-app {
+  display: flex;
+  min-height: 100vh;
+  background: #f0f2f5;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: #1a1a2e;
+}
+
+.vd-main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+}
+
+.vd-main-inner {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.vd-page-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f2544;
+  letter-spacing: -0.01em;
+}
+
+.vd-page-title .grupo {
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* ---------- Sidebar ---------- */
+
+.vd-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #0f2544 0%, #1a3a5c 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 200;
+}
+
+.vd-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 22px;
+}
+
+.vd-brand-text {
+  line-height: 1.15;
+}
+
+.vd-brand-text .l1 {
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.vd-brand-text .l2 {
+  font-size: 11px;
+  color: #94a3b8;
+  letter-spacing: .03em;
+}
+
+.vd-nav {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.vd-nav-group {
+  margin-bottom: 4px;
+}
+
+.vd-nav-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 10px 6px;
+  background: transparent;
+  border: none;
+  color: #7d8fa9;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  cursor: pointer;
+  transition: color .12s;
+}
+
+.vd-nav-group-label:hover {
+  color: #cbd5e1;
+}
+
+.vd-nav-group-chevron {
+  display: flex;
+  align-items: center;
+}
+
+.vd-nav-group-chevron svg {
+  width: 13px;
+  height: 13px;
+}
+
+.vd-nav-group-items {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .25s ease;
+}
+
+.vd-nav-group-items.open {
+  max-height: 400px;
+}
+
+.vd-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.vd-nav-item svg {
+  width: 16px;
+  height: 16px;
+  opacity: .85;
+  flex-shrink: 0;
+}
+
+.vd-nav-item:hover {
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+}
+
+.vd-nav-item.active {
+  background: #fff;
+  color: #0f2544;
+  font-weight: 600;
+}
+
+.vd-nav-item.active svg {
+  opacity: 1;
+}
+
+.vd-nav-item .count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1px 7px;
+}
+
+.vd-nav-item.active .count {
+  background: #e2e8f0;
+  color: #0f2544;
+}
+
+.vd-sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.vd-user {
+  min-width: 0;
+  padding-left: 8px;
+}
+
+.vd-user .nome {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vd-user .info {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.vd-sair {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 6px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all .12s;
+}
+
+.vd-sair:hover {
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, .3);
+}
+
+/* ---------- Celular: sidebar vira gaveta ---------- */
+
+.vd-topbar-mobile {
+  display: none;
+}
+
+.vd-sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .vd-app {
+    flex-direction: column;
+  }
+
+  .vd-main {
+    padding: 16px;
+  }
+
+  .vd-topbar-mobile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 52px;
+    padding: 0 16px;
+    background: #0f2544;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .vd-menu-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .vd-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+  }
+
+  .vd-sidebar.aberta {
+    transform: none;
+    box-shadow: 0 24px 60px rgba(15, 37, 68, .35);
+  }
+
+  .vd-sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 37, 68, .55);
+    z-index: 150;
+  }
+}

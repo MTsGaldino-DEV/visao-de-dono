@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { MAX_VAOS, podeEnviarParaFechamento, formatarData } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, adicionarVao, removerVao, anexarFotos, removerFoto,
-  anexarCroqui, aplicarTransicao, assinarMudancas,
+  anexarCroqui, aplicarTransicao, excluirInstalacao, assinarMudancas,
 } from '../../lib/espacadoresApi';
 import VaoCard from './VaoCard';
 import EtapaBadge from './EtapaBadge';
@@ -65,6 +65,19 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
       onClose();
     } catch (e) {
       alert(e.message);
+      setOcupado(false);
+      recarregar();
+    }
+  };
+
+  const handleExcluir = async () => {
+    if (!window.confirm(`Excluir a instalação ${servico.id}? O serviço será cancelado e todos os vãos, fotos e croquis serão apagados.`)) return;
+    setOcupado(true);
+    try {
+      await excluirInstalacao(servico, user);
+      onClose();
+    } catch (e) {
+      alert('Erro ao excluir: ' + e.message);
       setOcupado(false);
       recarregar();
     }
@@ -159,7 +172,14 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
         {/* Rodapé */}
         {editavel && (
           <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>
+            <button
+              onClick={handleExcluir}
+              disabled={ocupado}
+              style={{ padding: '12px 18px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: ocupado ? 'not-allowed' : 'pointer' }}
+            >
+              Excluir instalação
+            </button>
+            <span style={{ fontSize: '12px', color: '#64748b', flex: 1, textAlign: 'right' }}>
               {podeEnviarParaFechamento(vaos) ? 'Tudo pronto para o fechamento.' : 'Cada vão precisa de foto de antes, foto de depois e croqui.'}
             </span>
             <button

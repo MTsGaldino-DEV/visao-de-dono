@@ -7,14 +7,17 @@ export const useFluxoEspacadores = (canal) => {
   const [servicos, setServicos] = useState([]);
   const [vaosPorServico, setVaosPorServico] = useState({});
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(null);
 
   const recarregar = useCallback(async () => {
     try {
       const [s, v] = await Promise.all([carregarServicosFluxo(), carregarTodosVaos()]);
       setServicos(ativosNoFluxo(s));
       setVaosPorServico(agruparVaos(v));
+      setErro(null);
     } catch (e) {
       console.error('Erro ao carregar instalações:', e);
+      setErro(e.message || String(e));
     } finally {
       setCarregando(false);
     }
@@ -25,5 +28,5 @@ export const useFluxoEspacadores = (canal) => {
     return assinarMudancas(canal, recarregar);
   }, [canal, recarregar]);
 
-  return { servicos, vaosPorServico, carregando };
+  return { servicos, vaosPorServico, carregando, erro };
 };

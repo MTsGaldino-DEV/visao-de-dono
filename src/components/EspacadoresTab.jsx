@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import ServicosTable from './ServicosTable';
 import { useAuth } from '../context/AuthContext';
-import InstalacoesSection from './espacadores/InstalacoesSection';
 
 // ─── Modal de Aprovação ───────────────────────────────────────────────────────
 const AprovacaoModal = ({ servico, onClose, onAprovar, onReprovar, readOnly, onVoltarStatus, onUploadFoto, onDescartarServico }) => {
@@ -488,7 +487,6 @@ const EspacadoresTab = () => {
 
   const tabs = [
     { id: 0, label: `Lista de Serviços`, count: null },
-    { id: 4, label: `Instalações`, count: null },
     { id: 1, label: `Aguardando Aprovação`, count: aguardandoAprovacao.length },
     { id: 2, label: `Aguardando OS`, count: aguardandoOs.length },
     { id: 3, label: `Concluídos`, count: concluidos.length },
@@ -549,9 +547,6 @@ const EspacadoresTab = () => {
           {activeSection === 0 && (
             <ServicosTable filterType="espacadores" />
           )}
-
-          {/* ── SEÇÃO 4: Instalações por vão (fluxo novo) ── */}
-          {activeSection === 4 && <InstalacoesSection />}
 
           {/* ── SEÇÃO 1: Aguardando Aprovação ── */}
           {activeSection === 1 && (

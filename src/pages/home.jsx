@@ -12,33 +12,33 @@ import EspacadoresTab from '../components/EspacadoresTab';
 import DuplicidadeTab from '../components/DuplicidadeTab';
 import LevantamentosTab from '../components/LevantamentosTab';
 import MapaTab from '../components/MapaTab';
-import FechamentoTab from '../components/FechamentoTab';
-import { abasDoPerfil, abaInicial } from '../lib/navegacao';
+import FluxoInstalacoes from '../components/espacadores/FluxoInstalacoes';
+import Sidebar, { LogoOlho } from '../components/Sidebar';
+import { telaInicial, telaSalvaLegada, localizarTela } from '../lib/navegacao';
 import { supabase } from '../lib/supabase';
+
+// Tela salva no navegador; na primeira vez, aproveita a aba/sub-aba da navegação antiga
+const telaSalva = () => localStorage.getItem('vd_tela') || telaSalvaLegada({
+  aba: localStorage.getItem('vd_tab'),
+  subDespacho: localStorage.getItem('vd_subtab_despacho'),
+  subAdmin: localStorage.getItem('vd_subtab_admin'),
+});
 
 const Home = () => {
   const { user, logout, loading } = useAuth();
   const soFechamento = user?.role === 'fechamento';
 
-  const [activeTab, setActiveTab] = useState(
-    () => localStorage.getItem('vd_tab') || ''
-  );
-  const [activeSubTabDespacho, setActiveSubTabDespacho] = useState(
-    () => localStorage.getItem('vd_subtab_despacho') || 'servicos'
-  );
-  const [activeSubTabAdmin, setActiveSubTabAdmin] = useState(
-    () => localStorage.getItem('vd_subtab_admin') || 'gerar-os'
-  );
+  const [telaEscolhida, setTelaEscolhida] = useState(telaSalva);
+  const [menuAberto, setMenuAberto] = useState(false);
 
-  // Garante uma aba permitida para o perfil (inclusive quando a aba salva no navegador não serve)
-  useEffect(() => {
-    if (!user) return;
-    const aba = abaInicial(user.role, activeTab);
-    if (aba !== activeTab) {
-      setActiveTab(aba);
-      localStorage.setItem('vd_tab', aba);
-    }
-  }, [user, activeTab]);
+  // Sempre uma tela permitida para o perfil (inclusive quando a salva no navegador não serve)
+  const tela = user ? telaInicial(user.role, telaEscolhida) : telaEscolhida;
+
+  const navegar = (key) => {
+    setTelaEscolhida(key);
+    localStorage.setItem('vd_tela', key);
+    setMenuAberto(false);
+  };
 
   const [pendentesCount, setPendentesCount] = useState(0);
 
@@ -63,22 +63,6 @@ const Home = () => {
     }
   }, [user]);
 
-  const tabs = abasDoPerfil(user?.role);
-
-  const despachoTabs = [
-    { key: 'servicos', label: 'Serviços' },
-    { key: 'placas', label: 'Placas' },
-    { key: 'espacadores', label: 'Espaçadores' },
-    { key: 'levantamentos', label: 'Levantamentos' },
-  ];
-
-  const adminTabs = [
-    { key: 'gerar-os', label: 'Gerar OS' },
-    { key: 'duplicidade', label: 'Duplicidade' },
-    { key: 'usuarios', label: 'Usuários' },
-    { key: 'logs', label: 'Logs' },
-  ];
-
   if (loading) {
     return (
       <div style={{
@@ -91,257 +75,98 @@ const Home = () => {
     );
   }
 
+  const local = localizarTela(tela);
+  const mostrar = (key) => ({ display: tela === key ? 'block' : 'none' });
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f0f2f5',
-      fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-      fontSize: '14px',
-      color: '#1a1a2e',
-    }}>
-
-      {/* TOPBAR — minimalista, fundo branco */}
-      <header style={{
-        backgroundColor: '#ffffff',
-        padding: '0 28px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: '52px',
-        borderBottom: '1px solid #e8ecf0',
-      }}>
-
-        {/* Logo — olho idêntico ao Login */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-          <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-            <ellipse cx="18" cy="18" rx="17" ry="17" fill="#1a3a5c" />
-            <path d="M4,18 Q18,4 32,18 Q18,32 4,18 Z" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
-            <circle cx="18" cy="18" r="5" fill="#fff" />
-            <circle cx="18" cy="18" r="2" fill="#1a3a5c" />
-          </svg>
-          <span style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544', letterSpacing: '-0.01em' }}>
-            Visão de Dono
-          </span>
-        </div>
-
-        {/* Usuário + Sair */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            {user?.label}
-            <span style={{ color: '#cbd5e1', margin: '0 6px' }}>·</span>
-            <span style={{ color: '#94a3b8' }}>{user?.matricula}</span>
-          </span>
-          <button
-            onClick={logout}
-            style={{
-              fontSize: '12px', padding: '5px 12px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              background: '#fff',
-              color: '#64748b',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontFamily: 'inherit',
-              transition: 'all 0.12s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-          >
-            Sair
-          </button>
-        </div>
+    <div className="vd-app">
+      {/* Celular: barra fina com botão que abre a sidebar como gaveta */}
+      <header className="vd-topbar-mobile">
+        <button className="vd-menu-btn" onClick={() => setMenuAberto(true)} aria-label="Abrir menu">☰</button>
+        <LogoOlho tamanho={24} />
+        <span>Visão de Dono</span>
       </header>
 
-      {/* CONTEÚDO */}
-      <main style={{ padding: '24px', maxWidth: '1500px', margin: '0 auto' }}>
+      <Sidebar
+        user={user}
+        telaAtiva={tela}
+        onNavegar={navegar}
+        contagens={{ levantamentos: pendentesCount }}
+        onSair={logout}
+        aberta={menuAberto}
+        onFechar={() => setMenuAberto(false)}
+      />
 
-        {/* TABS */}
-        <nav style={{
-          display: 'flex',
-          gap: '2px',
-          marginBottom: '20px',
-          background: '#fff',
-          borderRadius: '10px',
-          padding: '4px',
-          border: '1px solid #e2e8f0',
-          width: 'fit-content',
-        }}>
-          {tabs.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => { setActiveTab(key); localStorage.setItem('vd_tab', key); }}
-              style={{
-                padding: '7px 18px',
-                background: activeTab === key ? '#0f2544' : 'transparent',
-                border: 'none',
-                borderRadius: '7px',
-                fontSize: '13px',
-                cursor: 'pointer',
-                color: activeTab === key ? '#ffffff' : '#64748b',
-                fontWeight: activeTab === key ? '600' : '400',
-                transition: 'all 0.12s',
-                letterSpacing: '0.01em',
-                fontFamily: 'inherit',
-              }}
-              onMouseEnter={e => { if (activeTab !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
-              onMouseLeave={e => { if (activeTab !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+      <main className="vd-main">
+        <div className="vd-main-inner">
+          {local && (
+            <h1 className="vd-page-title">
+              {local.grupo.label !== local.item.label && <span className="grupo">{local.grupo.label} ›</span>}
+              {local.item.label}
+            </h1>
+          )}
 
-        {/* SUB-TABS DESPACHO */}
-        {activeTab === 'despacho' && (
-          <nav style={{
-            display: 'flex',
-            gap: '2px',
-            marginBottom: '20px',
-            background: '#f8fafc',
-            borderRadius: '8px',
-            padding: '3px',
-            width: 'fit-content',
-          }}>
-            {despachoTabs.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => { setActiveSubTabDespacho(key); localStorage.setItem('vd_subtab_despacho', key); }}
-                style={{
-                  padding: '5px 12px',
-                  background: activeSubTabDespacho === key ? '#0f2544' : 'transparent',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  color: activeSubTabDespacho === key ? '#ffffff' : '#64748b',
-                  fontWeight: activeSubTabDespacho === key ? '600' : '400',
-                  transition: 'all 0.12s',
-                  letterSpacing: '0.01em',
-                  fontFamily: 'inherit',
-                }}
-                onMouseEnter={e => { if (activeSubTabDespacho !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
-                onMouseLeave={e => { if (activeSubTabDespacho !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
-              >
-                {label}
-                {key === 'levantamentos' && pendentesCount > 0 && (
-                  <span style={{
-                    marginLeft: '6px',
-                    background: activeSubTabDespacho === key ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
-                    color: activeSubTabDespacho === key ? '#fff' : '#475569',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    padding: '2px 7px',
-                    display: 'inline-block',
-                    verticalAlign: 'middle',
-                  }}>{pendentesCount}</span>
-                )}
-              </button>
-            ))}
-          </nav>
-        )}
+          {/* CONTEÚDO DAS TELAS
+              Mantemos CadastroForm, ServicosTable, Placas, Espaçadores e Painel sempre montados (display none/block)
+              para evitar que desmonte ao trocar de tela e perca o estado/listener */}
+          {!soFechamento && (
+            <>
+              <div style={mostrar('cadastrar')}>
+                <CadastroForm />
+              </div>
 
-        {/* SUB-TABS ADMIN */}
-        {activeTab === 'admin' && (
-          <nav style={{
-            display: 'flex',
-            gap: '2px',
-            marginBottom: '20px',
-            background: '#f8fafc',
-            borderRadius: '8px',
-            padding: '3px',
-            width: 'fit-content',
-          }}>
-            {adminTabs.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => { setActiveSubTabAdmin(key); localStorage.setItem('vd_subtab_admin', key); }}
-                style={{
-                  padding: '5px 12px',
-                  background: activeSubTabAdmin === key ? '#0f2544' : 'transparent',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  color: activeSubTabAdmin === key ? '#ffffff' : '#64748b',
-                  fontWeight: activeSubTabAdmin === key ? '600' : '400',
-                  transition: 'all 0.12s',
-                  letterSpacing: '0.01em',
-                  fontFamily: 'inherit',
-                }}
-                onMouseEnter={e => { if (activeSubTabAdmin !== key) { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; } }}
-                onMouseLeave={e => { if (activeSubTabAdmin !== key) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-        )}
+              <div style={mostrar('servicos')}>
+                <ServicosTable />
+              </div>
 
-        {/* CONTEÚDO DAS TABS
-            Mantemos CadastroForm e ServicosTable sempre montados (display none/block)
-            para evitar que desmonte ao trocar de aba e perca o estado/listener do Firebase */}
-        {!soFechamento && (
-          <>
-            <div style={{ display: activeTab === 'cadastrar' ? 'block' : 'none' }}>
-              <CadastroForm />
-            </div>
+              <div style={mostrar('placas')}>
+                <PlacasTab />
+              </div>
 
-            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'servicos' ? 'block' : 'none' }}>
-              <ServicosTable />
-            </div>
+              <div style={mostrar('espacadores')}>
+                <EspacadoresTab />
+              </div>
+            </>
+          )}
 
-            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'placas' ? 'block' : 'none' }}>
-              <PlacasTab />
-            </div>
-
-            <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'espacadores' ? 'block' : 'none' }}>
-              <EspacadoresTab />
-            </div>
-          </>
-        )}
-
-        <div style={{ display: activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' ? 'block' : 'none' }}>
-          {activeTab === 'despacho' && activeSubTabDespacho === 'levantamentos' && <LevantamentosTab />}
-        </div>
-
-        <div style={{ display: activeTab === 'mapa' ? 'block' : 'none' }}>
-          {activeTab === 'mapa' && <MapaTab />}
-        </div>
-
-        {!soFechamento && (
-          <div style={{ display: activeTab === 'painel' ? 'block' : 'none' }}>
-            <PainelTab />
+          <div style={mostrar('levantamentos')}>
+            {tela === 'levantamentos' && <LevantamentosTab />}
           </div>
-        )}
 
-        <div style={{ display: activeTab === 'faturamento' ? 'block' : 'none' }}>
-          {activeTab === 'faturamento' && <FaturamentoTab />}
+          <div style={mostrar('mapa')}>
+            {tela === 'mapa' && <MapaTab />}
+          </div>
+
+          {!soFechamento && (
+            <div style={mostrar('painel')}>
+              <PainelTab />
+            </div>
+          )}
+
+          <div style={mostrar('faturamento')}>
+            {tela === 'faturamento' && <FaturamentoTab />}
+          </div>
+
+          <div style={mostrar('instalacoes')}>
+            {tela === 'instalacoes' && <FluxoInstalacoes />}
+          </div>
+
+          <div style={mostrar('gerar-os')}>
+            {tela === 'gerar-os' && <GerarServicosTab />}
+          </div>
+
+          <div style={mostrar('duplicidade')}>
+            {tela === 'duplicidade' && <DuplicidadeTab />}
+          </div>
+
+          <div style={mostrar('logs')}>
+            {tela === 'logs' && <LogsTab />}
+          </div>
+
+          <div style={mostrar('usuarios')}>
+            {tela === 'usuarios' && <UsuariosTab />}
+          </div>
         </div>
-
-        <div style={{ display: activeTab === 'fechamento' ? 'block' : 'none' }}>
-          {activeTab === 'fechamento' && <FechamentoTab />}
-        </div>
-
-        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' ? 'block' : 'none' }}>
-          {activeTab === 'admin' && activeSubTabAdmin === 'gerar-os' && <GerarServicosTab />}
-        </div>
-
-        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'duplicidade' ? 'block' : 'none' }}>
-          {activeTab === 'admin' && activeSubTabAdmin === 'duplicidade' && <DuplicidadeTab />}
-        </div>
-
-        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'logs' ? 'block' : 'none' }}>
-          {activeTab === 'admin' && activeSubTabAdmin === 'logs' && <LogsTab />}
-        </div>
-
-        <div style={{ display: activeTab === 'admin' && activeSubTabAdmin === 'usuarios' ? 'block' : 'none' }}>
-          {activeTab === 'admin' && activeSubTabAdmin === 'usuarios' && <UsuariosTab />}
-        </div>
-
       </main>
     </div>
   );

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   MAX_VAOS, isEspacador, ordenarResultadosTrafo, pendenciasVao, vaoCompleto,
   podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
-  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, filtrarPorBusca,
+  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo,
 } from './espacadores';
 
@@ -112,6 +112,14 @@ describe('transições', () => {
     expect(montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: '999' }))
       .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
   });
+
+  it('excluir cancela o serviço e só vale na etapa de instalação', () => {
+    const p = montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [{ msg: 'x' }] }, { user, agora });
+    expect(p).toMatchObject({ status: 'cancelado', dt_etapa: agora });
+    expect(p.hist).toHaveLength(2);
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: expect.stringMatching(/excluída/) });
+    expect(() => montarPayloadExclusao({ etapa_espacador: 'revisao' }, { user, agora })).toThrow(/Em revisão|revis/i);
+  });
 });
 
 describe('filtrarPorBusca', () => {
@@ -120,6 +128,33 @@ describe('filtrarPorBusca', () => {
     expect(filtrarPorBusca(lista, 'sao')).toHaveLength(1);
     expect(filtrarPorBusca(lista, '763')[0].id).toBe('VD0001');
     expect(filtrarPorBusca(lista, '  ')).toHaveLength(2);
+  });
+});
+
+describe('filtro por etapa', () => {
+  const lista = [
+    { id: 'A', etapa_espacador: 'instalacao' }, { id: 'B', etapa_espacador: 'revisao' },
+    { id: 'C', etapa_espacador: 'aguardando_nsmp' }, { id: 'D', etapa_espacador: 'aguardando_nsmp' },
+  ];
+  it('filtra pela etapa e "todas" devolve a lista inteira', () => {
+    expect(filtrarPorEtapa(lista, 'aguardando_nsmp').map(s => s.id)).toEqual(['C', 'D']);
+    expect(filtrarPorEtapa(lista, 'pago')).toEqual([]);
+    expect(filtrarPorEtapa(lista, 'todas')).toHaveLength(4);
+  });
+  it('conta por etapa, com zero nas vazias e o total em "todas"', () => {
+    expect(contarPorEtapa(lista)).toEqual({ instalacao: 1, revisao: 1, aguardando_nsmp: 2, aguardando_nsmc: 0, pago: 0, todas: 4 });
+  });
+});
+
+describe('permissoesFluxo', () => {
+  it('dono instala e fecha; despachante só instala; fechamento só fecha', () => {
+    expect(permissoesFluxo('dono')).toEqual({ instalar: true, fechar: true, filtroInicial: 'instalacao' });
+    expect(permissoesFluxo('despachante')).toEqual({ instalar: true, fechar: false, filtroInicial: 'instalacao' });
+    expect(permissoesFluxo('fechamento')).toEqual({ instalar: false, fechar: true, filtroInicial: 'revisao' });
+  });
+  it('outros perfis só acompanham', () => {
+    expect(permissoesFluxo('tecnico')).toEqual({ instalar: false, fechar: false, filtroInicial: 'instalacao' });
+    expect(permissoesFluxo(undefined)).toEqual({ instalar: false, fechar: false, filtroInicial: 'instalacao' });
   });
 });
 
