@@ -1,37 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { chamarGerenciarUsuarios } from '../lib/gerenciarUsuarios';
+import { ehAdministrativo } from '../lib/colaboradores';
 
 const PERFIS = {
-  tecnico: { label: 'Técnico', style: { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } },
   despachante: { label: 'Despachante', style: { background: '#faf5ff', color: '#7c3aed', border: '1px solid #ddd6fe' } },
   fechamento: { label: 'Fechamento', style: { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' } },
-  levantador: { label: 'Levantador', style: { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' } },
   dono: { label: 'Dono', style: { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' } },
 };
 
-// O supabase-js troca o erro da Edge Function por "non-2xx status code";
-// lê o corpo da resposta para mostrar o motivo real (ex.: Forbidden, matrícula já cadastrada)
-const chamarGerenciarUsuarios = async (acao, dados) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const { data, error } = await supabase.functions.invoke('gerenciar-usuarios', {
-    body: { acao, dados },
-    headers: { Authorization: `Bearer ${session?.access_token}` }
-  });
-  if (error) {
-    let motivo = error.message;
-    try {
-      const corpo = await error.context?.json();
-      if (corpo?.error) motivo = `${corpo.error} (HTTP ${error.context.status})`;
-    } catch { /* corpo não é JSON: fica a mensagem original */ }
-    throw new Error(motivo);
-  }
-  if (data?.error) throw new Error(data.error);
-  return data;
-};
-
 const UsuariosTab = () => {
-  const { user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mensagem, setMensagem] = useState('');
@@ -42,8 +20,7 @@ const UsuariosTab = () => {
   const [matricula, setMatricula] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [role, setRole] = useState('tecnico');
-  const [equipe, setEquipe] = useState('');
+  const [role, setRole] = useState('despachante');
   
   // Filters
   const [filtroRole, setFiltroRole] = useState('todos');
@@ -55,7 +32,7 @@ const UsuariosTab = () => {
 
   // Inline edit role state
   const [editRoleUid, setEditRoleUid] = useState(null);
-  const [novaRole, setNovaRole] = useState('tecnico');
+  const [novaRole, setNovaRole] = useState('despachante');
 
   useEffect(() => {
     fetchUsuarios();
@@ -85,7 +62,7 @@ const UsuariosTab = () => {
 
   const handleCadastrar = async (e) => {
     e.preventDefault();
-    if (!nome.trim() || !matricula.trim() || !equipe.trim()) {
+    if (!nome.trim() || !matricula.trim()) {
       setErroForm('Todos os campos são obrigatórios.');
       return;
     }
@@ -98,14 +75,13 @@ const UsuariosTab = () => {
     setErroForm('');
     
     try {
-      await chamarGerenciarUsuarios('criar', { nome, matricula, senha, role, equipe });
+      await chamarGerenciarUsuarios('criar', { nome, matricula, senha, role });
 
       setMensagem('Usuário cadastrado!');
       setNome('');
       setMatricula('');
       setSenha('');
-      setRole('tecnico');
-      setEquipe('');
+      setRole('despachante');
       
       setTimeout(() => setMensagem(''), 3000);
     } catch (err) {
@@ -158,6 +134,7 @@ const UsuariosTab = () => {
   };
 
   const usuariosFiltrados = usuarios.filter(u => {
+    if (!ehAdministrativo(u)) return false;
     if (filtroRole !== 'todos' && u.role !== filtroRole) return false;
     if (filtroStatus === 'ativo' && !u.ativo) return false;
     if (filtroStatus === 'inativo' && u.ativo) return false;
@@ -166,7 +143,8 @@ const UsuariosTab = () => {
 
   return (
     <div style={{ padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-      <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#0f2544', marginBottom: '24px' }}>Gerenciamento de Usuários</h2>
+      <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#0f2544', marginBottom: '4px' }}>Gerenciamento de Usuários</h2>
+      <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Pessoas do administrativo. Pessoal de campo fica em Colaboradores.</p>
       
       <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
         {/* Lado Esquerdo - Formulário */}
@@ -196,17 +174,11 @@ const UsuariosTab = () => {
             </div>
             
             <div>
-              <label style={{ display: 'block', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Role</label>
+              <label style={{ display: 'block', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Perfil</label>
               <select value={role} onChange={(e) => setRole(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#fff' }}>
-                <option value="tecnico">Técnico</option>
                 <option value="despachante">Despachante</option>
                 <option value="fechamento">Fechamento</option>
               </select>
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Equipe</label>
-              <input type="text" value={equipe} onChange={(e) => setEquipe(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }} />
             </div>
             
             <button disabled={loading} type="submit" style={{ marginTop: '8px', padding: '12px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
@@ -233,10 +205,10 @@ const UsuariosTab = () => {
             <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#334155' }}>Lista de Usuários ({usuariosFiltrados.length})</h3>
             <div style={{ display: 'flex', gap: '10px' }}>
               <select value={filtroRole} onChange={(e) => setFiltroRole(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#64748b', backgroundColor: '#fff' }}>
-                <option value="todos">Todos Roles</option>
-                <option value="tecnico">Técnicos</option>
+                <option value="todos">Todos os perfis</option>
                 <option value="despachante">Despachantes</option>
                 <option value="fechamento">Fechamento</option>
+                <option value="dono">Donos</option>
               </select>
               <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#64748b', backgroundColor: '#fff' }}>
                 <option value="todos">Todos Status</option>
@@ -251,7 +223,7 @@ const UsuariosTab = () => {
               <thead style={{ background: '#f8fafc', color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
                 <tr>
                   <th style={{ padding: '12px 16px', fontWeight: '500' }}>Nome / Matrícula</th>
-                  <th style={{ padding: '12px 16px', fontWeight: '500' }}>Role / Equipe</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '500' }}>Perfil</th>
                   <th style={{ padding: '12px 16px', fontWeight: '500' }}>Status</th>
                   <th style={{ padding: '12px 16px', fontWeight: '500', textAlign: 'right' }}>Ações</th>
                 </tr>
@@ -267,7 +239,6 @@ const UsuariosTab = () => {
                       {editRoleUid === u.uid ? (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           <select value={novaRole} onChange={e => setNovaRole(e.target.value)} style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', backgroundColor: '#fff' }}>
-                            <option value="tecnico">Técnico</option>
                             <option value="despachante">Despachante</option>
                             <option value="fechamento">Fechamento</option>
                             <option value="dono">Dono</option>
@@ -283,7 +254,6 @@ const UsuariosTab = () => {
                           }}>
                             {(PERFIS[u.role] || { label: u.role }).label}
                           </div>
-                          <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>{u.equipe || '-'}</div>
                         </>
                       )}
                     </td>
