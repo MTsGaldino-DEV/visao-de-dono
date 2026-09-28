@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, fetchAll } from '../lib/supabase';
+import { podeDespachar } from '../lib/colaboradores';
 import DetalheModal from './DetalheModal';
 import * as XLSX from 'xlsx';
 
@@ -1213,8 +1214,8 @@ const ServicosTable = ({ filterType }) => {
   useEffect(() => {
     const fetchTecnicos = async () => {
       if (isDono || user?.role === 'despachante') {
-        const { data } = await supabase.from('usuarios').select('*').eq('role', 'tecnico').eq('ativo', true);
-        if (data) setTecnicos(data.sort((a, b) => a.nome.localeCompare(b.nome)));
+        const { data } = await supabase.from('usuarios').select('*').in('role', ['tecnico', 'colaborador']).eq('ativo', true);
+        if (data) setTecnicos(data.filter(podeDespachar).sort((a, b) => a.nome.localeCompare(b.nome)));
       }
     };
     fetchTecnicos();
@@ -2091,18 +2092,18 @@ const ServicosTable = ({ filterType }) => {
                 </button>
                 <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 8px' }}></div>
                 {tecnicos.length === 0 ? (
-                  <div style={{ padding: '8px', fontSize: '13px', color: '#64748b' }}>Nenhum técnico disponível</div>
+                  <div style={{ padding: '8px', fontSize: '13px', color: '#64748b' }}>Nenhum colaborador disponível</div>
                 ) : (
                   tecnicos.map(t => (
-                    <button key={t.id} onClick={() => despacharSelecionados(t)} style={{
+                    <button key={t.uid} onClick={() => despacharSelecionados(t)} style={{
                       width: '100%', padding: '10px 12px', border: 'none', background: 'transparent',
                       textAlign: 'left', cursor: 'pointer', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '2px', fontFamily: 'inherit'
                     }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>
                         {t.nome} — {t.matricula}
                       </div>
-                      {t.equipe && (
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>{t.equipe}</div>
+                      {(t.funcao || t.equipe) && (
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{[t.funcao, t.equipe].filter(Boolean).join(' · ')}</div>
                       )}
                     </button>
                   ))
