@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { isEspacador } from '../lib/espacadores';
 
 const PAGE_SIZE = 10;
 
@@ -65,9 +66,10 @@ const DuplicidadeTab = () => {
     setLoading(false);
   };
 
-  // ── Agrupamento por transformador (exclui cancelados) ───────────────────────
+  // ── Agrupamento por transformador (exclui cancelados e espaçadores) ─────────
+  // Espaçador: cada serviço é 1 vão, então vários serviços no mesmo trafo é o esperado
   const grupos = {};
-  servicos.filter(s => s.status !== 'cancelado').forEach(s => {
+  servicos.filter(s => s.status !== 'cancelado' && !isEspacador(s) && !s.etapa_espacador).forEach(s => {
     const transformador = extrairTransformador(s.equip);
     if (!transformador) return;
     if (!grupos[transformador]) grupos[transformador] = [];
@@ -157,6 +159,7 @@ const DuplicidadeTab = () => {
           <div style={{ fontSize: '16px', fontWeight: '800', color: '#0f2544' }}>Duplicidade de Transformador</div>
           <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
             Serviços diferentes instalados no mesmo transformador. Cancele o serviço incorreto ou aceite a duplicidade caso sejam realmente dois serviços distintos.
+            Espaçadores não entram aqui: cada serviço de espaçador é um vão do transformador.
           </div>
         </div>
         <div style={{ fontSize: '11px', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', whiteSpace: 'nowrap' }}>
