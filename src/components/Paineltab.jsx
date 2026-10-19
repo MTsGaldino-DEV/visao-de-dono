@@ -183,6 +183,75 @@ const Badge = ({ status }) => {
   );
 };
 
+// Gráfico de tendência — guarda o hover em estado próprio, então mover o mouse
+// só redesenha o gráfico, não o painel inteiro
+const SERIES_TENDENCIA = [
+  { key: 'cadastros', label: 'Cadastros', cor: '#1d4ed8' },
+  { key: 'pendentes', label: 'Pendentes recebidos', cor: '#f97316' },
+  { key: 'conclusoes', label: 'Conclusões', cor: '#15803d' },
+];
+
+const GraficoTendencia = ({ chaves, cadastros, pendentes, conclusoes, fmtCurto, fmtCompleto }) => {
+  const [hover, setHover] = useState(null);
+  const valores = { cadastros, pendentes, conclusoes };
+  const maxVal = Math.max(...cadastros, ...pendentes, ...conclusoes, 1);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 240 }} onMouseLeave={() => setHover(null)}>
+      {chaves.map((chave, i) => {
+        const isLast = i === chaves.length - 1;
+        const ativo = hover === i;
+        // Tooltip abre para o lado de dentro do card
+        const lado = i < chaves.length / 2 ? { left: 'calc(100% + 4px)' } : { right: 'calc(100% + 4px)' };
+        return (
+          <div key={chave} onMouseEnter={() => setHover(i)} style={{
+            position: 'relative', flex: 1, height: '100%', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'flex-end', gap: 4, borderRadius: 6, padding: '0 2px',
+            background: ativo ? '#f8fafc' : 'transparent',
+          }}>
+            <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', height: 200 }}>
+              {SERIES_TENDENCIA.map(({ key, cor }) => {
+                const valor = valores[key][i];
+                return (
+                  <div key={key} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#475569', marginBottom: 2, fontVariantNumeric: 'tabular-nums' }}>{valor}</span>
+                    <div style={{
+                      width: '100%', height: `${Math.round((valor / maxVal) * 85)}%`, minHeight: 3,
+                      borderRadius: '4px 4px 0 0', background: cor, transition: 'height 0.4s ease',
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10, color: isLast ? '#0f2544' : '#64748b', fontWeight: isLast ? 700 : 500, whiteSpace: 'nowrap', textAlign: 'center', lineHeight: 1.2 }}>
+              {fmtCurto(chave)}
+              {isLast && <div style={{ fontSize: 9, fontWeight: 500, color: '#94a3b8' }}>em andamento</div>}
+            </div>
+
+            {ativo && (
+              <div style={{
+                ...card, position: 'absolute', top: 8, ...lado, zIndex: 5,
+                padding: '10px 12px', boxShadow: '0 4px 12px rgba(15,37,68,0.10)', pointerEvents: 'none',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#0f2544', marginBottom: 6, whiteSpace: 'nowrap' }}>
+                  {fmtCompleto(chave)}{isLast ? ' · em andamento' : ''}
+                </div>
+                {SERIES_TENDENCIA.map(({ key, label, cor }) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, padding: '2px 0' }}>
+                    <div style={{ width: 12, height: 2, borderRadius: 1, background: cor, flexShrink: 0 }} />
+                    <span style={{ fontWeight: 800, color: '#0f2544', minWidth: 24, fontVariantNumeric: 'tabular-nums' }}>{valores[key][i]}</span>
+                    <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Injeta keyframe no documento uma única vez
 if (typeof document !== 'undefined' && !document.getElementById('__alertPulseStyle')) {
   const el = document.createElement('style');
@@ -288,6 +357,15 @@ const PainelTab = () => {
 
   const getChave = (dt) => agrupamento === 'semana' ? semanaStr(dt) : mesStr(dt);
   const getFmt = (chave) => agrupamento === 'semana' ? fmtSemana(chave) : fmtMes(chave);
+
+  // Texto do período no tooltip: "13/09 a 19/09" ou "Set/26"
+  const getFmtCompleto = (chave) => {
+    if (agrupamento !== 'semana') return fmtMes(chave);
+    const fim = new Date(chave + 'T00:00:00');
+    fim.setDate(fim.getDate() + 6);
+    const fimFmt = `${String(fim.getDate()).padStart(2, '0')}/${String(fim.getMonth() + 1).padStart(2, '0')}`;
+    return `${fmtSemana(chave)} a ${fimFmt}`;
+  };
 
   // Cadastros
   const cadastrosPorPeriodo = chavesPeriodo.map(chave => {
@@ -450,43 +528,15 @@ const PainelTab = () => {
             </div>
           </div>
 
-          {/* Gráfico de barras agrupadas */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120 }}>
-            {chavesPeriodo.map((chave, i) => {
-              const cad = cadastrosPorPeriodo[i];
-              const conc = conclusoesPorPeriodo[i];
-              const pend = pendentesPorPeriodo[i];
-              const maxVal = Math.max(...cadastrosPorPeriodo, ...conclusoesPorPeriodo, ...pendentesPorPeriodo, 1);
-              const hCad = Math.max(2, Math.round((cad / maxVal) * 100));
-              const hConc = Math.max(2, Math.round((conc / maxVal) * 100));
-              const hPend = Math.max(2, Math.round((pend / maxVal) * 100));
-              const isLast = i === chavesPeriodo.length - 1;
-              return (
-                <div key={chave} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                  <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', height: 100 }}>
-                    <div style={{
-                      flex: 1, height: `${hCad}%`, borderRadius: '2px 2px 0 0',
-                      background: isLast ? '#1d4ed8' : '#bfdbfe',
-                      transition: 'height 0.4s ease', minHeight: 2,
-                    }} title={`Cadastros: ${cad}`} />
-                    <div style={{
-                      flex: 1, height: `${hPend}%`, borderRadius: '2px 2px 0 0',
-                      background: isLast ? '#f97316' : '#fed7aa',
-                      transition: 'height 0.4s ease', minHeight: 2,
-                    }} title={`Pendentes recebidos: ${pend}`} />
-                    <div style={{
-                      flex: 1, height: `${hConc}%`, borderRadius: '2px 2px 0 0',
-                      background: isLast ? '#15803d' : '#bbf7d0',
-                      transition: 'height 0.4s ease', minHeight: 2,
-                    }} title={`Conclusões: ${conc}`} />
-                  </div>
-                  <div style={{ fontSize: 9, color: isLast ? '#0f2544' : '#94a3b8', fontWeight: isLast ? 700 : 400, whiteSpace: 'nowrap' }}>
-                    {getFmt(chave)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Gráfico de barras agrupadas — componente próprio para o hover não recalcular o painel todo */}
+          <GraficoTendencia
+            chaves={chavesPeriodo}
+            cadastros={cadastrosPorPeriodo}
+            pendentes={pendentesPorPeriodo}
+            conclusoes={conclusoesPorPeriodo}
+            fmtCurto={getFmt}
+            fmtCompleto={getFmtCompleto}
+          />
 
           {/* Legenda */}
           <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import CadastroForm from '../components/CadastroForm';
 import ServicosTable from '../components/ServicosTable';
 import PlacasTab from '../components/PlacasTab';
-import PainelTab from '../components/PainelTab';
+import PainelTab from '../components/Paineltab';
 import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
 import GerarServicosTab from '../components/GerarServicosTab';
