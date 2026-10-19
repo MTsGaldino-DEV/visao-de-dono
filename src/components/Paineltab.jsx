@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import { resumoEspacadoresPainel } from '../lib/espacadores';
+import { dataConclusao } from '../lib/painel';
 
 // ── Animação pulse (bolinha alerta) ──────────────────────────────────────────
 const pulseStyle = `
@@ -382,14 +383,11 @@ const PainelTab = () => {
     }).length;
   });
 
-  // Conclusões (última entrada de hist com status concluido)
+  // Conclusões (última anotação do hist que de fato conclui o serviço)
   const conclusoesPorPeriodo = chavesPeriodo.map(chave => {
     return ativos.filter(s => {
       if (s.status !== 'concluido') return false;
-      const hist = s.hist || [];
-      const ultimo = [...hist].reverse().find(h => h.msg?.toLowerCase().includes('conclu'));
-      if (!ultimo) return false;
-      const dt = parseData(ultimo.when);
+      const dt = dataConclusao(s.hist);
       return dt && getChave(dt) === chave;
     }).length;
   });
