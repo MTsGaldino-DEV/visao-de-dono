@@ -670,7 +670,7 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
 
 // ── Exportar CSV ──────────────────────────────────────────────────────────────
 const exportarExcel = (dados) => {
-  const colunas = ['ID', 'Data', 'Localidade', 'Descrição', 'Tipo', 'Equipamento', 'Status', 'Nº Serviço', 'Atribuído para', 'Técnico Origem', 'Coordenada', 'Observação', 'Obs. Cancelamento', 'Placa Montada'];
+  const colunas = ['ID', 'Data', 'Localidade', 'Descrição', 'Tipo', 'Equipamento', 'Status', 'Nº Serviço', 'Atribuído para', 'Técnico Origem', 'Coordenada', 'Observação', 'Obs. Cancelamento'];
   const esc = (val) => {
     if (val === null || val === undefined) return '';
     const str = String(val);
@@ -684,7 +684,7 @@ const exportarExcel = (dados) => {
       esc(STATUS_CONFIG[s.status]?.label || s.status), esc(s.numServ),
       esc(s.atribuido_para ? `${s.atribuido_para.nome} (${s.atribuido_para.matricula})` : ''),
       esc(s.orig), esc(s.coord),
-      esc(s.obs), esc(s.obsCancelamento), esc(s.placamontada ? 'Sim' : 'Não'),
+      esc(s.obs), esc(s.obsCancelamento),
     ].join(';'))
   ];
   const bom = '\uFEFF';
@@ -1154,8 +1154,6 @@ const ServicosTable = ({ filterType }) => {
   const [postoFilter, setPostoFilter] = useState([]);
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [placaFilter, setPlacaFilter] = useState('todos');
-  const [enviadoSupFilter, setEnviadoSupFilter] = useState('todos');
   const [sortCol, setSortCol] = useState('id');
   const [sortDir, setSortDir] = useState('desc');
   // ── Filtro por proximidade
@@ -1221,7 +1219,7 @@ const ServicosTable = ({ filterType }) => {
     fetchTecnicos();
   }, [isDono, user]);
 
-  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir]);
+  useEffect(() => { setCurrentPage(1); }, [busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir]);
 
   useEffect(() => {
     let lista = [...services];
@@ -1269,14 +1267,6 @@ const ServicosTable = ({ filterType }) => {
     }
     if (tipoFilter.length > 0) lista = lista.filter(s => tipoFilter.includes(s.tipo));
 
-    // Filtro placa montada
-    if (placaFilter === 'montada') lista = lista.filter(s => s.placamontada === true);
-    if (placaFilter === 'nao_montada') lista = lista.filter(s => !s.placamontada);
-
-    // Filtro placa enviada ao supervisor
-    if (enviadoSupFilter === 'sim') lista = lista.filter(s => s.enviadosupervisor === true);
-    if (enviadoSupFilter === 'nao') lista = lista.filter(s => s.placamontada && !s.enviadosupervisor);
-
     if (servicoReferencia) {
       lista.forEach(s => {
         s._distancia = calcularDistancia(servicoReferencia.coord, s.coord);
@@ -1298,7 +1288,7 @@ const ServicosTable = ({ filterType }) => {
     }
 
     setFilteredServices(lista);
-  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, placaFilter, enviadoSupFilter, sortCol, sortDir, servicoReferencia]);
+  }, [services, busca, statusFilter, tipoFilter, localidadeFilter, postoFilter, dataInicio, dataFim, sortCol, sortDir, servicoReferencia]);
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1396,18 +1386,7 @@ const ServicosTable = ({ filterType }) => {
   const tipoOptions = ['NSIS', 'NSMP', 'RC02', 'INBE', 'NSCP'].map(t => ({ value: t, label: t }));
   const postoOptions = Object.keys(POSTOS).map(p => ({ value: p, label: p.split('—')[1]?.trim() || p }));
 
-  // Contagens para o filtro de placa
-  const totalPlacas = filteredServices.filter(s => {
-    const n = (s.desc || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return n.includes('PLACA');
-  });
-  const qtdMontadas = services.filter(s => s.placamontada === true && s.status !== 'cancelado').length;
-  const qtdNaoMontadas = services.filter(s => !s.placamontada && s.status !== 'cancelado').length;
-
-  const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim || placaFilter !== 'todos' || enviadoSupFilter !== 'todos';
-
-  // Há serviços com placa montada no conjunto filtrado? (para exibir filtro de supervisor)
-  const temPlacaMontadaFiltrada = filteredServices.some(s => s.placamontada === true);
+  const temFiltroAtivo = statusFilter.length > 0 || tipoFilter.length > 0 || busca || localidadeFilter || postoFilter.length > 0 || dataInicio || dataFim;
 
   const toggleSelection = (id) => {
     setSelecionados(prev => {
@@ -1565,79 +1544,6 @@ const ServicosTable = ({ filterType }) => {
           </div>
         </div>
 
-        {/* Linha 3 — Filtros de placa */}
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-          {/* Filtro placa montada */}
-          <div>
-            <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-              Placa montada
-            </label>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {[
-                { key: 'todos', label: 'Todos' },
-                { key: 'montada', label: 'Montada', cor: '#15803d' },
-                { key: 'nao_montada', label: 'Não montada', cor: '#c2410c' },
-              ].map(({ key, label, cor }) => {
-                const ativo = placaFilter === key;
-                const corBase = cor || '#475569';
-                return (
-                  <button key={key} onClick={() => setPlacaFilter(key)} style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
-                    border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
-                    background: ativo ? `${corBase}10` : '#f8fafc',
-                    color: ativo ? corBase : '#64748b',
-                    fontSize: '11px', fontWeight: ativo ? '700' : '500',
-                    transition: 'all 0.12s',
-                  }}>
-                    {key === 'montada' && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" /><polyline points="9 12 11 14 15 10" />
-                      </svg>
-                    )}
-                    {key === 'nao_montada' && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                      </svg>
-                    )}
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Filtro placa enviada ao supervisor — exibido somente se há placas montadas no conjunto */}
-          {temPlacaMontadaFiltrada && (
-            <div>
-              <label style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-                Placa enviada ao supervisor
-              </label>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[
-                  { key: 'todos', label: 'Todos' },
-                  { key: 'sim', label: 'Sim', cor: '#7c3aed' },
-                  { key: 'nao', label: 'Não', cor: '#c2410c' },
-                ].map(({ key, label, cor }) => {
-                  const ativo = enviadoSupFilter === key;
-                  const corBase = cor || '#475569';
-                  return (
-                    <button key={key} onClick={() => setEnviadoSupFilter(key)} style={{
-                      padding: '5px 14px', borderRadius: '7px', cursor: 'pointer', fontFamily: 'inherit',
-                      border: ativo ? `2px solid ${corBase}` : '1px solid #e2e8f0',
-                      background: ativo ? `${corBase}10` : '#f8fafc',
-                      color: ativo ? corBase : '#64748b',
-                      fontSize: '11px', fontWeight: ativo ? '700' : '500',
-                      transition: 'all 0.12s',
-                    }}>
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ── Tabela ── */}
@@ -1648,7 +1554,7 @@ const ServicosTable = ({ filterType }) => {
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f2544' }}>Lista de Serviços</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {temFiltroAtivo && (
-              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); setPlacaFilter('todos'); setEnviadoSupFilter('todos'); }}
+              <button onClick={() => { setStatusFilter([]); setTipoFilter([]); setBusca(''); setLocalidadeFilter(''); setPostoFilter([]); setDataInicio(''); setDataFim(''); }}
                 style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -1706,14 +1612,6 @@ const ServicosTable = ({ filterType }) => {
                 />
               </th>
               <th style={thBase}>Ações</th>
-              <th style={{ ...thBase, textAlign: 'center' }} title="Placa: verde = montada · roxo = enviada ao supervisor">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                  </svg>
-                  <span style={{ fontSize: '8px', letterSpacing: '0.03em' }}>PLACA</span>
-                </div>
-              </th>
               <th style={thClick('id')} onClick={() => toggleSort('id')}>ID <SortIcon col="id" /></th>
               <th style={thClick('data')} onClick={() => toggleSort('data')}>Data <SortIcon col="data" /></th>
               <th style={thClick('local')} onClick={() => toggleSort('local')}>Localidade <SortIcon col="local" /></th>
@@ -1728,18 +1626,7 @@ const ServicosTable = ({ filterType }) => {
           <tbody>
             {pageServices.map((s, i) => {
               const nextInfo = NEXT_STATUS[s.status];
-              const placamontada = s.placamontada === true;
-              const enviadoSup = s.enviadosupervisor === true;
               const globalIdx = pageStart + i;
-
-              // Aparência do checkbox de placa:
-              // · Não montada  → quadrado vazio cinza
-              // · Montada, não enviada → quadrado verde com check
-              // · Montada + enviada ao supervisor → quadrado roxo com check
-              const placaColor = !placamontada ? '#cbd5e1' : enviadoSup ? '#7c3aed' : '#15803d';
-              const placaBg = !placamontada ? 'transparent' : enviadoSup ? '#faf5ff' : '#f0fdf4';
-              const placaBorder = !placamontada ? '#cbd5e1' : enviadoSup ? '#ddd6fe' : '#bbf7d0';
-              const placaTip = !placamontada ? 'Placa não montada' : enviadoSup ? 'Placa montada · Enviada ao supervisor' : 'Placa montada';
 
               return (
                 <tr key={s.id} style={{
@@ -1808,17 +1695,6 @@ const ServicosTable = ({ filterType }) => {
                         </button>
                       )}
                     </div>
-                  </td>
-
-                  {/* ── [NOVO] Checkbox de placa — verde = montada, roxo = enviada ao supervisor ── */}
-                  <td style={{ ...td, textAlign: 'center', padding: '10px 6px' }}>
-                    <span title={placaTip} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '5px', border: `1.5px solid ${placaBorder}`, background: placaBg, transition: 'all 0.15s', flexShrink: 0 }}>
-                      {placamontada && (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={placaColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </span>
                   </td>
 
                   <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
@@ -1913,7 +1789,7 @@ const ServicosTable = ({ filterType }) => {
             })}
             {filteredServices.length === 0 && (
               <tr>
-                <td colSpan={14} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>
+                <td colSpan={13} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '13px' }}>
                   Nenhum serviço encontrado.
                 </td>
               </tr>

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import CadastroForm from '../components/CadastroForm';
 import ServicosTable from '../components/ServicosTable';
-import PlacasTab from '../components/PlacasTab';
 import PainelTab from '../components/Paineltab';
 import FaturamentoTab from '../components/Faturamentotab';
 import LogsTab from '../components/LogsTab';
@@ -108,7 +107,7 @@ const Home = () => {
           )}
 
           {/* CONTEÚDO DAS TELAS
-              Mantemos CadastroForm, ServicosTable, Placas, Espaçadores e Painel sempre montados (display none/block)
+              Mantemos CadastroForm, ServicosTable, Espaçadores e Painel sempre montados (display none/block)
               para evitar que desmonte ao trocar de tela e perca o estado/listener */}
           {!soFechamento && (
             <>
@@ -118,10 +117,6 @@ const Home = () => {
 
               <div style={mostrar('servicos')}>
                 <ServicosTable />
-              </div>
-
-              <div style={mostrar('placas')}>
-                <PlacasTab />
               </div>
 
               <div style={mostrar('espacadores')}>

@@ -10,7 +10,7 @@ describe('menuDoPerfil', () => {
   it('dono vê tudo, com Usuários e Colaboradores no Admin', () => {
     expect(estrutura('dono')).toEqual([
       ['cadastro', ['cadastrar']],
-      ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
+      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos']],
       ['mapa', ['mapa']],
       ['gestao', ['painel', 'faturamento']],
       ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'colaboradores', 'logs']],
@@ -18,7 +18,7 @@ describe('menuDoPerfil', () => {
   });
   it('despachante vê Despacho, Mapa e Colaboradores', () => {
     expect(estrutura('despachante')).toEqual([
-      ['despacho', ['servicos', 'placas', 'espacadores', 'instalacoes', 'levantamentos']],
+      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos']],
       ['mapa', ['mapa']],
       ['admin', ['colaboradores']],
     ]);
@@ -43,6 +43,10 @@ describe('telaInicial', () => {
   it('a antiga tela Fechamento abre em Instalações', () => {
     expect(telaInicial('dono', 'fechamento')).toBe('instalacoes');
     expect(telaInicial('fechamento', 'fechamento')).toBe('instalacoes');
+  });
+  it('a antiga tela Placas, que saiu do sistema, abre em Serviços', () => {
+    expect(telaInicial('dono', 'placas')).toBe('servicos');
+    expect(telaInicial('despachante', 'placas')).toBe('servicos');
   });
 });
 

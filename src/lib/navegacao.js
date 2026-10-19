@@ -4,8 +4,8 @@ const DONO = ['dono'];
 const ESCRITORIO = ['dono', 'despachante'];
 const COM_FECHAMENTO = ['dono', 'despachante', 'fechamento'];
 
-// Telas que mudaram de nome: a salva no navegador abre na nova
-const RENOMEADAS = { fechamento: 'instalacoes' };
+// Telas que mudaram de nome ou saíram: a salva no navegador abre na equivalente
+const RENOMEADAS = { fechamento: 'instalacoes', placas: 'servicos' };
 
 const GRUPOS = [
   { id: 'cadastro', label: 'Cadastro', itens: [
@@ -13,7 +13,6 @@ const GRUPOS = [
   ] },
   { id: 'despacho', label: 'Despacho', itens: [
     { key: 'servicos', label: 'Serviços', perfis: ESCRITORIO },
-    { key: 'placas', label: 'Placas', perfis: ESCRITORIO },
     { key: 'espacadores', label: 'Espaçadores', perfis: ESCRITORIO },
     { key: 'instalacoes', label: 'Instalações', perfis: COM_FECHAMENTO },
     { key: 'levantamentos', label: 'Levantamentos', perfis: ESCRITORIO },
