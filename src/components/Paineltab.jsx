@@ -603,8 +603,8 @@ const PainelTab = () => {
         </div>
 
         {/* ── Alertas — apenas pendentes ───────────────────────────────────── */}
-        <div style={{ ...card, overflow: 'hidden' }}>
-          <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ ...card, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* Bolinha pulsante */}
@@ -648,7 +648,9 @@ const PainelTab = () => {
             )}
           </div>
 
-          <div style={{ maxHeight: 210, overflowY: 'auto' }}>
+          {/* Lista ocupa a altura que sobra no card (a linha é definida pelo gráfico ao lado) e rola por dentro */}
+          <div style={{ flex: 1, minHeight: 210, position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, overflowY: 'auto' }}>
             {alertasPendentes.length === 0 ? (
               <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✓</div>
@@ -709,6 +711,7 @@ const PainelTab = () => {
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       </div>
