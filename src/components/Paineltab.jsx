@@ -235,7 +235,8 @@ const PainelTab = () => {
   // ── Derivações base ────────────────────────────────────────────────────────
   const ativos = servicos.filter(s => s.status !== 'cancelado');
   const cancelados = servicos.filter(s => s.status === 'cancelado');
-  const servicosAtivos = servicos.filter(s => ['pendente', 'concluido', 'reprovado'].includes(s.status));
+  // Base do progresso: tudo que segue no projeto (fora cancelados e reprovados, que nunca serão concluídos)
+  const baseProgresso = servicos.filter(s => !['cancelado', 'reprovado'].includes(s.status));
 
   const totalAtivos = ativos.length; // Usado para os cards da linha 1
   const totalConcluidos = ativos.filter(s => s.status === 'concluido').length;
@@ -244,19 +245,13 @@ const PainelTab = () => {
   const totalCadastrados = ativos.filter(s => s.status === 'cadastrado').length;
   const totalReprovados = ativos.filter(s => s.status === 'reprovado').length;
 
-  const progressoConcluidos = servicosAtivos.filter(s => s.status === 'concluido').length;
-  const pctGeral = servicosAtivos.length > 0 ? Math.round((progressoConcluidos / servicosAtivos.length) * 100) : 0;
-
-  const totalPlacas = ativos.filter(s => norm(s.desc).includes('PLACA')).length;
-  const placasMontadas = ativos.filter(s => s.placamontada).length;
-  const pctPlacas = totalPlacas > 0 ? Math.round((placasMontadas / totalPlacas) * 100) : 0;
+  const progressoConcluidos = baseProgresso.filter(s => s.status === 'concluido').length;
+  const pctGeral = baseProgresso.length > 0 ? Math.round((progressoConcluidos / baseProgresso.length) * 100) : 0;
 
   // ── Dados por posto ────────────────────────────────────────────────────────
   const dadosPosto = Object.keys(POSTOS).map(posto => {
     const ps = ativos.filter(s => postoDeLocalidade(s.local) === posto);
     const concluidos = ps.filter(s => s.status === 'concluido').length;
-    const placasP = ps.filter(s => norm(s.desc).includes('PLACA')).length;
-    const montadasP = ps.filter(s => s.placamontada).length;
     const porStatus = {};
     STATUS_ORDER.forEach(st => { porStatus[st] = ps.filter(s => s.status === st).length; });
     return {
@@ -264,8 +259,6 @@ const PainelTab = () => {
       total: ps.length,
       concluidos,
       pct: ps.length > 0 ? Math.round((concluidos / ps.length) * 100) : 0,
-      placasTotal: placasP,
-      placasMontadas: montadasP,
       porStatus,
     };
   });
@@ -366,7 +359,7 @@ const PainelTab = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
 
       {/* ══ LINHA 1: KPIs principais ═══════════════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
 
         {/* Progresso geral */}
         <div style={{ ...card, padding: '18px 20px', gridColumn: '1', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -382,7 +375,8 @@ const PainelTab = () => {
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>Progresso geral</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2544', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{progressoConcluidos}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>de {servicosAtivos.length} ativos</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>concluídos de {baseProgresso.length} no projeto</div>
+            <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 1 }}>sem cancelados e reprovados</div>
           </div>
         </div>
 
@@ -415,19 +409,6 @@ const PainelTab = () => {
             <div style={{ height: '100%', borderRadius: 3, background: '#c2410c', width: totalAtivos > 0 ? `${Math.round((totalPendentes / totalAtivos) * 100)}%` : '0%', transition: 'width 0.5s' }} />
           </div>
           <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalPendentes / totalAtivos) * 100) : 0}% do total ativo</div>
-        </div>
-
-        {/* Placas */}
-        <div style={{ ...card, padding: '18px 16px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Placas montadas</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#15803d', lineHeight: 1, marginBottom: 6, fontVariantNumeric: 'tabular-nums' }}>{placasMontadas}</div>
-          <div style={{ height: 6, borderRadius: 3, background: '#f0fdf4', overflow: 'hidden', marginBottom: 4 }}>
-            <div style={{ height: '100%', borderRadius: 3, background: '#15803d', width: `${pctPlacas}%`, transition: 'width 0.5s' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
-            <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {pctPlacas}%</span>
-            <span style={{ color: '#94a3b8' }}>{totalPlacas - placasMontadas} pend.</span>
-          </div>
         </div>
 
         {/* Reprovados */}
@@ -643,11 +624,10 @@ const PainelTab = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {dadosPosto.map(({ posto, total, concluidos, pct, placasTotal, placasMontadas, porStatus }) => {
+          {dadosPosto.map(({ posto, total, concluidos, pct, porStatus }) => {
             const cfg = POSTO_CFG[posto] || POSTO_CFG['Não mapeado'];
             const supervisor = posto.includes('—') ? posto.split('—')[1].trim() : '';
             const postoNome = posto.includes('—') ? posto.split('—')[0].trim() : posto;
-            const pctPlacaP = placasTotal > 0 ? Math.round((placasMontadas / placasTotal) * 100) : null;
 
             return (
               <div key={posto} style={{
@@ -682,16 +662,6 @@ const PainelTab = () => {
                     <div style={{ color: cfg.color, opacity: 0.6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Concluídos</div>
                     <div style={{ fontWeight: 700, color: cfg.color }}>✓ {concluidos}</div>
                   </div>
-                  {pctPlacaP !== null && (
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <div style={{ color: cfg.color, opacity: 0.6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>
-                        Placas — {placasMontadas}/{placasTotal} ({pctPlacaP}%)
-                      </div>
-                      <div style={{ height: 4, borderRadius: 2, background: cfg.track || '#f1f5f9', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 2, background: cfg.color, width: `${pctPlacaP}%`, opacity: 0.6 }} />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Mini badges de status — FIX 2: não mostra cancelado */}
@@ -888,6 +858,7 @@ const PainelTab = () => {
               <div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#0f2544', lineHeight: 1 }}>{pctGeral}%</div>
                 <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>do projeto concluído</div>
+                <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 1 }}>{progressoConcluidos} de {baseProgresso.length}, sem cancelados e reprovados</div>
               </div>
             </div>
           </div>
