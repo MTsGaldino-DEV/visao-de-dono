@@ -3,7 +3,7 @@ import {
   MAX_VAOS, isEspacador, ordenarResultadosTrafo, pendenciasVao, vaoCompleto,
   podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
-  validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo,
+  validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -194,5 +194,31 @@ describe('convivência com o fluxo antigo (revisão final)', () => {
   it('listas do fluxo novo escondem serviços cancelados', () => {
     const lista = [{ id: 'A', status: 'concluido' }, { id: 'B', status: 'cancelado' }, { id: 'C', status: 'cadastrado' }];
     expect(ativosNoFluxo(lista).map(s => s.id)).toEqual(['A', 'C']);
+  });
+});
+
+describe('resumoEspacadoresPainel', () => {
+  it('conta vãos a instalar, concluídos e trafos — cada serviço de espaçador é 1 vão', () => {
+    const esp = (id, status, equip) => ({ id, status, equip, desc: 'Instalar espaçador' });
+    const lista = [
+      esp('1', 'cadastrado', '57179-3-75'),
+      esp('2', 'cadastrado', '57179-3-75'),
+      esp('3', 'pendente', '57179-1-15'), // mesmo trafo 57179, outro sufixo
+      esp('4', 'pendente', '4196-3-112'),
+      esp('5', 'concluido', '998051-3-45'),
+      esp('6', 'reprovado', '13069-3-75'), // fora da conta
+      esp('7', 'cancelado', '13069-3-75'), // fora da conta
+      { id: '8', status: 'cadastrado', equip: '111-1-1', desc: 'Troca de placa' }, // não é espaçador
+      { id: '9', status: 'concluido', equip: '222', desc: 'Instalação', etapa_espacador: 'pago' },
+    ];
+    expect(resumoEspacadoresPainel(lista)).toEqual({
+      aInstalar: 4, cadastrados: 2, pendentes: 2, outros: 0, concluidos: 2, trafosAInstalar: 2,
+    });
+  });
+
+  it('lista vazia', () => {
+    expect(resumoEspacadoresPainel([])).toEqual({
+      aInstalar: 0, cadastrados: 0, pendentes: 0, outros: 0, concluidos: 0, trafosAInstalar: 0,
+    });
   });
 });

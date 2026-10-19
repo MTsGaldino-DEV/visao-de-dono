@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import * as XLSX from 'xlsx';
+import { resumoEspacadoresPainel } from '../lib/espacadores';
 
 // ── Animação pulse (bolinha alerta) ──────────────────────────────────────────
 const pulseStyle = `
@@ -317,6 +318,11 @@ const PainelTab = () => {
   const progressoConcluidos = baseProgresso.filter(s => s.status === 'concluido').length;
   const pctGeral = baseProgresso.length > 0 ? Math.round((progressoConcluidos / baseProgresso.length) * 100) : 0;
 
+  // ── Espaçadores (cada serviço = 1 vão) ────────────────────────────────────
+  const esp = resumoEspacadoresPainel(servicos);
+  const espTotal = esp.aInstalar + esp.concluidos;
+  const pctEsp = espTotal > 0 ? Math.round((esp.concluidos / espTotal) * 100) : 0;
+
   // ── Dados por posto ────────────────────────────────────────────────────────
   const dadosPosto = Object.keys(POSTOS).map(posto => {
     const ps = ativos.filter(s => postoDeLocalidade(s.local) === posto);
@@ -497,6 +503,49 @@ const PainelTab = () => {
             <div style={{ height: '100%', borderRadius: 3, background: '#dc2626', width: totalAtivos > 0 ? `${Math.round((totalReprovados / totalAtivos) * 100)}%` : '0%', transition: 'width 0.5s' }} />
           </div>
           <div style={{ fontSize: 10, color: '#94a3b8' }}>{totalAtivos > 0 ? Math.round((totalReprovados / totalAtivos) * 100) : 0}% do total ativo</div>
+        </div>
+      </div>
+
+      {/* ══ LINHA 1b: Espaçadores ══════════════════════════════════════════════ */}
+      <div style={{ ...card, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Espaçadores</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Cada serviço é 1 vão · sem cancelados e reprovados</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr', gap: 10 }}>
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Vãos a instalar</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#0f2544', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{esp.aInstalar}</div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>
+              {esp.cadastrados} cadastrados · {esp.pendentes} pendentes{esp.outros > 0 ? ` · ${esp.outros} outros` : ''}
+            </div>
+          </div>
+
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Vãos concluídos</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#15803d', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{esp.concluidos}</div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>{pctEsp}% de {espTotal} vãos</div>
+          </div>
+
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Trafos a instalar</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#0f2544', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{esp.trafosAInstalar}</div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>com pelo menos 1 vão em aberto</div>
+          </div>
+
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span style={{ color: '#64748b' }}>Progresso dos vãos</span>
+              <span style={{ fontWeight: 800, color: '#0f2544' }}>{pctEsp}%</span>
+            </div>
+            <div style={{ height: 10, borderRadius: 5, background: '#f1f5f9', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 5, background: '#15803d', width: `${pctEsp}%`, minWidth: esp.concluidos > 0 ? 4 : 0, transition: 'width 0.5s' }} />
+            </div>
+            <div style={{ fontSize: 10, color: '#94a3b8' }}>{esp.concluidos} concluídos de {espTotal} vãos</div>
+          </div>
         </div>
       </div>
 

@@ -192,3 +192,27 @@ export const bloqueioNovaInstalacao = (s) => {
 export const ativosNoFluxo = (lista) => lista.filter(s => s.status !== 'cancelado');
 
 export const formatarData =(iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+
+// ── Painel ───────────────────────────────────────────────────────────────────
+
+// Trafo = parte do equip antes do primeiro traço (mesma regra de Duplicidade/GerarServicos)
+const trafoDoEquip = (equip) => {
+  const raw = (equip || '').trim();
+  return raw ? raw.split('-')[0].trim() : null;
+};
+
+// Cada serviço de espaçador é 1 vão. Cancelados e reprovados ficam fora da conta.
+export const resumoEspacadoresPainel = (servicos) => {
+  const esp = servicos.filter(s => isEspacador(s) || s.etapa_espacador);
+  const aInstalar = esp.filter(s => !['cancelado', 'reprovado', 'concluido'].includes(s.status));
+  const cadastrados = aInstalar.filter(s => s.status === 'cadastrado').length;
+  const pendentes = aInstalar.filter(s => s.status === 'pendente').length;
+  return {
+    aInstalar: aInstalar.length,
+    cadastrados,
+    pendentes,
+    outros: aInstalar.length - cadastrados - pendentes,
+    concluidos: esp.filter(s => s.status === 'concluido').length,
+    trafosAInstalar: new Set(aInstalar.map(s => trafoDoEquip(s.equip)).filter(Boolean)).size,
+  };
+};
