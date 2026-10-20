@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, fetchAll } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import { resumoEspacadoresPainel } from '../lib/espacadores';
+import { resumoEspacadoresPainel, resumoEspacadoresPorGrupo } from '../lib/espacadores';
 import { dataConclusao } from '../lib/painel';
 
 // ── Animação pulse (bolinha alerta) ──────────────────────────────────────────
@@ -286,6 +286,7 @@ const PainelTab = () => {
   const [servicos, setServicos] = useState([]);
   const [agrupamento, setAgrupamento] = useState('semana'); // 'semana' | 'mes'
   const [periodoTendencia, setPeriodoTendencia] = useState(8); // semanas ou meses
+  const [abaEsp, setAbaEsp] = useState('postos'); // 'postos' | 'ranking'
 
   useEffect(() => {
     setPeriodoTendencia(agrupamento === 'semana' ? 8 : 6);
@@ -323,6 +324,16 @@ const PainelTab = () => {
   const esp = resumoEspacadoresPainel(servicos);
   const espTotal = esp.aInstalar + esp.concluidos;
   const pctEsp = espTotal > 0 ? Math.round((esp.concluidos / espTotal) * 100) : 0;
+
+  const espPorPosto = Object.fromEntries(
+    resumoEspacadoresPorGrupo(servicos, s => postoDeLocalidade(s.local)).map(g => [g.chave, g])
+  );
+  const postosEsp = [...Object.keys(POSTOS), ...(espPorPosto['Não mapeado'] ? ['Não mapeado'] : [])];
+
+  // Ranking: onde há mais vãos a instalar; empate decide pelo total de vãos
+  const rankingEsp = resumoEspacadoresPorGrupo(servicos, s => norm(s.local) || 'SEM LOCALIDADE')
+    .sort((a, b) => b.aInstalar - a.aInstalar || (b.aInstalar + b.concluidos) - (a.aInstalar + a.concluidos));
+  const maxRankingEsp = Math.max(...rankingEsp.map(g => g.aInstalar), 1);
 
   // ── Dados por posto ────────────────────────────────────────────────────────
   const dadosPosto = Object.keys(POSTOS).map(posto => {
@@ -506,10 +517,15 @@ const PainelTab = () => {
 
       {/* ══ LINHA 1b: Espaçadores ══════════════════════════════════════════════ */}
       <div style={{ ...card, padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0f2544' }}>Espaçadores</div>
             <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Cada serviço é 1 vão · sem cancelados e reprovados</div>
+          </div>
+          <div style={{ display: 'flex', background: '#f1f5f9', padding: 2, borderRadius: 6 }}>
+            {[['postos', 'Por posto'], ['ranking', 'Ranking de localidades']].map(([aba, rotulo]) => (
+              <button key={aba} onClick={() => setAbaEsp(aba)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, border: 'none', background: abaEsp === aba ? '#fff' : 'transparent', color: abaEsp === aba ? '#0f2544' : '#64748b', fontWeight: abaEsp === aba ? 700 : 500, boxShadow: abaEsp === aba ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>{rotulo}</button>
+            ))}
           </div>
         </div>
 
@@ -545,6 +561,95 @@ const PainelTab = () => {
             <div style={{ fontSize: 10, color: '#94a3b8' }}>{esp.concluidos} concluídos de {espTotal} vãos</div>
           </div>
         </div>
+
+        {/* Aba: um cartão por posto */}
+        {abaEsp === 'postos' && (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${postosEsp.length}, 1fr)`, gap: 12, marginTop: 14 }}>
+            {postosEsp.map(posto => {
+              const cfg = POSTO_CFG[posto] || POSTO_CFG['Não mapeado'];
+              const g = espPorPosto[posto] || { aInstalar: 0, concluidos: 0, trafosAInstalar: 0, cadastrados: 0, pendentes: 0, outros: 0 };
+              const totalG = g.aInstalar + g.concluidos;
+              const pctG = totalG > 0 ? Math.round((g.concluidos / totalG) * 100) : 0;
+              const supervisor = posto.includes('—') ? posto.split('—')[1].trim() : '';
+              const postoNome = posto.includes('—') ? posto.split('—')[0].trim() : posto;
+              return (
+                <div key={posto} style={{
+                  border: `1px solid ${cfg.border}`, background: cfg.bg, borderRadius: 10, padding: '14px 16px',
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: cfg.color }}>{postoNome}</div>
+                      {supervisor && <div style={{ fontSize: 11, color: cfg.color, opacity: 0.7, marginTop: 1 }}>{supervisor}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: cfg.color, lineHeight: 1 }}>{pctG}%</div>
+                      <div style={{ fontSize: 10, color: cfg.color, opacity: 0.7 }}>concluído</div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: 6, borderRadius: 3, background: cfg.track || '#f1f5f9', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 3, background: cfg.color, width: `${pctG}%`, transition: 'width 0.5s' }} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, fontSize: 11 }}>
+                    {[['A instalar', g.aInstalar], ['Concluídos', g.concluidos], ['Trafos', g.trafosAInstalar]].map(([rotulo, valor]) => (
+                      <div key={rotulo}>
+                        <div style={{ color: cfg.color, opacity: 0.6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{rotulo}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: cfg.color, fontVariantNumeric: 'tabular-nums' }}>{valor}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: 10, color: cfg.color, opacity: 0.75 }}>
+                    {g.cadastrados} cadastrados · {g.pendentes} pendentes{g.outros > 0 ? ` · ${g.outros} outros` : ''}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Aba: ranking de localidades por vãos a instalar */}
+        {abaEsp === 'ranking' && (
+          <div style={{ marginTop: 14 }}>
+            {rankingEsp.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 12 }}>Sem espaçadores.</div>
+            ) : (
+              <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
+                {rankingEsp.map((g, i) => {
+                  const posto = postoDeLocalidade(g.chave);
+                  const cfg = POSTO_CFG[posto] || POSTO_CFG['Não mapeado'];
+                  return (
+                    <div key={g.chave}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5, gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', minWidth: 22 }}>#{i + 1}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.chave}</span>
+                          <span style={{
+                            fontSize: 9, padding: '1px 6px', borderRadius: 20, fontWeight: 700, flexShrink: 0,
+                            background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                          }}>{posto.split('—')[0].trim()}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          <span><strong style={{ color: '#0f2544' }}>{g.aInstalar}</strong> <span style={{ color: '#94a3b8' }}>a instalar</span></span>
+                          <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {g.concluidos}</span>
+                          <span style={{ color: '#64748b' }}>{g.trafosAInstalar} trafos</span>
+                        </div>
+                      </div>
+                      <div style={{ height: 7, borderRadius: 4, background: '#f1f5f9', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 4, background: cfg.color, transition: 'width 0.5s ease',
+                          width: `${Math.round((g.aInstalar / maxRankingEsp) * 100)}%`,
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ══ LINHA 2: Tendência + Alertas ══════════════════════════════════════ */}

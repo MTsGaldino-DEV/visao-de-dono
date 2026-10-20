@@ -4,6 +4,7 @@ import {
   podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
+  resumoEspacadoresPorGrupo,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -220,5 +221,25 @@ describe('resumoEspacadoresPainel', () => {
     expect(resumoEspacadoresPainel([])).toEqual({
       aInstalar: 0, cadastrados: 0, pendentes: 0, outros: 0, concluidos: 0, trafosAInstalar: 0,
     });
+  });
+});
+
+describe('resumoEspacadoresPorGrupo', () => {
+  it('resume os vãos de cada grupo e deixa de fora grupos sem vão na conta', () => {
+    const esp = (local, status, equip) => ({ local, status, equip, desc: 'Instalar espaçador' });
+    const lista = [
+      esp('MANTENA', 'cadastrado', '100-1-1'),
+      esp('MANTENA', 'pendente', '100-3-2'),
+      esp('MANTENA', 'concluido', '200-1-1'),
+      esp('TIPITI', 'pendente', '300-1-1'),
+      esp('COROACI', 'cancelado', '400-1-1'), // só cancelado: grupo some
+      { local: 'TIPITI', status: 'cadastrado', equip: '500', desc: 'Troca de placa' }, // não é espaçador
+    ];
+    const porLocal = Object.fromEntries(resumoEspacadoresPorGrupo(lista, s => s.local).map(g => [g.chave, g]));
+    expect(Object.keys(porLocal).sort()).toEqual(['MANTENA', 'TIPITI']);
+    expect(porLocal.MANTENA).toEqual({
+      chave: 'MANTENA', aInstalar: 2, cadastrados: 1, pendentes: 1, outros: 0, concluidos: 1, trafosAInstalar: 1,
+    });
+    expect(porLocal.TIPITI.aInstalar).toBe(1);
   });
 });

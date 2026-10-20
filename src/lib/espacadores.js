@@ -216,3 +216,15 @@ export const resumoEspacadoresPainel = (servicos) => {
     trafosAInstalar: new Set(aInstalar.map(s => trafoDoEquip(s.equip)).filter(Boolean)).size,
   };
 };
+
+// Mesmo resumo, separado por grupo (posto, localidade…). Grupos sem nenhum vão na conta ficam fora.
+export const resumoEspacadoresPorGrupo = (servicos, chaveDe) => {
+  const grupos = {};
+  servicos.filter(s => isEspacador(s) || s.etapa_espacador).forEach(s => {
+    const chave = chaveDe(s);
+    (grupos[chave] = grupos[chave] || []).push(s);
+  });
+  return Object.entries(grupos)
+    .map(([chave, lista]) => ({ chave, ...resumoEspacadoresPainel(lista) }))
+    .filter(g => g.aInstalar + g.concluidos > 0);
+};
