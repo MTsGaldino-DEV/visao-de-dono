@@ -4,13 +4,17 @@ import { lerCoordenada } from '../../lib/espacadores';
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
 const botaoArquivo = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', boxSizing: 'border-box' };
 
-// Uma foto (arquivo local ainda não enviado ou URL já salva) com a coordenada digitada logo abaixo
-const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, onArquivo, editavel = false, enviando = false, onAmpliar }) => {
+// Uma foto (arquivo local ainda não enviado ou URL já salva) com a coordenada digitada logo abaixo.
+// mostrarErros: true depois de uma tentativa de enviar — destaca em vermelho o que ainda falta.
+const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, onArquivo, editavel = false, enviando = false, mostrarErros = false, onAmpliar }) => {
   const preview = useMemo(() => (arquivo ? URL.createObjectURL(arquivo) : null), [arquivo]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   const src = preview || url;
-  const invalida = !!coord?.trim() && !lerCoordenada(coord);
+  const coordVazia = !coord?.trim();
+  const coordInvalidaDigitada = !coordVazia && !lerCoordenada(coord);
+  const erroCoord = coordInvalidaDigitada || (mostrarErros && coordVazia);
+  const faltaFoto = mostrarErros && editavel && !src;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -19,7 +23,7 @@ const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, on
         <img src={src} alt={rotulo} onClick={() => onAmpliar?.(src)}
           style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: onAmpliar ? 'zoom-in' : 'default' }} />
       ) : (
-        <div style={{ height: '160px', borderRadius: '8px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#94a3b8' }}>
+        <div style={{ height: '160px', borderRadius: '8px', border: `1px dashed ${faltaFoto ? '#dc2626' : '#cbd5e1'}`, background: faltaFoto ? '#fef2f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: faltaFoto ? '#dc2626' : '#94a3b8' }}>
           {editavel ? 'Nenhuma foto selecionada' : 'Sem foto'}
         </div>
       )}
@@ -33,8 +37,8 @@ const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, on
       {editavel ? (
         <div>
           <input value={coord} placeholder="-18.844040 -41.957216" onChange={e => onCoord(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${invalida ? '#dc2626' : '#cbd5e1'}`, fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
-          {invalida && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>Coordenada inválida</div>}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${erroCoord ? '#dc2626' : '#cbd5e1'}`, fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
+          {erroCoord && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{coordVazia ? 'Coordenada obrigatória' : 'Coordenada inválida'}</div>}
         </div>
       ) : (
         <div style={{ fontSize: '12px', color: '#475569' }}>

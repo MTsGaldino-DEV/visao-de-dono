@@ -26,6 +26,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const [mostrarLista, setMostrarLista] = useState(false);
   const [local, setLocal] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de enviar; acende os campos que faltam
   const travaEnvio = useRef(false); // o estado só muda no próximo render; a trava barra o duplo clique
 
   const buscar = async () => {
@@ -71,7 +72,8 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const escolher = (e) => { setEscolhaManual(e); setMostrarLista(false); };
 
   const enviar = async () => {
-    if (!pronto || travaEnvio.current) return;
+    if (travaEnvio.current) return;
+    if (!pronto) { setMostrarErros(true); return; }
     travaEnvio.current = true;
     setEnviando(true);
     try {
@@ -113,7 +115,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
               <input autoFocus value={texto} placeholder="Ex.: 763-3-45" disabled={enviando}
                 onChange={e => { setTexto(e.target.value); setResultados(null); setEscolhaManual(null); }}
                 onKeyDown={e => { if (e.key === 'Enter') buscar(); }}
-                style={input} />
+                style={{ ...input, borderColor: mostrarErros && !resultados ? '#dc2626' : '#cbd5e1' }} />
               <button onClick={buscar} disabled={buscando || enviando || !texto.trim()} style={{ padding: '10px 18px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {buscando ? 'Buscando…' : 'Buscar'}
               </button>
@@ -121,14 +123,14 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-            <CampoFoto rotulo="Foto do antes" arquivo={fotoAntes} onArquivo={setFotoAntes} coord={coordAntes} onCoord={setCoordAntes} editavel={!enviando} />
-            <CampoFoto rotulo="Foto do depois" arquivo={fotoDepois} onArquivo={setFotoDepois} coord={coordDepois} onCoord={setCoordDepois} editavel={!enviando} />
+            <CampoFoto rotulo="Foto do antes" arquivo={fotoAntes} onArquivo={setFotoAntes} coord={coordAntes} onCoord={setCoordAntes} editavel={!enviando} mostrarErros={mostrarErros} />
+            <CampoFoto rotulo="Foto do depois" arquivo={fotoDepois} onArquivo={setFotoDepois} coord={coordDepois} onCoord={setCoordDepois} editavel={!enviando} mostrarErros={mostrarErros} />
           </div>
 
           <div>
             <label style={rotulo}>Espaçadores instalados neste vão</label>
             <input type="number" min="1" step="1" value={qtd} disabled={enviando} onChange={e => setQtd(e.target.value)}
-              style={{ ...input, width: '120px', borderColor: qtd !== '' && !qtdValida(qtd) ? '#dc2626' : '#cbd5e1' }} />
+              style={{ ...input, width: '120px', borderColor: !qtdValida(qtd) && (qtd !== '' || mostrarErros) ? '#dc2626' : '#cbd5e1' }} />
           </div>
 
           {resultados && (
@@ -149,7 +151,8 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
                   </div>
                   <div>
                     <label style={rotulo}>Localidade</label>
-                    <select value={local} onChange={e => setLocal(e.target.value)} disabled={enviando} style={input}>
+                    <select value={local} onChange={e => setLocal(e.target.value)} disabled={enviando}
+                      style={{ ...input, borderColor: mostrarErros && !local ? '#dc2626' : '#cbd5e1' }}>
                       <option value="">Selecione…</option>
                       {TODAS_LOCALIDADES.map(l => <option key={l.loc} value={l.loc}>{l.loc}</option>)}
                     </select>
@@ -157,7 +160,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
                 </div>
               )}
               {!escolha && (
-                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: '8px', padding: '10px 12px', fontSize: '13px' }}>
+                <div style={{ background: '#fffbeb', border: `1px solid ${mostrarErros ? '#dc2626' : '#fde68a'}`, color: '#92400e', borderRadius: '8px', padding: '10px 12px', fontSize: '13px' }}>
                   {avisoSemVinculo()}. Escolha um serviço abaixo ou crie um novo.
                 </div>
               )}
@@ -189,11 +192,11 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
         </div>
 
         <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', color: '#64748b', flex: 1 }}>
+          <span style={{ fontSize: '12px', color: mostrarErros && faltando.length ? '#dc2626' : '#64748b', fontWeight: mostrarErros && faltando.length ? '700' : '400', flex: 1 }}>
             {faltando.length ? `Falta: ${faltando.join(', ')}.` : 'Tudo pronto para o fechamento.'}
           </span>
-          <button onClick={enviar} disabled={!pronto}
-            style={{ padding: '12px 22px', background: pronto ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: pronto ? 'pointer' : 'not-allowed' }}>
+          <button onClick={enviar} disabled={enviando}
+            style={{ padding: '12px 22px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: enviando ? 'wait' : 'pointer', opacity: enviando ? 0.7 : 1 }}>
             {enviando ? 'Enviando…' : 'Enviar para fechamento →'}
           </button>
         </div>

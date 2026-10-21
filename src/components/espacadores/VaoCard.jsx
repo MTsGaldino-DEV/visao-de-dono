@@ -10,12 +10,13 @@ const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px sol
 // O vão único da instalação. modo: 'edicao' (despachante), 'revisao' (fechamento) ou 'leitura'.
 // vao pode ser null quando o envio caiu antes de criar a linha; no modo edição os campos aparecem vazios.
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
-const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, onTrocarFoto, onSalvarDados, onSalvarQtd, onAnexarCroqui, onAmpliar }) => {
+const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onSalvarQtd, onAnexarCroqui, onAmpliar }) => {
   const { coordAntes, coordDepois, qtd } = rascunho;
 
   const edicao = modo === 'edicao';
   const revisao = modo === 'revisao';
   const pendencias = pendenciasInstalacao(vao);
+  const destacarFalta = edicao && mostrarErros;
 
   const temAlteracao = Object.keys(alteracoes.campos).length > 0;
   const qtdMudou = 'qtd_espacadores' in alteracoes.campos;
@@ -34,9 +35,9 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, o
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
         <CampoFoto rotulo="Foto do antes" url={vao?.fotos_antes?.[0]} coord={edicao ? coordAntes : vao?.coord_antes}
-          onCoord={v => onRascunho('coordAntes', v)} onArquivo={f => onTrocarFoto('antes', f)} editavel={edicao} enviando={enviando.antes} onAmpliar={onAmpliar} />
+          onCoord={v => onRascunho('coordAntes', v)} onArquivo={f => onTrocarFoto('antes', f)} editavel={edicao} enviando={enviando.antes} mostrarErros={destacarFalta} onAmpliar={onAmpliar} />
         <CampoFoto rotulo="Foto do depois" url={vao?.fotos_depois?.[0]} coord={edicao ? coordDepois : vao?.coord_depois}
-          onCoord={v => onRascunho('coordDepois', v)} onArquivo={f => onTrocarFoto('depois', f)} editavel={edicao} enviando={enviando.depois} onAmpliar={onAmpliar} />
+          onCoord={v => onRascunho('coordDepois', v)} onArquivo={f => onTrocarFoto('depois', f)} editavel={edicao} enviando={enviando.depois} mostrarErros={destacarFalta} onAmpliar={onAmpliar} />
       </div>
 
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -45,7 +46,7 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, o
           {edicao || revisao ? (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input type="number" min="1" step="1" value={qtd} onChange={e => onRascunho('qtd', e.target.value)}
-                style={{ ...inputQtd, borderColor: qtd !== '' && !qtdValida(qtd) ? '#dc2626' : '#cbd5e1' }} />
+                style={{ ...inputQtd, borderColor: !qtdValida(qtd) && (qtd !== '' || destacarFalta) ? '#dc2626' : '#cbd5e1' }} />
               {revisao && (
                 <button onClick={onSalvarQtd} disabled={!qtdMudou} style={{ ...botaoSalvar, opacity: qtdMudou ? 1 : 0.5, cursor: qtdMudou ? 'pointer' : 'not-allowed' }}>Salvar</button>
               )}

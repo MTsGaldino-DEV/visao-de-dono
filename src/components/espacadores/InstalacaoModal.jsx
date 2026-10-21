@@ -22,6 +22,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [rascunho, setRascunho] = useState(null); // o que está digitado, preso à versão salva do vão
+  const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de enviar sem estar pronto
 
   const recarregar = useCallback(async () => {
     try {
@@ -104,6 +105,11 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     await trocarFoto(alvo, tipo, file);
   });
 
+  const handleEnviar = () => {
+    if (!prontoParaEnviar) { setMostrarErros(true); return; }
+    transicionar('enviar');
+  };
+
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
@@ -151,6 +157,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
             onSalvarDados={() => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos))}
             onSalvarQtd={() => executar(() => corrigirQuantidade(servico, vao, digitado.qtd, user))}
             onAnexarCroqui={(file) => comEnvio('croqui', () => anexarCroqui(vao, file))}
+            mostrarErros={mostrarErros}
             onAmpliar={setFotoAmpliada}
           />
 
@@ -179,14 +186,14 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
             >
               Excluir instalação
             </button>
-            <span style={{ fontSize: '12px', color: '#64748b', flex: 1, textAlign: 'right' }}>
+            <span style={{ fontSize: '12px', color: mostrarErros && !prontoParaEnviar ? '#dc2626' : '#64748b', fontWeight: mostrarErros && !prontoParaEnviar ? '700' : '400', flex: 1, textAlign: 'right' }}>
               {alteracoes.pendente ? 'Salve as alterações antes de enviar.'
                 : prontoParaEnviar ? 'Tudo pronto para o fechamento.' : `Falta: ${pendenciasInstalacao(vao).join(', ')}.`}
             </span>
             <button
-              onClick={() => transicionar('enviar')}
-              disabled={ocupado || !prontoParaEnviar}
-              style={{ padding: '12px 22px', background: prontoParaEnviar ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !prontoParaEnviar ? 'not-allowed' : 'pointer' }}
+              onClick={handleEnviar}
+              disabled={ocupado}
+              style={{ padding: '12px 22px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado ? 'not-allowed' : 'pointer', opacity: ocupado ? 0.7 : 1 }}
             >
               Enviar para fechamento →
             </button>
