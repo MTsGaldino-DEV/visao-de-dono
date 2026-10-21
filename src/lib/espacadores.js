@@ -1,7 +1,7 @@
 // Regras do fluxo de instalação de espaçadores por vão.
 // Módulo puro (sem Supabase) para poder ser testado com Vitest.
 
-export const MAX_VAOS = 20;
+export const LIMITE_VINCULO_M = 100;
 
 export const ETAPAS = {
   instalacao:      { label: 'Em instalação',   cor: '#1d4ed8', bg: '#eff6ff', borda: '#bfdbfe' },
@@ -40,35 +40,68 @@ export const ordenarResultadosTrafo = (lista, texto) => {
   return [...lista].sort((a, b) => rank(a) - rank(b) || String(a.equip).localeCompare(String(b.equip)));
 };
 
-export const pendenciasVao = (vao) => {
+// Separadores: ";", ", " (vírgula seguida de espaço) ou espaço. Sem nenhum deles, tenta "," simples.
+// Depois troca a vírgula decimal por ponto em cada parte.
+export const lerCoordenada = (texto) => {
+  const t = String(texto ?? '').trim();
+  if (!t) return null;
+  let partes = t.split(/\s*;\s*|\s*,\s+|\s+/);
+  if (partes.length === 1) partes = t.split(',');
+  if (partes.length !== 2) return null;
+  const [lat, lng] = partes.map(p => Number(p.replace(',', '.')));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+};
+
+export const distanciaMetros = (a, b) => {
+  const rad = (g) => (g * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+};
+
+// Candidatos do mais perto ao mais longe da coordenada do antes; sem coordenada no fim
+export const sugerirVinculo = (candidatos, coordAntes) => {
+  const origem = lerCoordenada(coordAntes);
+  const ordenados = candidatos
+    .map(c => {
+      const destino = origem && lerCoordenada(c.coord);
+      return { ...c, distancia: destino ? distanciaMetros(origem, destino) : null };
+    })
+    .sort((a, b) => (a.distancia ?? Infinity) - (b.distancia ?? Infinity));
+  const primeiro = ordenados[0];
+  const sugerido = primeiro?.distancia != null && primeiro.distancia <= LIMITE_VINCULO_M ? primeiro : null;
+  return { ordenados, sugerido };
+};
+
+export const qtdValida = (valor) => {
+  if (valor === null || valor === undefined || String(valor).trim() === '') return null;
+  const n = Number(valor);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+// O que falta para o despachante enviar a instalação (o croqui é do fechamento)
+export const pendenciasInstalacao = (vao) => {
   const faltando = [];
-  if (!vao.fotos_antes?.length) faltando.push('foto de antes');
-  if (!vao.fotos_depois?.length) faltando.push('foto de depois');
-  if (!vao.croqui_url) faltando.push('croqui');
+  if (!vao?.fotos_antes?.length) faltando.push('foto de antes');
+  if (!lerCoordenada(vao?.coord_antes)) faltando.push('coordenada do antes');
+  if (!vao?.fotos_depois?.length) faltando.push('foto de depois');
+  if (!lerCoordenada(vao?.coord_depois)) faltando.push('coordenada do depois');
+  if (!qtdValida(vao?.qtd_espacadores)) faltando.push('quantidade');
   return faltando;
 };
 
-export const vaoCompleto = (vao) => pendenciasVao(vao).length === 0;
+export const podeEnviarInstalacao = (vao) => pendenciasInstalacao(vao).length === 0;
 
-export const podeEnviarParaFechamento = (vaos) => vaos.length > 0 && vaos.every(vaoCompleto);
-
-export const resumoVaos = (vaos) => ({ total: vaos.length, completos: vaos.filter(vaoCompleto).length });
+export const podeAprovar = (vao) => !!vao?.croqui_url;
 
 export const agruparVaos = (vaos) => {
   const grupos = {};
   vaos.forEach(v => { (grupos[v.servico_id] = grupos[v.servico_id] || []).push(v); });
   Object.values(grupos).forEach(lista => lista.sort((a, b) => a.numero - b.numero));
   return grupos;
-};
-
-// Continua depois do maior; se o maior já é 20, reaproveita o primeiro número livre
-export const proximoNumeroVao = (vaos) => {
-  if (vaos.length >= MAX_VAOS) return null;
-  const usados = new Set(vaos.map(v => v.numero));
-  const maior = Math.max(0, ...usados);
-  if (maior < MAX_VAOS) return maior + 1;
-  for (let n = 1; n <= MAX_VAOS; n++) if (!usados.has(n)) return n;
-  return null;
 };
 
 // Mesma numeração de CadastroForm

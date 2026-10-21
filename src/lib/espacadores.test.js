@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  MAX_VAOS, isEspacador, ordenarResultadosTrafo, pendenciasVao, vaoCompleto,
-  podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
+  isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
+  lerCoordenada, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
@@ -9,7 +9,6 @@ import {
 
 const user = { label: 'Ana', matricula: '123' };
 const agora = '2026-09-25T12:00:00.000Z';
-const vaoOk = { numero: 1, fotos_antes: ['a'], fotos_depois: ['d'], croqui_url: 'c.pdf' };
 
 describe('isEspacador', () => {
   it('reconhece variações com e sem acento', () => {
@@ -28,43 +27,70 @@ describe('ordenarResultadosTrafo', () => {
   });
 });
 
-describe('vãos', () => {
-  it('lista o que falta em cada vão', () => {
-    expect(pendenciasVao({ fotos_antes: [], fotos_depois: ['d'], croqui_url: null }))
-      .toEqual(['foto de antes', 'croqui']);
-    expect(pendenciasVao(vaoOk)).toEqual([]);
-    expect(vaoCompleto(vaoOk)).toBe(true);
+describe('lerCoordenada', () => {
+  const ok = { lat: -18.84404, lng: -41.957216 };
+  it.each([
+    '-18.844040 -41.957216', '-18.844040, -41.957216', '-18.844040,-41.957216',
+    '-18.844040;-41.957216', ' -18,844040 -41,957216 ', '-18,844040;-41,957216',
+  ])('lê %s', (t) => {
+    const c = lerCoordenada(t);
+    expect(c.lat).toBeCloseTo(ok.lat, 6);
+    expect(c.lng).toBeCloseTo(ok.lng, 6);
   });
-
-  it('só permite enviar com pelo menos um vão e todos completos', () => {
-    expect(podeEnviarParaFechamento([])).toBe(false);
-    expect(podeEnviarParaFechamento([vaoOk, { ...vaoOk, croqui_url: null }])).toBe(false);
-    expect(podeEnviarParaFechamento([vaoOk, vaoOk])).toBe(true);
+  it.each(['', null, 'abc', '-18.8', '-95 -41', '-18 -200', '-18.8 -41.9 3'])('recusa %s', (t) => {
+    expect(lerCoordenada(t)).toBeNull();
   });
+});
 
-  it('resume total e completos', () => {
-    expect(resumoVaos([vaoOk, { ...vaoOk, fotos_antes: [] }])).toEqual({ total: 2, completos: 1 });
+describe('distanciaMetros', () => {
+  it('calcula em metros', () => {
+    expect(distanciaMetros({ lat: -18.844040, lng: -41.957216 }, { lat: -18.844040, lng: -41.957216 })).toBe(0);
+    // 0.001° de latitude ≈ 111 m
+    expect(distanciaMetros({ lat: -18.844, lng: -41.957 }, { lat: -18.845, lng: -41.957 })).toBeCloseTo(111.2, 0);
   });
+});
 
+describe('sugerirVinculo', () => {
+  const base = { lat: -18.844, lng: -41.957 };
+  const s = (id, coord) => ({ id, coord });
+  it('ordena por distância, sem coordenada no fim, e sugere até 100 m', () => {
+    const r = sugerirVinculo([s('LONGE', '-18.850 -41.957'), s('RUIM', 'xx'), s('PERTO', '-18.84489 -41.957')], '-18.844 -41.957');
+    expect(r.ordenados.map(c => c.id)).toEqual(['PERTO', 'LONGE', 'RUIM']);
+    expect(r.ordenados[2].distancia).toBeNull();
+    expect(r.sugerido.id).toBe('PERTO');
+  });
+  it('100 m exatos ainda sugere; acima não', () => {
+    const exato = `${base.lat - 100 / 111195} ${base.lng}`;
+    expect(sugerirVinculo([s('A', exato)], '-18.844 -41.957').sugerido?.id).toBe('A');
+    expect(sugerirVinculo([s('A', '-18.8450 -41.957')], '-18.844 -41.957').sugerido).toBeNull();
+  });
+  it('sem coordenada do antes não sugere nada', () => {
+    const r = sugerirVinculo([s('A', '-18.844 -41.957')], '');
+    expect(r.sugerido).toBeNull();
+    expect(r.ordenados[0].distancia).toBeNull();
+  });
+});
+
+describe('instalação de um vão', () => {
+  const vao = { fotos_antes: ['a'], fotos_depois: ['d'], coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3 };
+  it('qtdValida aceita só inteiro > 0', () => {
+    expect(qtdValida('3')).toBe(3);
+    expect(qtdValida(4)).toBe(4);
+    [0, -1, 2.5, '', null, 'abc'].forEach(v => expect(qtdValida(v)).toBeNull());
+  });
+  it('lista pendências na ordem e libera o envio', () => {
+    expect(pendenciasInstalacao(null)).toEqual(['foto de antes', 'coordenada do antes', 'foto de depois', 'coordenada do depois', 'quantidade']);
+    expect(pendenciasInstalacao({ ...vao, coord_depois: 'xx', qtd_espacadores: 0 })).toEqual(['coordenada do depois', 'quantidade']);
+    expect(podeEnviarInstalacao(vao)).toBe(true);
+  });
+  it('aprovar exige croqui', () => {
+    expect(podeAprovar(vao)).toBe(false);
+    expect(podeAprovar({ ...vao, croqui_url: 'c.pdf' })).toBe(true);
+  });
   it('agrupa por serviço ordenando por número', () => {
     const g = agruparVaos([{ servico_id: 'A', numero: 2 }, { servico_id: 'B', numero: 1 }, { servico_id: 'A', numero: 1 }]);
     expect(g.A.map(v => v.numero)).toEqual([1, 2]);
     expect(g.B).toHaveLength(1);
-  });
-});
-
-describe('proximoNumeroVao', () => {
-  const nums = (...ns) => ns.map(numero => ({ numero }));
-  it('começa em 1 e continua depois do maior', () => {
-    expect(proximoNumeroVao([])).toBe(1);
-    expect(proximoNumeroVao(nums(1, 2, 4))).toBe(5);
-  });
-  it('reaproveita buraco quando o maior já é 20', () => {
-    const quase = nums(...Array.from({ length: 20 }, (_, i) => i + 1).filter(n => n !== 7));
-    expect(proximoNumeroVao(quase)).toBe(7);
-  });
-  it('retorna null no limite', () => {
-    expect(proximoNumeroVao(nums(...Array.from({ length: MAX_VAOS }, (_, i) => i + 1)))).toBeNull();
   });
 });
 
