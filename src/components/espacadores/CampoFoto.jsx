@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { lerCoordenada } from '../../lib/espacadores';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
@@ -6,14 +6,8 @@ const botaoArquivo = { display: 'inline-flex', alignItems: 'center', justifyCont
 
 // Uma foto (arquivo local ainda não enviado ou URL já salva) com a coordenada digitada logo abaixo
 const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, onArquivo, editavel = false, enviando = false, onAmpliar }) => {
-  const [preview, setPreview] = useState(null);
-
-  useEffect(() => {
-    if (!arquivo) { setPreview(null); return undefined; }
-    const local = URL.createObjectURL(arquivo);
-    setPreview(local);
-    return () => URL.revokeObjectURL(local);
-  }, [arquivo]);
+  const preview = useMemo(() => (arquivo ? URL.createObjectURL(arquivo) : null), [arquivo]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   const src = preview || url;
   const invalida = !!coord?.trim() && !lerCoordenada(coord);
