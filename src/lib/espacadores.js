@@ -40,6 +40,8 @@ export const ordenarResultadosTrafo = (lista, texto) => {
   return [...lista].sort((a, b) => rank(a) - rank(b) || String(a.equip).localeCompare(String(b.equip)));
 };
 
+const NUMERO_COORD = /^[+-]?\d+(?:[.,]\d+)?$/;
+
 // Separadores: ";", ", " (vírgula seguida de espaço) ou espaço. Sem nenhum deles, tenta "," simples.
 // Depois troca a vírgula decimal por ponto em cada parte.
 export const lerCoordenada = (texto) => {
@@ -47,11 +49,16 @@ export const lerCoordenada = (texto) => {
   if (!t) return null;
   let partes = t.split(/\s*;\s*|\s*,\s+|\s+/);
   if (partes.length === 1) partes = t.split(',');
-  if (partes.length !== 2) return null;
+  if (partes.length !== 2 || !partes.every(p => NUMERO_COORD.test(p))) return null;
   const [lat, lng] = partes.map(p => Number(p.replace(',', '.')));
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { lat, lng };
+};
+
+// Formato gravado no banco, o mesmo que o Mapa lê ("lat lng" com ponto decimal)
+export const formatarCoordenada = (texto) => {
+  const c = lerCoordenada(texto);
+  return c ? `${c.lat.toFixed(6)} ${c.lng.toFixed(6)}` : null;
 };
 
 export const distanciaMetros = (a, b) => {
@@ -91,6 +98,28 @@ export const pendenciasInstalacao = (vao) => {
   if (!lerCoordenada(vao?.coord_depois)) faltando.push('coordenada do depois');
   if (!qtdValida(vao?.qtd_espacadores)) faltando.push('quantidade');
   return faltando;
+};
+
+// Compara o que está digitado na tela com o vão salvo: campos = o que gravar (já normalizado);
+// invalido = há um valor digitado que não pode ser gravado. Enviar e aprovar esperam pendente = false.
+export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd }) => {
+  const campos = {};
+  let invalido = false;
+  [['coord_antes', coordAntes], ['coord_depois', coordDepois]].forEach(([campo, digitado]) => {
+    const texto = String(digitado ?? '').trim();
+    const salvo = vao?.[campo] || '';
+    if (!texto && !salvo) return;
+    const novo = formatarCoordenada(texto);
+    if (!novo) { invalido = true; return; }
+    if (novo !== (formatarCoordenada(salvo) ?? salvo)) campos[campo] = novo;
+  });
+  const qtdSalva = vao?.qtd_espacadores ?? null;
+  if (String(qtd ?? '').trim() !== '' || qtdSalva !== null) {
+    const nova = qtdValida(qtd);
+    if (nova === null) invalido = true;
+    else if (nova !== qtdSalva) campos.qtd_espacadores = nova;
+  }
+  return { campos, pendente: invalido || Object.keys(campos).length > 0, invalido };
 };
 
 export const podeEnviarInstalacao = (vao) => pendenciasInstalacao(vao).length === 0;

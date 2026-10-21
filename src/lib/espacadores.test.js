@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
-  lerCoordenada, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
+  lerCoordenada, formatarCoordenada, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
@@ -37,8 +37,37 @@ describe('lerCoordenada', () => {
     expect(c.lat).toBeCloseTo(ok.lat, 6);
     expect(c.lng).toBeCloseTo(ok.lng, 6);
   });
-  it.each(['', null, 'abc', '-18.8', '-95 -41', '-18 -200', '-18.8 -41.9 3'])('recusa %s', (t) => {
+  it.each(['', null, 'abc', '-18.8', '-95 -41', '-18 -200', '-18.8 -41.9 3', '-18.844040,', '-18.844040;', '; -41.95', '0x10 0x20'])('recusa %s', (t) => {
     expect(lerCoordenada(t)).toBeNull();
+  });
+});
+
+describe('formatarCoordenada', () => {
+  it('grava no formato que o Mapa lê', () => {
+    expect(formatarCoordenada('-18,844040;-41,957216')).toBe('-18.844040 -41.957216');
+    expect(formatarCoordenada(' -18.8440401, -41.95 ')).toBe('-18.844040 -41.950000');
+    expect(formatarCoordenada('xx')).toBeNull();
+  });
+});
+
+describe('alteracoesPendentes', () => {
+  const vao = { coord_antes: '-18.844040 -41.957216', coord_depois: '-18.844040 -41.957216', qtd_espacadores: 3 };
+  const rascunho = { coordAntes: vao.coord_antes, coordDepois: vao.coord_depois, qtd: 3 };
+  it('sem mudança não há nada pendente', () => {
+    expect(alteracoesPendentes(vao, rascunho)).toEqual({ campos: {}, pendente: false, invalido: false });
+  });
+  it('só leva o que mudou, já normalizado', () => {
+    const r = alteracoesPendentes(vao, { ...rascunho, coordDepois: '-18,9;-41,9', qtd: '4' });
+    expect(r).toEqual({ campos: { coord_depois: '-18.900000 -41.900000', qtd_espacadores: 4 }, pendente: true, invalido: false });
+  });
+  it('mesma coordenada em outro formato não conta como mudança', () => {
+    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '-18,844040;-41,957216' }).pendente).toBe(false);
+  });
+  it('valor inválido digitado fica pendente e marcado', () => {
+    expect(alteracoesPendentes(vao, { ...rascunho, qtd: '0' })).toEqual({ campos: {}, pendente: true, invalido: true });
+  });
+  it('vão inexistente com campos vazios não tem pendência', () => {
+    expect(alteracoesPendentes(null, { coordAntes: '', coordDepois: '', qtd: '' }).pendente).toBe(false);
   });
 });
 

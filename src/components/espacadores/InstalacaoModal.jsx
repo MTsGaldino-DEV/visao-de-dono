@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
-  podeEnviarInstalacao, pendenciasInstalacao, podeAprovar, lerCoordenada, distanciaMetros, formatarData,
+  podeEnviarInstalacao, pendenciasInstalacao, podeAprovar, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirQuantidade,
@@ -21,6 +21,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const [rascunho, setRascunho] = useState(null); // o que está digitado, preso à versão salva do vão
 
   const recarregar = useCallback(async () => {
     try {
@@ -48,8 +49,14 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const editavel = modo === 'edicao' && servico.etapa_espacador === 'instalacao';
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
   const vao = vaos[0] ?? null;
-  const prontoParaEnviar = podeEnviarInstalacao(vao);
-  const prontoParaAprovar = podeAprovar(vao);
+  // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
+  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}`;
+  const digitado = rascunho?.versao === versaoVao ? rascunho : {
+    versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '',
+  };
+  const alteracoes = alteracoesPendentes(vao, digitado);
+  const prontoParaEnviar = podeEnviarInstalacao(vao) && !alteracoes.pendente;
+  const prontoParaAprovar = podeAprovar(vao) && !alteracoes.pendente;
   const coordLevantamento = lerCoordenada(servico.coord);
   const coordAntes = lerCoordenada(vao?.coord_antes);
   const distanciaLevantamento = coordLevantamento && coordAntes ? Math.round(distanciaMetros(coordLevantamento, coordAntes)) : null;
@@ -134,13 +141,15 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
           )}
 
           <VaoCard
-            key={`${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}`}
             vao={vao}
+            rascunho={digitado}
+            alteracoes={alteracoes}
+            onRascunho={(campo, valor) => setRascunho({ ...digitado, [campo]: valor })}
             modo={editavel ? 'edicao' : podeRevisar ? 'revisao' : 'leitura'}
             enviando={enviando}
             onTrocarFoto={handleTrocarFoto}
-            onSalvarDados={(campos) => executar(() => salvarDadosVao(servico.id, vao, campos))}
-            onSalvarQtd={(qtd) => executar(() => corrigirQuantidade(servico, vao, qtd, user))}
+            onSalvarDados={() => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos))}
+            onSalvarQtd={() => executar(() => corrigirQuantidade(servico, vao, digitado.qtd, user))}
             onAnexarCroqui={(file) => comEnvio('croqui', () => anexarCroqui(vao, file))}
             onAmpliar={setFotoAmpliada}
           />
@@ -171,7 +180,8 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               Excluir instalação
             </button>
             <span style={{ fontSize: '12px', color: '#64748b', flex: 1, textAlign: 'right' }}>
-              {prontoParaEnviar ? 'Tudo pronto para o fechamento.' : `Falta: ${pendenciasInstalacao(vao).join(', ')}.`}
+              {alteracoes.pendente ? 'Salve as alterações antes de enviar.'
+                : prontoParaEnviar ? 'Tudo pronto para o fechamento.' : `Falta: ${pendenciasInstalacao(vao).join(', ')}.`}
             </span>
             <button
               onClick={() => transicionar('enviar')}
@@ -195,7 +205,11 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {!prontoParaAprovar && <span style={{ fontSize: '12px', color: '#92400e', width: '100%', textAlign: 'right' }}>Anexe o croqui para aprovar</span>}
+                {!prontoParaAprovar && (
+                  <span style={{ fontSize: '12px', color: '#92400e', width: '100%', textAlign: 'right' }}>
+                    {alteracoes.pendente ? 'Salve a quantidade antes de aprovar' : 'Anexe o croqui para aprovar'}
+                  </span>
+                )}
                 <button onClick={() => setMostrarReprovacao(true)} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✗ Reprovar</button>
                 <button onClick={() => transicionar('aprovar')} disabled={ocupado || !prontoParaAprovar} style={{ flex: 1, padding: '12px', background: prontoParaAprovar ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !prontoParaAprovar ? 'not-allowed' : 'pointer' }}>✓ Aprovar</button>
               </div>
