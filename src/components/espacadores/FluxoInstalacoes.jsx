@@ -9,7 +9,7 @@ import NovaInstalacaoModal from './NovaInstalacaoModal';
 import InstalacaoModal from './InstalacaoModal';
 import EtapaBadge from './EtapaBadge';
 
-// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSMC e pago.
+// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR e pago.
 // As ações de cada linha dependem da etapa do serviço e do perfil (permissoesFluxo).
 
 const th = { padding: '12px 16px', fontWeight: '600' };
@@ -29,8 +29,8 @@ const VAZIO = {
 
 // Número que o fechamento informa em cada etapa
 const NUMERO_DA_ETAPA = {
-  aguardando_nsmp: { acao: 'nsmp', placeholder: 'Nº NSMP' },
-  aguardando_nsmc: { acao: 'nsmc', placeholder: 'Nº NSMC' },
+  aguardando_nsmp: { acao: 'nsmp', label: 'NSMP', placeholder: 'Nº NSMP' },
+  aguardando_nsmc: { acao: 'nsmc', label: 'NSPR', placeholder: 'Nº NSPR' },
 };
 
 const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc'];
@@ -139,7 +139,7 @@ const FluxoInstalacoes = () => {
         <>
           {verDetalhes}
           <button onClick={() => { setEditandoId(s.id); setNumero(''); }} style={{ ...botao, background: '#1d4ed8', color: '#fff' }}>
-            Informar {numeroDaEtapa.acao.toUpperCase()}
+            Informar {numeroDaEtapa.label}
           </button>
         </>
       );
@@ -188,7 +188,7 @@ const FluxoInstalacoes = () => {
               <th style={th}>Espaçadores</th>
               <th style={th}>Situação</th>
               {mostraNumeros && <th style={th}>NSMP</th>}
-              {mostraNumeros && <th style={th}>NSMC</th>}
+              {mostraNumeros && <th style={th}>NSPR</th>}
               <th style={th}>Desde</th>
               <th style={{ ...th, textAlign: 'right' }}>Ações</th>
             </tr>

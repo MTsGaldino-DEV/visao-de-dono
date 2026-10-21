@@ -7,7 +7,7 @@ export const ETAPAS = {
   instalacao:      { label: 'Em instalação',   cor: '#1d4ed8', bg: '#eff6ff', borda: '#bfdbfe' },
   revisao:         { label: 'Em revisão',      cor: '#854d0e', bg: '#fef9c3', borda: '#fde68a' },
   aguardando_nsmp: { label: 'Aguardando NSMP', cor: '#7c3aed', bg: '#faf5ff', borda: '#ddd6fe' },
-  aguardando_nsmc: { label: 'Aguardando NSMC', cor: '#c2410c', bg: '#fff7ed', borda: '#fed7aa' },
+  aguardando_nsmc: { label: 'Aguardando NSPR', cor: '#c2410c', bg: '#fff7ed', borda: '#fed7aa' },
   pago:            { label: 'Pago',            cor: '#15803d', bg: '#f0fdf4', borda: '#bbf7d0' },
 };
 
@@ -190,8 +190,8 @@ export const montarPayloadTransicao = (servico, acao, { user, agora, numero, mot
     payload.numServ = exigir(numero, 'Informe o número da NSMP.');
     msg = `NSMP informada: ${payload.numServ}`;
   } else if (acao === 'nsmc') {
-    payload.nsmc = exigir(numero, 'Informe o número da NSMC.');
-    msg = `NSMC informada: ${payload.nsmc}`;
+    payload.nsmc = exigir(numero, 'Informe o número da NSPR.');
+    msg = `NSPR informada: ${payload.nsmc}`;
   }
   payload.hist = [...(servico.hist || []), entradaHist(user, msg, agora)];
   return payload;
@@ -238,7 +238,7 @@ export const contarPorEtapa = (lista) => {
   return { ...contagem, todas: lista.length };
 };
 
-// Quem preenche a instalação (instalar) e quem aprova/informa NSMP e NSMC (fechar)
+// Quem preenche a instalação (instalar) e quem aprova/informa NSMP e NSPR (fechar)
 export const permissoesFluxo = (role) => ({
   instalar: role === 'dono' || role === 'despachante',
   fechar: role === 'dono' || role === 'fechamento',

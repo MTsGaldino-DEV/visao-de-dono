@@ -122,7 +122,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               <span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span>
               <span style={{ color: '#94a3b8' }}>Local:</span> {servico.local || '—'}
               {servico.numServ && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMP:</span> <b>{servico.numServ}</b></>}
-              {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMC:</span> <b>{servico.nsmc}</b></>}
+              {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSPR:</span> <b>{servico.nsmc}</b></>}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
               <span style={{ color: '#94a3b8' }}>Levantamento:</span> {servico.coord || '—'}

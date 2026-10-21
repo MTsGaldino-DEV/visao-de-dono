@@ -173,7 +173,7 @@ describe('transições', () => {
     expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmp' }, 'nsmp', { user, agora, numero: '' })).toThrow(/NSMP/);
     expect(montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmp' }, 'nsmp', { user, agora, numero: ' 123 ' }))
       .toMatchObject({ etapa_espacador: 'aguardando_nsmc', numServ: '123' });
-    expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: ' ' })).toThrow(/NSMC/);
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: ' ' })).toThrow(/NSPR/);
     expect(montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: '999' }))
       .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
   });
