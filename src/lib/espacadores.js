@@ -89,7 +89,7 @@ export const qtdValida = (valor) => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-// O que falta para o despachante enviar a instalação (o croqui é do fechamento)
+// O que falta para o despachante enviar a instalação
 export const pendenciasInstalacao = (vao) => {
   const faltando = [];
   if (!vao?.fotos_antes?.length) faltando.push('foto de antes');
@@ -123,8 +123,6 @@ export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd }) => {
 };
 
 export const podeEnviarInstalacao = (vao) => pendenciasInstalacao(vao).length === 0;
-
-export const podeAprovar = (vao) => !!vao?.croqui_url;
 
 // Só o administrador vê o botão que apaga a instalação de vez (qualquer etapa)
 const MATRICULA_ADMIN_APAGAR = '27630';
@@ -245,14 +243,11 @@ export const permissoesFluxo = (role) => ({
   filtroInicial: role === 'fechamento' ? 'revisao' : 'instalacao',
 });
 
-export const validarArquivo =(tipo, file) => {
-  if (tipo === 'croqui') return file?.type === 'application/pdf' ? null : 'O croqui precisa ser um arquivo PDF.';
-  return file?.type?.startsWith('image/') ? null : 'Envie apenas imagens.';
-};
+export const validarArquivo = (file) => (file?.type?.startsWith('image/') ? null : 'Envie apenas imagens.');
 
 export const caminhoArquivo = (servicoId, numero, tipo, nomeArquivo, sufixo) => {
   const m = /\.([a-z0-9]+)$/i.exec(nomeArquivo || '');
-  const ext = tipo === 'croqui' ? 'pdf' : (m ? m[1].toLowerCase() : 'jpg');
+  const ext = m ? m[1].toLowerCase() : 'jpg';
   return `espacadores/${servicoId}/vao-${numero}/${tipo}-${sufixo}.${ext}`;
 };
 

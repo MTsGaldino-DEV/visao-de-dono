@@ -57,7 +57,7 @@ const FluxoInstalacoes = () => {
   const [salvando, setSalvando] = useState(false);
 
   const excluir = async (s) => {
-    if (!window.confirm(`Excluir a instalação ${s.id}? O vão, as fotos e o croqui serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
+    if (!window.confirm(`Excluir a instalação ${s.id}? O vão e as fotos serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
     setExcluindoId(s.id);
     try { await excluirInstalacao(s, user); } catch (e) { alert('Erro ao excluir: ' + e.message); }
     finally { setExcluindoId(null); }
@@ -215,12 +215,7 @@ const FluxoInstalacoes = () => {
                         <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', maxWidth: '260px' }}>{s.motivo_reprovacao_fechamento}</div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <EtapaBadge etapa={s.etapa_espacador} />
-                        {s.etapa_espacador === 'revisao' && !vao?.croqui_url && (
-                          <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Sem croqui</span>
-                        )}
-                      </div>
+                      <EtapaBadge etapa={s.etapa_espacador} />
                     )}
                   </td>
                   {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>{s.numServ || '—'}</td>}

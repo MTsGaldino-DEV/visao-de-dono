@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
-  podeEnviarInstalacao, pendenciasInstalacao, podeAprovar, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
+  podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirQuantidade,
-  anexarCroqui, aplicarTransicao, excluirInstalacao, assinarMudancas,
+  aplicarTransicao, excluirInstalacao, assinarMudancas,
 } from '../../lib/espacadoresApi';
 import VaoCard from './VaoCard';
 import EtapaBadge from './EtapaBadge';
@@ -57,7 +57,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const prontoParaEnviar = podeEnviarInstalacao(vao) && !alteracoes.pendente;
-  const prontoParaAprovar = podeAprovar(vao) && !alteracoes.pendente;
+  const prontoParaAprovar = !alteracoes.pendente;
   const coordLevantamento = lerCoordenada(servico.coord);
   const coordAntes = lerCoordenada(vao?.coord_antes);
   const distanciaLevantamento = coordLevantamento && coordAntes ? Math.round(distanciaMetros(coordLevantamento, coordAntes)) : null;
@@ -87,7 +87,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   };
 
   const handleExcluir = async () => {
-    if (!window.confirm(`Excluir a instalação ${servico.id}? O vão, as fotos e o croqui serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
+    if (!window.confirm(`Excluir a instalação ${servico.id}? O vão e as fotos serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
     setOcupado(true);
     try {
       await excluirInstalacao(servico, user);
@@ -156,7 +156,6 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
             onTrocarFoto={handleTrocarFoto}
             onSalvarDados={() => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos))}
             onSalvarQtd={() => executar(() => corrigirQuantidade(servico, vao, digitado.qtd, user))}
-            onAnexarCroqui={(file) => comEnvio('croqui', () => anexarCroqui(vao, file))}
             mostrarErros={mostrarErros}
             onAmpliar={setFotoAmpliada}
           />
@@ -214,7 +213,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {!prontoParaAprovar && (
                   <span style={{ fontSize: '12px', color: '#92400e', width: '100%', textAlign: 'right' }}>
-                    {alteracoes.pendente ? 'Salve a quantidade antes de aprovar' : 'Anexe o croqui para aprovar'}
+                    Salve a quantidade antes de aprovar
                   </span>
                 )}
                 <button onClick={() => setMostrarReprovacao(true)} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✗ Reprovar</button>

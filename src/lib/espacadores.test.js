@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
-  lerCoordenada, formatarCoordenada, podeApagarInstalacao, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
+  lerCoordenada, formatarCoordenada, podeApagarInstalacao, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
@@ -121,10 +121,6 @@ describe('instalação de um vão', () => {
     expect(pendenciasInstalacao({ ...vao, coord_depois: 'xx', qtd_espacadores: 0 })).toEqual(['coordenada do depois', 'quantidade']);
     expect(podeEnviarInstalacao(vao)).toBe(true);
   });
-  it('aprovar exige croqui', () => {
-    expect(podeAprovar(vao)).toBe(false);
-    expect(podeAprovar({ ...vao, croqui_url: 'c.pdf' })).toBe(true);
-  });
   it('agrupa por serviço ordenando por número', () => {
     const g = agruparVaos([{ servico_id: 'A', numero: 2 }, { servico_id: 'B', numero: 1 }, { servico_id: 'A', numero: 1 }]);
     expect(g.A.map(v => v.numero)).toEqual([1, 2]);
@@ -231,16 +227,13 @@ describe('permissoesFluxo', () => {
 });
 
 describe('arquivos', () => {
-  it('valida tipo por destino', () => {
-    expect(validarArquivo('croqui', { type: 'application/pdf' })).toBeNull();
-    expect(validarArquivo('croqui', { type: 'image/png' })).toMatch(/PDF/);
-    expect(validarArquivo('antes', { type: 'image/jpeg' })).toBeNull();
-    expect(validarArquivo('depois', { type: 'application/pdf' })).toMatch(/imagens/);
+  it('só aceita imagem', () => {
+    expect(validarArquivo({ type: 'image/jpeg' })).toBeNull();
+    expect(validarArquivo({ type: 'application/pdf' })).toMatch(/imagens/);
   });
   it('monta o caminho com extensão segura', () => {
     expect(caminhoArquivo('VD0001', 3, 'antes', 'IMG_1.JPG', '17-0')).toBe('espacadores/VD0001/vao-3/antes-17-0.jpg');
     expect(caminhoArquivo('VD0001', 3, 'depois', 'semextensao', '17-1')).toBe('espacadores/VD0001/vao-3/depois-17-1.jpg');
-    expect(caminhoArquivo('VD0001', 3, 'croqui', 'rede.PDF', '17')).toBe('espacadores/VD0001/vao-3/croqui-17.pdf');
   });
 });
 

@@ -133,7 +133,7 @@ const enviarArquivo = async (vao, tipo, file, sufixo) => {
 
 // Uma foto de cada: a nova substitui a anterior. Se o envio falhar, o banco não muda.
 export const trocarFoto = async (vao, tipo, file) => {
-  const erro = validarArquivo(tipo, file);
+  const erro = validarArquivo(file);
   if (erro) throw new Error(erro);
   const url = await enviarArquivo(vao, tipo, file, String(Date.now()));
   return salvarDadosVao(vao.servico_id, vao, { [tipo === 'antes' ? 'fotos_antes' : 'fotos_depois']: [url] });
@@ -173,15 +173,6 @@ export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois
     throw erro;
   }
   return iniciado.id;
-};
-
-export const anexarCroqui = async (vao, file) => {
-  const erro = validarArquivo('croqui', file);
-  if (erro) throw new Error(erro);
-  const url = await enviarArquivo(vao, 'croqui', file, String(Date.now()));
-  const { data, error } = await supabase.from('vaos').update({ croqui_url: url }).eq('id', vao.id).select().single();
-  if (error) throw error;
-  return data;
 };
 
 export const assinarMudancas = (canal, onChange) => {
