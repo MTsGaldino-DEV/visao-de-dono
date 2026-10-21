@@ -126,6 +126,10 @@ export const podeEnviarInstalacao = (vao) => pendenciasInstalacao(vao).length ==
 
 export const podeAprovar = (vao) => !!vao?.croqui_url;
 
+// Só o administrador vê o botão que apaga a instalação de vez (qualquer etapa)
+const MATRICULA_ADMIN_APAGAR = '27630';
+export const podeApagarInstalacao = (user) => String(user?.matricula ?? '') === MATRICULA_ADMIN_APAGAR;
+
 export const agruparVaos = (vaos) => {
   const grupos = {};
   vaos.forEach(v => { (grupos[v.servico_id] = grupos[v.servico_id] || []).push(v); });

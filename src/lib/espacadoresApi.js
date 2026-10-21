@@ -84,6 +84,12 @@ export const excluirInstalacao = async (servico, user) => {
   if (erroVaos) throw erroVaos;
 };
 
+// Apaga o serviço do banco de vez (os vãos saem junto pelo ON DELETE CASCADE). Não tem volta.
+export const apagarInstalacaoDefinitivo = async (servico) => {
+  const { error } = await supabase.from('servicos').delete().eq('id', servico.id);
+  if (error) throw error;
+};
+
 export const carregarServico = async (id) => {
   const { data, error } = await supabase.from('servicos').select('*').eq('id', id).single();
   if (error) throw error;

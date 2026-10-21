@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { aplicarTransicao, excluirInstalacao } from '../../lib/espacadoresApi';
+import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
 import {
-  ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo,
+  ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
 } from '../../lib/espacadores';
 import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
@@ -63,6 +63,13 @@ const FluxoInstalacoes = () => {
     finally { setExcluindoId(null); }
   };
 
+  const apagarDeVez = async (s) => {
+    if (!window.confirm(`Apagar DE VEZ o serviço ${s.id} (trafo ${s.equip || '—'})? Os vãos somem junto e isso não tem volta.`)) return;
+    setExcluindoId(s.id);
+    try { await apagarInstalacaoDefinitivo(s); } catch (e) { alert('Erro ao apagar: ' + e.message); }
+    finally { setExcluindoId(null); }
+  };
+
   const cancelarEdicao = () => { setEditandoId(null); setNumero(''); };
 
   const salvarNumero = async (s) => {
@@ -83,9 +90,20 @@ const FluxoInstalacoes = () => {
   const contagem = contarPorEtapa(servicos);
   const mostraNumeros = ['aguardando_nsmc', 'pago', 'todas'].includes(filtro);
   const colunas = mostraNumeros ? 8 : 6;
+  const acoes = (s) => (
+    <>
+      {acoesDaEtapa(s)}
+      {podeApagarInstalacao(user) && (
+        <button onClick={() => apagarDeVez(s)} disabled={excluindoId === s.id} style={{ ...botao, background: '#7f1d1d', color: '#fff', cursor: excluindoId === s.id ? 'not-allowed' : 'pointer' }}>
+          {excluindoId === s.id ? 'Apagando…' : 'Apagar'}
+        </button>
+      )}
+    </>
+  );
+
   const lista = ordenar(filtrarPorBusca(filtrarPorEtapa(servicos, filtro), busca), filtro);
 
-  const acoes = (s) => {
+  const acoesDaEtapa = (s) => {
     const etapa = s.etapa_espacador;
     const verDetalhes = <button onClick={() => setAberto({ id: s.id, modo: 'leitura' })} style={botaoSec}>Ver detalhes</button>;
 
