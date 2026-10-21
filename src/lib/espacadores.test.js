@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
   lerCoordenada, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
-  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
+  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
 } from './espacadores';
@@ -111,11 +111,11 @@ describe('transições', () => {
     expect(() => proximaEtapa('revisao', 'voar')).toThrow(/desconhecida/);
   });
 
-  it('início grava etapa, data e histórico; recusa quem já tem etapa', () => {
-    const p = montarPayloadInicio({ hist: [] }, { user, agora });
-    expect(p).toMatchObject({ etapa_espacador: 'instalacao', dt_etapa: agora });
-    expect(p.hist).toHaveLength(1);
+  it('início grava etapa, histórico e o status para onde voltar', () => {
+    const p = montarPayloadInicio({ status: 'pendente', hist: [] }, { user, agora });
+    expect(p).toMatchObject({ etapa_espacador: 'instalacao', dt_etapa: agora, status_antes_instalacao: 'pendente' });
     expect(p.hist[0]).toMatchObject({ who: 'Ana', matricula: '123', when: agora });
+    expect(montarPayloadInicio({ status: 'cadastrado' }, { user, agora, criadoPelaInstalacao: true }).status_antes_instalacao).toBe('cancelado');
     expect(() => montarPayloadInicio({ etapa_espacador: 'revisao' }, { user, agora })).toThrow();
   });
 
@@ -140,12 +140,19 @@ describe('transições', () => {
       .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
   });
 
-  it('excluir cancela o serviço e só vale na etapa de instalação', () => {
-    const p = montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [{ msg: 'x' }] }, { user, agora });
-    expect(p).toMatchObject({ status: 'cancelado', dt_etapa: agora });
-    expect(p.hist).toHaveLength(2);
-    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: expect.stringMatching(/excluída/) });
+  it('excluir devolve o serviço ao status anterior e tira do fluxo', () => {
+    const p = montarPayloadExclusao({ etapa_espacador: 'instalacao', status: 'concluido', status_antes_instalacao: 'pendente', motivo_reprovacao_fechamento: 'x', hist: [{ msg: 'x' }] }, { user, agora });
+    expect(p).toMatchObject({ etapa_espacador: null, dt_etapa: null, motivo_reprovacao_fechamento: null, status_antes_instalacao: null, status: 'pendente' });
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: 'Instalação de espaçadores excluída' });
+    expect(montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [] }, { user, agora }).status).toBe('cancelado');
     expect(() => montarPayloadExclusao({ etapa_espacador: 'revisao' }, { user, agora })).toThrow(/Em revisão|revis/i);
+  });
+
+  it('correção de quantidade registra no histórico', () => {
+    const p = montarPayloadQuantidade({ hist: [] }, 3, '4', { user, agora });
+    expect(p.hist[0].msg).toBe('Quantidade de espaçadores corrigida de 3 para 4');
+    expect(montarPayloadQuantidade({ hist: [] }, 3, '3', { user, agora })).toBeNull();
+    expect(() => montarPayloadQuantidade({ hist: [] }, 3, '0', { user, agora })).toThrow(/maior que zero/);
   });
 });
 

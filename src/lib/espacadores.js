@@ -124,11 +124,13 @@ export const proximaEtapa = (etapaAtual, acao) => {
   return t.para;
 };
 
-export const montarPayloadInicio = (servico, { user, agora }) => {
+// status_antes_instalacao: para onde o serviço volta se a instalação for excluída
+export const montarPayloadInicio = (servico, { user, agora, criadoPelaInstalacao = false }) => {
   if (servico.etapa_espacador) throw new Error('Este serviço já está no fluxo de instalação.');
   return {
     etapa_espacador: 'instalacao',
     dt_etapa: agora,
+    status_antes_instalacao: criadoPelaInstalacao ? 'cancelado' : servico.status,
     hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores iniciada', agora)],
   };
 };
@@ -162,16 +164,29 @@ export const montarPayloadTransicao = (servico, acao, { user, agora, numero, mot
   return payload;
 };
 
-// Excluir a instalação cancela o serviço; os vãos são apagados à parte
+// Excluir a instalação tira o serviço do fluxo e devolve o status anterior; os vãos são apagados à parte
 export const montarPayloadExclusao = (servico, { user, agora }) => {
   if (servico.etapa_espacador !== 'instalacao') {
     const rotulo = ETAPAS[servico.etapa_espacador]?.label || servico.etapa_espacador || 'sem etapa';
     throw new Error(`Não é possível excluir a instalação com o serviço na etapa "${rotulo}".`);
   }
   return {
-    status: 'cancelado',
-    dt_etapa: agora,
-    hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores excluída (serviço cancelado)', agora)],
+    etapa_espacador: null,
+    dt_etapa: null,
+    motivo_reprovacao_fechamento: null,
+    status_antes_instalacao: null,
+    status: servico.status_antes_instalacao || 'cancelado',
+    hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores excluída', agora)],
+  };
+};
+
+// Correção feita pelo fechamento na revisão; null quando não mudou nada
+export const montarPayloadQuantidade = (servico, de, para, { user, agora }) => {
+  const nova = qtdValida(para);
+  if (nova === null) throw new Error('Informe uma quantidade inteira maior que zero.');
+  if (nova === de) return null;
+  return {
+    hist: [...(servico.hist || []), entradaHist(user, `Quantidade de espaçadores corrigida de ${de} para ${nova}`, agora)],
   };
 };
 
