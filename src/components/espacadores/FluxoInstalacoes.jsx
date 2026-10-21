@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao } from '../../lib/espacadoresApi';
 import {
-  ETAPAS, resumoVaos, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo,
+  ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo,
 } from '../../lib/espacadores';
 import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
@@ -57,7 +57,7 @@ const FluxoInstalacoes = () => {
   const [salvando, setSalvando] = useState(false);
 
   const excluir = async (s) => {
-    if (!window.confirm(`Excluir a instalação ${s.id}? O serviço será cancelado e todos os vãos, fotos e croquis serão apagados.`)) return;
+    if (!window.confirm(`Excluir a instalação ${s.id}? O vão, as fotos e o croqui serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
     setExcluindoId(s.id);
     try { await excluirInstalacao(s, user); } catch (e) { alert('Erro ao excluir: ' + e.message); }
     finally { setExcluindoId(null); }
@@ -167,7 +167,7 @@ const FluxoInstalacoes = () => {
             <tr>
               <th style={th}>ID / Localidade</th>
               <th style={th}>Trafo</th>
-              <th style={th}>Vãos</th>
+              <th style={th}>Espaçadores</th>
               <th style={th}>Situação</th>
               {mostraNumeros && <th style={th}>NSMP</th>}
               {mostraNumeros && <th style={th}>NSMC</th>}
@@ -181,7 +181,7 @@ const FluxoInstalacoes = () => {
             ) : lista.length === 0 ? (
               <tr><td colSpan={colunas} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>{VAZIO[filtro] || `Nenhuma instalação em "${ETAPAS[filtro].label}".`}</td></tr>
             ) : lista.map(s => {
-              const { total, completos } = resumoVaos(vaosPorServico[s.id] || []);
+              const vao = vaosPorServico[s.id]?.[0];
               return (
                 <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={td}>
@@ -189,10 +189,7 @@ const FluxoInstalacoes = () => {
                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{s.local || '—'}</div>
                   </td>
                   <td style={{ ...td, color: '#334155' }}>{s.equip || '—'}</td>
-                  <td style={td}>
-                    <span style={{ fontWeight: '700', color: total > 0 && completos === total ? '#15803d' : '#475569' }}>{completos}/{total}</span>
-                    <span style={{ color: '#94a3b8', fontSize: '11px' }}> completos</span>
-                  </td>
+                  <td style={{ ...td, fontWeight: '700', color: '#475569' }}>{vao?.qtd_espacadores ?? '—'}</td>
                   <td style={td}>
                     {s.etapa_espacador === 'instalacao' && s.motivo_reprovacao_fechamento ? (
                       <div>
@@ -200,7 +197,12 @@ const FluxoInstalacoes = () => {
                         <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', maxWidth: '260px' }}>{s.motivo_reprovacao_fechamento}</div>
                       </div>
                     ) : (
-                      <EtapaBadge etapa={s.etapa_espacador} />
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <EtapaBadge etapa={s.etapa_espacador} />
+                        {s.etapa_espacador === 'revisao' && !vao?.croqui_url && (
+                          <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Sem croqui</span>
+                        )}
+                      </div>
                     )}
                   </td>
                   {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>{s.numServ || '—'}</td>}
