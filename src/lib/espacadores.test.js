@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
-  lerCoordenada, formatarCoordenada, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
+  lerCoordenada, formatarCoordenada, podeApagarInstalacao, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
   proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
@@ -68,6 +68,15 @@ describe('alteracoesPendentes', () => {
   });
   it('vão inexistente com campos vazios não tem pendência', () => {
     expect(alteracoesPendentes(null, { coordAntes: '', coordDepois: '', qtd: '' }).pendente).toBe(false);
+  });
+});
+
+describe('podeApagarInstalacao', () => {
+  it('só a matrícula 27630 vê o botão de apagar', () => {
+    expect(podeApagarInstalacao({ matricula: '27630' })).toBe(true);
+    expect(podeApagarInstalacao({ matricula: 27630 })).toBe(true);
+    expect(podeApagarInstalacao({ matricula: '123' })).toBe(false);
+    expect(podeApagarInstalacao(null)).toBe(false);
   });
 });
 
