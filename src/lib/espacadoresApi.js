@@ -2,8 +2,9 @@
 // As regras ficam em ./espacadores (puro, testado); aqui só I/O.
 import { supabase, fetchAll } from './supabase';
 import {
-  MAX_VAOS, isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD, proximoNumeroVao,
-  entradaHist, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, validarArquivo, caminhoArquivo,
+  isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
+  entradaHist, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade,
+  validarArquivo, caminhoArquivo,
 } from './espacadores';
 
 const BUCKET = 'levantamentos';
@@ -47,8 +48,8 @@ export const criarServicoEspacador = async ({ equip, local, coord }, user) => {
   return data;
 };
 
-export const iniciarInstalacao = async (servico, user) => {
-  const payload = montarPayloadInicio(servico, { user, agora: agora() });
+export const iniciarInstalacao = async (servico, user, { criadoPelaInstalacao = false } = {}) => {
+  const payload = montarPayloadInicio(servico, { user, agora: agora(), criadoPelaInstalacao });
   const { data, error } = await supabase
     .from('servicos').update(payload)
     .eq('id', servico.id).is('etapa_espacador', null)
@@ -70,7 +71,7 @@ export const aplicarTransicao = async (servico, acao, opcoes = {}) => {
   return data[0];
 };
 
-// Cancela o serviço (só se ainda estiver em instalação no banco) e apaga os vãos
+// Tira o serviço do fluxo (só se ainda estiver em instalação no banco) e apaga o vão
 export const excluirInstalacao = async (servico, user) => {
   const payload = montarPayloadExclusao(servico, { user, agora: agora() });
   const { data, error } = await supabase
@@ -107,21 +108,14 @@ export const carregarVaos = async (servicoId) => {
   return data || [];
 };
 
-// Se outra aba criou o mesmo número ao mesmo tempo (23505), recarrega e tenta de novo
-export const adicionarVao = async (servicoId) => {
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
-    const numero = proximoNumeroVao(await carregarVaos(servicoId));
-    if (numero == null) throw new Error(`Limite de ${MAX_VAOS} vãos atingido.`);
-    const { data, error } = await supabase.from('vaos').insert({ servico_id: servicoId, numero }).select().single();
-    if (!error) return data;
-    if (error.code !== '23505') throw error;
-  }
-  throw new Error('Não foi possível adicionar o vão. Tente novamente.');
-};
-
-export const removerVao = async (vaoId) => {
-  const { error } = await supabase.from('vaos').delete().eq('id', vaoId);
+// Cria o vão único do serviço (numero = 1) ou atualiza o existente
+export const salvarDadosVao = async (servicoId, vao, campos) => {
+  const query = vao
+    ? supabase.from('vaos').update(campos).eq('id', vao.id)
+    : supabase.from('vaos').insert({ servico_id: servicoId, numero: 1, ...campos });
+  const { data, error } = await query.select().single();
   if (error) throw error;
+  return data;
 };
 
 const enviarArquivo = async (vao, tipo, file, sufixo) => {
@@ -131,32 +125,45 @@ const enviarArquivo = async (vao, tipo, file, sufixo) => {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 };
 
-const campoFotos = (tipo) => (tipo === 'antes' ? 'fotos_antes' : 'fotos_depois');
+// Uma foto de cada: a nova substitui a anterior. Se o envio falhar, o banco não muda.
+export const trocarFoto = async (vao, tipo, file) => {
+  const erro = validarArquivo(tipo, file);
+  if (erro) throw new Error(erro);
+  const url = await enviarArquivo(vao, tipo, file, String(Date.now()));
+  return salvarDadosVao(vao.servico_id, vao, { [tipo === 'antes' ? 'fotos_antes' : 'fotos_depois']: [url] });
+};
 
-// Lê o array atual do banco antes de gravar, para não perder fotos adicionadas por outra pessoa
-const atualizarFotos = async (vao, campo, transformar) => {
-  const { data: atual, error: erroLeitura } = await supabase.from('vaos').select(campo).eq('id', vao.id).single();
-  if (erroLeitura) throw erroLeitura;
-  const { data, error } = await supabase
-    .from('vaos').update({ [campo]: transformar(atual[campo] || []) })
-    .eq('id', vao.id).select().single();
+export const corrigirQuantidade = async (servico, vao, qtd, user) => {
+  const payload = montarPayloadQuantidade(servico, vao.qtd_espacadores, qtd, { user, agora: agora() });
+  if (!payload) return;
+  await salvarDadosVao(servico.id, vao, { qtd_espacadores: Number(qtd) });
+  const { error } = await supabase.from('servicos').update(payload).eq('id', servico.id);
   if (error) throw error;
-  return data;
 };
 
-export const anexarFotos = async (vao, tipo, files) => {
-  for (const f of files) {
-    const erro = validarArquivo(tipo, f);
-    if (erro) throw new Error(`${f.name}: ${erro}`);
+// Nova instalação: vincula (ou cria) o serviço, grava o vão com as fotos e envia para o fechamento.
+// Se falhar depois do vínculo, o serviço fica em "Em instalação" para o despachante terminar.
+export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd }, user) => {
+  const criadoPelaInstalacao = !servico;
+  const base = servico || await criarServicoEspacador({ ...novo, coord: coordAntes }, user);
+  const iniciado = await iniciarInstalacao(base, user, { criadoPelaInstalacao });
+  try {
+    // Uma exclusão que falhou no meio pode ter deixado um vão órfão para este serviço
+    const { error: erroOrfao } = await supabase.from('vaos').delete().eq('servico_id', iniciado.id);
+    if (erroOrfao) throw erroOrfao;
+    let vao = await salvarDadosVao(iniciado.id, null, {
+      coord_antes: coordAntes.trim(), coord_depois: coordDepois.trim(), qtd_espacadores: Number(qtd),
+    });
+    vao = await trocarFoto(vao, 'antes', fotoAntes);
+    await trocarFoto(vao, 'depois', fotoDepois);
+    await aplicarTransicao(iniciado, 'enviar', { user });
+  } catch (e) {
+    const erro = new Error(`A instalação foi salva incompleta em ${iniciado.id}. Abra-a em Em instalação para terminar. (${e.message})`);
+    erro.servicoId = iniciado.id;
+    throw erro;
   }
-  const base = Date.now();
-  const urls = [];
-  for (let i = 0; i < files.length; i++) urls.push(await enviarArquivo(vao, tipo, files[i], `${base}-${i}`));
-  return atualizarFotos(vao, campoFotos(tipo), (lista) => [...lista, ...urls]);
+  return iniciado.id;
 };
-
-export const removerFoto = async (vao, tipo, url) =>
-  atualizarFotos(vao, campoFotos(tipo), (lista) => lista.filter(u => u !== url));
 
 export const anexarCroqui = async (vao, file) => {
   const erro = validarArquivo('croqui', file);
