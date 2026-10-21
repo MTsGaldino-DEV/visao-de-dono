@@ -217,7 +217,11 @@ const FluxoInstalacoes = () => {
       </div>
 
       {novaAberta && (
-        <NovaInstalacaoModal onClose={() => setNovaAberta(false)} onAbrir={(id) => { setNovaAberta(false); trocarFiltro('instalacao'); setAberto({ id, modo: 'edicao' }); }} />
+        <NovaInstalacaoModal
+          onClose={() => setNovaAberta(false)}
+          onConcluir={() => { setNovaAberta(false); trocarFiltro('revisao'); }}
+          onErroParcial={(id) => { setNovaAberta(false); trocarFiltro('instalacao'); setAberto({ id, modo: 'edicao' }); }}
+        />
       )}
       {aberto && (
         <InstalacaoModal servicoId={aberto.id} modo={aberto.modo} onClose={() => setAberto(null)} />

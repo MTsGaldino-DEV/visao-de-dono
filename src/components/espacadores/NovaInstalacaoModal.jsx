@@ -1,28 +1,40 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { buscarServicosPorTrafo, criarServicoEspacador, iniciarInstalacao } from '../../lib/espacadoresApi';
-import { bloqueioNovaInstalacao } from '../../lib/espacadores';
+import { buscarServicosPorTrafo, registrarInstalacao } from '../../lib/espacadoresApi';
+import { bloqueioNovaInstalacao, sugerirVinculo, lerCoordenada, qtdValida } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
-import EtapaBadge from './EtapaBadge';
+import CampoFoto from './CampoFoto';
 
 const input = { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fff' };
 const rotulo = { display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '6px', fontWeight: '600' };
+const linkBotao = { background: 'none', border: 'none', color: '#1d4ed8', fontSize: '12px', fontWeight: '700', cursor: 'pointer', padding: 0, textDecoration: 'underline' };
 
-const NovaInstalacaoModal = ({ onClose, onAbrir }) => {
+const metros = (d) => `${Math.round(d)} m`;
+
+// Uma instalação = um vão. O vínculo vai para o serviço do trafo mais perto da coordenada do antes.
+const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const { user } = useAuth();
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState(null); // null = ainda não buscou
   const [buscando, setBuscando] = useState(false);
-  const [salvando, setSalvando] = useState(false);
-  const [novo, setNovo] = useState({ equip: '', local: '', coord: '' });
+  const [fotoAntes, setFotoAntes] = useState(null);
+  const [fotoDepois, setFotoDepois] = useState(null);
+  const [coordAntes, setCoordAntes] = useState('');
+  const [coordDepois, setCoordDepois] = useState('');
+  const [qtd, setQtd] = useState('');
+  const [escolhaManual, setEscolhaManual] = useState(null); // { tipo: 'servico', servico } | { tipo: 'novo' }
+  const [mostrarLista, setMostrarLista] = useState(false);
+  const [local, setLocal] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const travaEnvio = useRef(false); // o estado só muda no próximo render; a trava barra o duplo clique
 
   const buscar = async () => {
     if (!texto.trim()) return;
     setBuscando(true);
     try {
-      const r = await buscarServicosPorTrafo(texto);
-      setResultados(r);
-      if (!r.some(s => !bloqueioNovaInstalacao(s))) setNovo({ equip: texto.trim(), local: '', coord: '' });
+      setResultados(await buscarServicosPorTrafo(texto));
+      setEscolhaManual(null);
+      setMostrarLista(false);
     } catch (e) {
       alert('Erro na busca: ' + e.message);
     } finally {
@@ -30,118 +42,160 @@ const NovaInstalacaoModal = ({ onClose, onAbrir }) => {
     }
   };
 
-  const utilizaveis = (resultados || []).filter(s => !bloqueioNovaInstalacao(s));
+  const lista = resultados || [];
+  const candidatos = lista.filter(s => !s.etapa_espacador && !bloqueioNovaInstalacao(s));
+  const jaInstalados = lista.filter(s => s.etapa_espacador);
+  const bloqueados = lista.filter(s => !s.etapa_espacador && bloqueioNovaInstalacao(s));
+  const vinculo = useMemo(() => sugerirVinculo(candidatos, coordAntes), [resultados, coordAntes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const usar = async (servico) => {
-    if (servico.etapa_espacador) { onAbrir(servico.id); return; }
-    setSalvando(true);
+  let escolha = escolhaManual;
+  if (!escolha && resultados) {
+    if (candidatos.length === 0) escolha = { tipo: 'novo' };
+    else if (vinculo.sugerido) escolha = { tipo: 'servico', servico: vinculo.sugerido };
+  }
+  const distanciaEscolhida = escolha?.tipo === 'servico'
+    ? vinculo.ordenados.find(c => c.id === escolha.servico.id)?.distancia
+    : null;
+
+  const faltando = [];
+  if (!resultados) faltando.push('buscar o trafo');
+  else if (!escolha) faltando.push('escolher o serviço');
+  else if (escolha.tipo === 'novo' && !local) faltando.push('localidade');
+  if (!fotoAntes) faltando.push('foto do antes');
+  if (!lerCoordenada(coordAntes)) faltando.push('coordenada do antes');
+  if (!fotoDepois) faltando.push('foto do depois');
+  if (!lerCoordenada(coordDepois)) faltando.push('coordenada do depois');
+  if (!qtdValida(qtd)) faltando.push('quantidade');
+  const pronto = faltando.length === 0 && !enviando;
+
+  const escolher = (e) => { setEscolhaManual(e); setMostrarLista(false); };
+
+  const enviar = async () => {
+    if (!pronto || travaEnvio.current) return;
+    travaEnvio.current = true;
+    setEnviando(true);
     try {
-      await iniciarInstalacao(servico, user);
-      onAbrir(servico.id);
+      const id = await registrarInstalacao({
+        servico: escolha.tipo === 'servico' ? escolha.servico : null,
+        novo: escolha.tipo === 'novo' ? { equip: texto.trim(), local } : null,
+        fotoAntes, fotoDepois, coordAntes, coordDepois, qtd,
+      }, user);
+      onConcluir(id);
     } catch (e) {
       alert(e.message);
-      setSalvando(false);
+      if (e.servicoId) { onErroParcial(e.servicoId); return; }
+      travaEnvio.current = false;
+      setEnviando(false);
+      buscar();
     }
   };
 
-  const cadastrar = async () => {
-    if (!novo.equip.trim() || !novo.local.trim() || !novo.coord.trim()) {
-      alert('Preencha trafo, localidade e coordenada.');
-      return;
-    }
-    setSalvando(true);
-    try {
-      const criado = await criarServicoEspacador(novo, user);
-      await iniciarInstalacao(criado, user);
-      onAbrir(criado.id);
-    } catch (e) {
-      alert('Erro ao cadastrar: ' + e.message);
-      setSalvando(false);
-    }
+  const avisoSemVinculo = () => {
+    const comDistancia = vinculo.ordenados.find(c => c.distancia != null);
+    if (!lerCoordenada(coordAntes)) return 'Digite a coordenada do antes para achar o serviço mais próximo.';
+    if (!comDistancia) return 'Nenhum serviço deste trafo tem coordenada';
+    return `O serviço mais próximo está a ${metros(comDistancia.distancia)}`;
   };
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, background: '#fff', borderRadius: '16px', width: '92%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(15,37,68,0.25)' }}>
+      <div onClick={enviando ? undefined : onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, background: '#fff', borderRadius: '16px', width: '94%', maxWidth: '720px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(15,37,68,0.25)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
           <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f2544' }}>Nova instalação</div>
-          <button onClick={onClose} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>×</button>
+          <button onClick={onClose} disabled={enviando} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
-            <label style={rotulo}>Trafo</label>
+            <label style={rotulo}>Número do trafo</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <input autoFocus value={texto} placeholder="Ex.: 763-3-45"
-                onChange={e => { setTexto(e.target.value); setResultados(null); }}
+              <input autoFocus value={texto} placeholder="Ex.: 763-3-45" disabled={enviando}
+                onChange={e => { setTexto(e.target.value); setResultados(null); setEscolhaManual(null); }}
                 onKeyDown={e => { if (e.key === 'Enter') buscar(); }}
                 style={input} />
-              <button onClick={buscar} disabled={buscando || !texto.trim()} style={{ padding: '10px 18px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={buscar} disabled={buscando || enviando || !texto.trim()} style={{ padding: '10px 18px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {buscando ? 'Buscando…' : 'Buscar'}
               </button>
             </div>
           </div>
 
-          {resultados && utilizaveis.length > 1 && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: '8px', padding: '10px 12px', fontSize: '12px' }}>
-              Há mais de um serviço para este trafo — considere resolver na aba Duplicidade.
-            </div>
-          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            <CampoFoto rotulo="Foto do antes" arquivo={fotoAntes} onArquivo={setFotoAntes} coord={coordAntes} onCoord={setCoordAntes} editavel={!enviando} />
+            <CampoFoto rotulo="Foto do depois" arquivo={fotoDepois} onArquivo={setFotoDepois} coord={coordDepois} onCoord={setCoordDepois} editavel={!enviando} />
+          </div>
 
-          {resultados && resultados.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {resultados.map(s => {
-                const bloqueio = bloqueioNovaInstalacao(s);
-                return (
-                  <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', opacity: bloqueio ? 0.7 : 1 }}>
-                    <div style={{ fontSize: '13px', color: '#475569' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                        <b style={{ color: '#0f2544' }}>{s.id}</b>
-                        <EtapaBadge etapa={s.etapa_espacador} />
-                      </div>
-                      <div><span style={{ color: '#94a3b8' }}>Trafo:</span> {s.equip} <span style={{ color: '#cbd5e1' }}>·</span> {s.local || '—'}</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>Status: {s.status}</div>
-                      {bloqueio && <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>{bloqueio}</div>}
-                    </div>
-                    {!bloqueio && (
-                      <button onClick={() => usar(s)} disabled={salvando} style={{ padding: '8px 14px', background: s.etapa_espacador ? '#f8fafc' : '#1d4ed8', color: s.etapa_espacador ? '#0f2544' : '#fff', border: s.etapa_espacador ? '1px solid #e2e8f0' : 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        {s.etapa_espacador ? 'Abrir instalação' : 'Usar este serviço'}
-                      </button>
-                    )}
+          <div>
+            <label style={rotulo}>Espaçadores instalados neste vão</label>
+            <input type="number" min="1" step="1" value={qtd} disabled={enviando} onChange={e => setQtd(e.target.value)}
+              style={{ ...input, width: '120px', borderColor: qtd !== '' && !qtdValida(qtd) ? '#dc2626' : '#cbd5e1' }} />
+          </div>
+
+          {resultados && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+              {escolha?.tipo === 'servico' && (
+                <div style={{ border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#1e3a8a' }}>
+                  <b>Serviço vinculado: {escolha.servico.id}</b>
+                  {distanciaEscolhida != null ? ` (${metros(distanciaEscolhida)})` : ' (sem coordenada)'}
+                  <span style={{ color: '#475569' }}> · {escolha.servico.equip} · {escolha.servico.local || '—'}</span>{' '}
+                  {!mostrarLista && <button onClick={() => setMostrarLista(true)} style={linkBotao}>trocar</button>}
+                </div>
+              )}
+              {escolha?.tipo === 'novo' && (
+                <div style={{ border: '1px solid #bbf7d0', background: '#f0fdf4', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#166534', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <b>Criar serviço novo</b> para o trafo {texto.trim()}, com a coordenada do antes.{' '}
+                    {candidatos.length > 0 && !mostrarLista && <button onClick={() => setMostrarLista(true)} style={linkBotao}>trocar</button>}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div>
+                    <label style={rotulo}>Localidade</label>
+                    <select value={local} onChange={e => setLocal(e.target.value)} disabled={enviando} style={input}>
+                      <option value="">Selecione…</option>
+                      {TODAS_LOCALIDADES.map(l => <option key={l.loc} value={l.loc}>{l.loc}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              {!escolha && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: '8px', padding: '10px 12px', fontSize: '13px' }}>
+                  {avisoSemVinculo()}. Escolha um serviço abaixo ou crie um novo.
+                </div>
+              )}
 
-          {resultados && utilizaveis.length === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
-              <div style={{ fontSize: '13px', color: '#475569' }}>
-                {resultados.length === 0
-                  ? 'Nenhum serviço de espaçador ativo para este trafo. Cadastre um novo:'
-                  : 'Nenhum dos serviços acima pode receber a instalação. Cadastre um novo:'}
-              </div>
-              <div>
-                <label style={rotulo}>Trafo</label>
-                <input value={novo.equip} onChange={e => setNovo(n => ({ ...n, equip: e.target.value }))} style={input} />
-              </div>
-              <div>
-                <label style={rotulo}>Localidade</label>
-                <select value={novo.local} onChange={e => setNovo(n => ({ ...n, local: e.target.value }))} style={input}>
-                  <option value="">Selecione…</option>
-                  {TODAS_LOCALIDADES.map(l => <option key={l.loc} value={l.loc}>{l.loc}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={rotulo}>Coordenada</label>
-                <input value={novo.coord} placeholder="-18.844040 -41.957216" onChange={e => setNovo(n => ({ ...n, coord: e.target.value }))} style={input} />
-              </div>
-              <button onClick={cadastrar} disabled={salvando} style={{ padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
-                {salvando ? 'Cadastrando…' : 'Cadastrar e continuar'}
-              </button>
+              {(mostrarLista || !escolha) && candidatos.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {vinculo.ordenados.map(c => (
+                    <button key={c.id} onClick={() => escolher({ tipo: 'servico', servico: c })} disabled={enviando}
+                      style={{ textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', background: '#fff', cursor: 'pointer', fontSize: '13px', color: '#475569', display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                      <span><b style={{ color: '#0f2544' }}>{c.id}</b> · {c.equip} · {c.local || '—'}</span>
+                      <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>{c.distancia != null ? metros(c.distancia) : 'sem coordenada'}</span>
+                    </button>
+                  ))}
+                  <button onClick={() => escolher({ tipo: 'novo' })} disabled={enviando}
+                    style={{ border: '1px dashed #86efac', borderRadius: '8px', padding: '10px 12px', background: '#f0fdf4', color: '#166534', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}>
+                    + Criar serviço novo
+                  </button>
+                </div>
+              )}
+
+              {jaInstalados.length > 0 && (
+                <div style={{ fontSize: '12px', color: '#64748b' }}>Já instalados neste trafo: {jaInstalados.map(s => s.id).join(', ')}</div>
+              )}
+              {bloqueados.map(s => (
+                <div key={s.id} style={{ fontSize: '12px', color: '#92400e' }}><b>{s.id}</b>: {bloqueioNovaInstalacao(s)}</div>
+              ))}
             </div>
           )}
+        </div>
+
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: '#64748b', flex: 1 }}>
+            {faltando.length ? `Falta: ${faltando.join(', ')}.` : 'Tudo pronto para o fechamento.'}
+          </span>
+          <button onClick={enviar} disabled={!pronto}
+            style={{ padding: '12px 22px', background: pronto ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: pronto ? 'pointer' : 'not-allowed' }}>
+            {enviando ? 'Enviando…' : 'Enviar para fechamento →'}
+          </button>
         </div>
       </div>
     </>
