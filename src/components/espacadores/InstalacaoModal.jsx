@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { MAX_VAOS, podeEnviarParaFechamento, formatarData } from '../../lib/espacadores';
 import {
-  carregarServico, carregarVaos, adicionarVao, removerVao, anexarFotos, removerFoto,
+  podeEnviarInstalacao, pendenciasInstalacao, podeAprovar, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
+} from '../../lib/espacadores';
+import {
+  carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirQuantidade,
   anexarCroqui, aplicarTransicao, excluirInstalacao, assinarMudancas,
 } from '../../lib/espacadoresApi';
 import VaoCard from './VaoCard';
@@ -19,6 +21,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const [rascunho, setRascunho] = useState(null); // o que está digitado, preso à versão salva do vão
 
   const recarregar = useCallback(async () => {
     try {
@@ -45,6 +48,18 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
 
   const editavel = modo === 'edicao' && servico.etapa_espacador === 'instalacao';
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
+  const vao = vaos[0] ?? null;
+  // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
+  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}`;
+  const digitado = rascunho?.versao === versaoVao ? rascunho : {
+    versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '',
+  };
+  const alteracoes = alteracoesPendentes(vao, digitado);
+  const prontoParaEnviar = podeEnviarInstalacao(vao) && !alteracoes.pendente;
+  const prontoParaAprovar = podeAprovar(vao) && !alteracoes.pendente;
+  const coordLevantamento = lerCoordenada(servico.coord);
+  const coordAntes = lerCoordenada(vao?.coord_antes);
+  const distanciaLevantamento = coordLevantamento && coordAntes ? Math.round(distanciaMetros(coordLevantamento, coordAntes)) : null;
 
   const executar = async (fn) => {
     setOcupado(true);
@@ -71,7 +86,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   };
 
   const handleExcluir = async () => {
-    if (!window.confirm(`Excluir a instalação ${servico.id}? O serviço será cancelado e todos os vãos, fotos e croquis serão apagados.`)) return;
+    if (!window.confirm(`Excluir a instalação ${servico.id}? O vão, as fotos e o croqui serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
     setOcupado(true);
     try {
       await excluirInstalacao(servico, user);
@@ -83,15 +98,11 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     }
   };
 
-  const handleRemoverVao = (vao) => {
-    if (!window.confirm(`Remover o Vão ${vao.numero} com todas as fotos e o croqui?`)) return;
-    executar(() => removerVao(vao.id));
-  };
-
-  const handleRemoverFoto = (vao, tipo, url) => {
-    if (!window.confirm('Remover esta foto?')) return;
-    executar(() => removerFoto(vao, tipo, url));
-  };
+  // Se o envio caiu antes de criar o vão, a primeira foto cria a linha
+  const handleTrocarFoto = (tipo, file) => comEnvio(tipo, async () => {
+    const alvo = vao || await salvarDadosVao(servico.id, null, {});
+    await trocarFoto(alvo, tipo, file);
+  });
 
   return (
     <>
@@ -113,6 +124,10 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               {servico.numServ && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMP:</span> <b>{servico.numServ}</b></>}
               {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMC:</span> <b>{servico.nsmc}</b></>}
             </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+              <span style={{ color: '#94a3b8' }}>Levantamento:</span> {servico.coord || '—'}
+              {distanciaLevantamento != null && <span> · a {distanciaLevantamento} m do antes</span>}
+            </div>
           </div>
           <button onClick={onClose} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '18px', cursor: 'pointer', color: '#64748b', flexShrink: 0 }}>×</button>
         </div>
@@ -125,34 +140,19 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
             </div>
           )}
 
-          <div style={secao}>Vãos ({vaos.length}/{MAX_VAOS})</div>
-          {vaos.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', border: '1px dashed #cbd5e1', borderRadius: '12px', fontSize: '13px', background: '#fff' }}>
-              Nenhum vão ainda.{editavel && ' Clique em "+ Adicionar Vão".'}
-            </div>
-          )}
-          {vaos.map(vao => (
-            <VaoCard
-              key={vao.id}
-              vao={vao}
-              editavel={editavel}
-              enviando={{ antes: enviando[`${vao.id}:antes`], depois: enviando[`${vao.id}:depois`], croqui: enviando[`${vao.id}:croqui`] }}
-              onAnexarFotos={(v, tipo, files) => comEnvio(`${v.id}:${tipo}`, () => anexarFotos(v, tipo, files))}
-              onRemoverFoto={handleRemoverFoto}
-              onAnexarCroqui={(v, file) => comEnvio(`${v.id}:croqui`, () => anexarCroqui(v, file))}
-              onRemover={handleRemoverVao}
-              onAmpliar={setFotoAmpliada}
-            />
-          ))}
-          {editavel && (
-            <button
-              onClick={() => executar(() => adicionarVao(servico.id))}
-              disabled={ocupado || vaos.length >= MAX_VAOS}
-              style={{ padding: '14px', background: '#fff', color: '#0f2544', border: '2px dashed #cbd5e1', borderRadius: '12px', fontSize: '14px', fontWeight: '700', cursor: ocupado || vaos.length >= MAX_VAOS ? 'not-allowed' : 'pointer', opacity: vaos.length >= MAX_VAOS ? 0.5 : 1 }}
-            >
-              {vaos.length >= MAX_VAOS ? `Limite de ${MAX_VAOS} vãos atingido` : '+ Adicionar Vão'}
-            </button>
-          )}
+          <VaoCard
+            vao={vao}
+            rascunho={digitado}
+            alteracoes={alteracoes}
+            onRascunho={(campo, valor) => setRascunho({ ...digitado, [campo]: valor })}
+            modo={editavel ? 'edicao' : podeRevisar ? 'revisao' : 'leitura'}
+            enviando={enviando}
+            onTrocarFoto={handleTrocarFoto}
+            onSalvarDados={() => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos))}
+            onSalvarQtd={() => executar(() => corrigirQuantidade(servico, vao, digitado.qtd, user))}
+            onAnexarCroqui={(file) => comEnvio('croqui', () => anexarCroqui(vao, file))}
+            onAmpliar={setFotoAmpliada}
+          />
 
           {servico.hist?.length > 0 && (
             <details style={{ marginTop: '8px' }}>
@@ -180,12 +180,13 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               Excluir instalação
             </button>
             <span style={{ fontSize: '12px', color: '#64748b', flex: 1, textAlign: 'right' }}>
-              {podeEnviarParaFechamento(vaos) ? 'Tudo pronto para o fechamento.' : 'Cada vão precisa de foto de antes, foto de depois e croqui.'}
+              {alteracoes.pendente ? 'Salve as alterações antes de enviar.'
+                : prontoParaEnviar ? 'Tudo pronto para o fechamento.' : `Falta: ${pendenciasInstalacao(vao).join(', ')}.`}
             </span>
             <button
               onClick={() => transicionar('enviar')}
-              disabled={ocupado || !podeEnviarParaFechamento(vaos)}
-              style={{ padding: '12px 22px', background: podeEnviarParaFechamento(vaos) ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !podeEnviarParaFechamento(vaos) ? 'not-allowed' : 'pointer' }}
+              disabled={ocupado || !prontoParaEnviar}
+              style={{ padding: '12px 22px', background: prontoParaEnviar ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !prontoParaEnviar ? 'not-allowed' : 'pointer' }}
             >
               Enviar para fechamento →
             </button>
@@ -203,9 +204,14 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {!prontoParaAprovar && (
+                  <span style={{ fontSize: '12px', color: '#92400e', width: '100%', textAlign: 'right' }}>
+                    {alteracoes.pendente ? 'Salve a quantidade antes de aprovar' : 'Anexe o croqui para aprovar'}
+                  </span>
+                )}
                 <button onClick={() => setMostrarReprovacao(true)} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✗ Reprovar</button>
-                <button onClick={() => transicionar('aprovar')} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✓ Aprovar</button>
+                <button onClick={() => transicionar('aprovar')} disabled={ocupado || !prontoParaAprovar} style={{ flex: 1, padding: '12px', background: prontoParaAprovar ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !prontoParaAprovar ? 'not-allowed' : 'pointer' }}>✓ Aprovar</button>
               </div>
             )}
           </div>

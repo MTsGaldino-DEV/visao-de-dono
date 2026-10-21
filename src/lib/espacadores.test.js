@@ -1,15 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
-  MAX_VAOS, isEspacador, ordenarResultadosTrafo, pendenciasVao, vaoCompleto,
-  podeEnviarParaFechamento, resumoVaos, agruparVaos, proximoNumeroVao, proximoIdVD,
-  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
+  isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
+  lerCoordenada, formatarCoordenada, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao, podeAprovar,
+  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
 const agora = '2026-09-25T12:00:00.000Z';
-const vaoOk = { numero: 1, fotos_antes: ['a'], fotos_depois: ['d'], croqui_url: 'c.pdf' };
 
 describe('isEspacador', () => {
   it('reconhece variações com e sem acento', () => {
@@ -28,43 +27,99 @@ describe('ordenarResultadosTrafo', () => {
   });
 });
 
-describe('vãos', () => {
-  it('lista o que falta em cada vão', () => {
-    expect(pendenciasVao({ fotos_antes: [], fotos_depois: ['d'], croqui_url: null }))
-      .toEqual(['foto de antes', 'croqui']);
-    expect(pendenciasVao(vaoOk)).toEqual([]);
-    expect(vaoCompleto(vaoOk)).toBe(true);
+describe('lerCoordenada', () => {
+  const ok = { lat: -18.84404, lng: -41.957216 };
+  it.each([
+    '-18.844040 -41.957216', '-18.844040, -41.957216', '-18.844040,-41.957216',
+    '-18.844040;-41.957216', ' -18,844040 -41,957216 ', '-18,844040;-41,957216',
+  ])('lê %s', (t) => {
+    const c = lerCoordenada(t);
+    expect(c.lat).toBeCloseTo(ok.lat, 6);
+    expect(c.lng).toBeCloseTo(ok.lng, 6);
   });
-
-  it('só permite enviar com pelo menos um vão e todos completos', () => {
-    expect(podeEnviarParaFechamento([])).toBe(false);
-    expect(podeEnviarParaFechamento([vaoOk, { ...vaoOk, croqui_url: null }])).toBe(false);
-    expect(podeEnviarParaFechamento([vaoOk, vaoOk])).toBe(true);
+  it.each(['', null, 'abc', '-18.8', '-95 -41', '-18 -200', '-18.8 -41.9 3', '-18.844040,', '-18.844040;', '; -41.95', '0x10 0x20'])('recusa %s', (t) => {
+    expect(lerCoordenada(t)).toBeNull();
   });
+});
 
-  it('resume total e completos', () => {
-    expect(resumoVaos([vaoOk, { ...vaoOk, fotos_antes: [] }])).toEqual({ total: 2, completos: 1 });
+describe('formatarCoordenada', () => {
+  it('grava no formato que o Mapa lê', () => {
+    expect(formatarCoordenada('-18,844040;-41,957216')).toBe('-18.844040 -41.957216');
+    expect(formatarCoordenada(' -18.8440401, -41.95 ')).toBe('-18.844040 -41.950000');
+    expect(formatarCoordenada('xx')).toBeNull();
   });
+});
 
+describe('alteracoesPendentes', () => {
+  const vao = { coord_antes: '-18.844040 -41.957216', coord_depois: '-18.844040 -41.957216', qtd_espacadores: 3 };
+  const rascunho = { coordAntes: vao.coord_antes, coordDepois: vao.coord_depois, qtd: 3 };
+  it('sem mudança não há nada pendente', () => {
+    expect(alteracoesPendentes(vao, rascunho)).toEqual({ campos: {}, pendente: false, invalido: false });
+  });
+  it('só leva o que mudou, já normalizado', () => {
+    const r = alteracoesPendentes(vao, { ...rascunho, coordDepois: '-18,9;-41,9', qtd: '4' });
+    expect(r).toEqual({ campos: { coord_depois: '-18.900000 -41.900000', qtd_espacadores: 4 }, pendente: true, invalido: false });
+  });
+  it('mesma coordenada em outro formato não conta como mudança', () => {
+    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '-18,844040;-41,957216' }).pendente).toBe(false);
+  });
+  it('valor inválido digitado fica pendente e marcado', () => {
+    expect(alteracoesPendentes(vao, { ...rascunho, qtd: '0' })).toEqual({ campos: {}, pendente: true, invalido: true });
+  });
+  it('vão inexistente com campos vazios não tem pendência', () => {
+    expect(alteracoesPendentes(null, { coordAntes: '', coordDepois: '', qtd: '' }).pendente).toBe(false);
+  });
+});
+
+describe('distanciaMetros', () => {
+  it('calcula em metros', () => {
+    expect(distanciaMetros({ lat: -18.844040, lng: -41.957216 }, { lat: -18.844040, lng: -41.957216 })).toBe(0);
+    // 0.001° de latitude ≈ 111 m
+    expect(distanciaMetros({ lat: -18.844, lng: -41.957 }, { lat: -18.845, lng: -41.957 })).toBeCloseTo(111.2, 0);
+  });
+});
+
+describe('sugerirVinculo', () => {
+  const base = { lat: -18.844, lng: -41.957 };
+  const s = (id, coord) => ({ id, coord });
+  it('ordena por distância, sem coordenada no fim, e sugere até 100 m', () => {
+    const r = sugerirVinculo([s('LONGE', '-18.850 -41.957'), s('RUIM', 'xx'), s('PERTO', '-18.84489 -41.957')], '-18.844 -41.957');
+    expect(r.ordenados.map(c => c.id)).toEqual(['PERTO', 'LONGE', 'RUIM']);
+    expect(r.ordenados[2].distancia).toBeNull();
+    expect(r.sugerido.id).toBe('PERTO');
+  });
+  it('100 m exatos ainda sugere; acima não', () => {
+    const exato = `${base.lat - 100 / 111195} ${base.lng}`;
+    expect(sugerirVinculo([s('A', exato)], '-18.844 -41.957').sugerido?.id).toBe('A');
+    expect(sugerirVinculo([s('A', '-18.8450 -41.957')], '-18.844 -41.957').sugerido).toBeNull();
+  });
+  it('sem coordenada do antes não sugere nada', () => {
+    const r = sugerirVinculo([s('A', '-18.844 -41.957')], '');
+    expect(r.sugerido).toBeNull();
+    expect(r.ordenados[0].distancia).toBeNull();
+  });
+});
+
+describe('instalação de um vão', () => {
+  const vao = { fotos_antes: ['a'], fotos_depois: ['d'], coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3 };
+  it('qtdValida aceita só inteiro > 0', () => {
+    expect(qtdValida('3')).toBe(3);
+    expect(qtdValida(4)).toBe(4);
+    [0, -1, 2.5, '', null, 'abc'].forEach(v => expect(qtdValida(v)).toBeNull());
+  });
+  it('lista pendências na ordem e libera o envio', () => {
+    expect(pendenciasInstalacao(null)).toEqual(['foto de antes', 'coordenada do antes', 'foto de depois', 'coordenada do depois', 'quantidade']);
+    expect(pendenciasInstalacao({ ...vao, coord_depois: 'xx', qtd_espacadores: 0 })).toEqual(['coordenada do depois', 'quantidade']);
+    expect(podeEnviarInstalacao(vao)).toBe(true);
+  });
+  it('aprovar exige croqui', () => {
+    expect(podeAprovar(vao)).toBe(false);
+    expect(podeAprovar({ ...vao, croqui_url: 'c.pdf' })).toBe(true);
+  });
   it('agrupa por serviço ordenando por número', () => {
     const g = agruparVaos([{ servico_id: 'A', numero: 2 }, { servico_id: 'B', numero: 1 }, { servico_id: 'A', numero: 1 }]);
     expect(g.A.map(v => v.numero)).toEqual([1, 2]);
     expect(g.B).toHaveLength(1);
-  });
-});
-
-describe('proximoNumeroVao', () => {
-  const nums = (...ns) => ns.map(numero => ({ numero }));
-  it('começa em 1 e continua depois do maior', () => {
-    expect(proximoNumeroVao([])).toBe(1);
-    expect(proximoNumeroVao(nums(1, 2, 4))).toBe(5);
-  });
-  it('reaproveita buraco quando o maior já é 20', () => {
-    const quase = nums(...Array.from({ length: 20 }, (_, i) => i + 1).filter(n => n !== 7));
-    expect(proximoNumeroVao(quase)).toBe(7);
-  });
-  it('retorna null no limite', () => {
-    expect(proximoNumeroVao(nums(...Array.from({ length: MAX_VAOS }, (_, i) => i + 1)))).toBeNull();
   });
 });
 
@@ -85,11 +140,11 @@ describe('transições', () => {
     expect(() => proximaEtapa('revisao', 'voar')).toThrow(/desconhecida/);
   });
 
-  it('início grava etapa, data e histórico; recusa quem já tem etapa', () => {
-    const p = montarPayloadInicio({ hist: [] }, { user, agora });
-    expect(p).toMatchObject({ etapa_espacador: 'instalacao', dt_etapa: agora });
-    expect(p.hist).toHaveLength(1);
+  it('início grava etapa, histórico e o status para onde voltar', () => {
+    const p = montarPayloadInicio({ status: 'pendente', hist: [] }, { user, agora });
+    expect(p).toMatchObject({ etapa_espacador: 'instalacao', dt_etapa: agora, status_antes_instalacao: 'pendente' });
     expect(p.hist[0]).toMatchObject({ who: 'Ana', matricula: '123', when: agora });
+    expect(montarPayloadInicio({ status: 'cadastrado' }, { user, agora, criadoPelaInstalacao: true }).status_antes_instalacao).toBe('cancelado');
     expect(() => montarPayloadInicio({ etapa_espacador: 'revisao' }, { user, agora })).toThrow();
   });
 
@@ -114,12 +169,19 @@ describe('transições', () => {
       .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
   });
 
-  it('excluir cancela o serviço e só vale na etapa de instalação', () => {
-    const p = montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [{ msg: 'x' }] }, { user, agora });
-    expect(p).toMatchObject({ status: 'cancelado', dt_etapa: agora });
-    expect(p.hist).toHaveLength(2);
-    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: expect.stringMatching(/excluída/) });
+  it('excluir devolve o serviço ao status anterior e tira do fluxo', () => {
+    const p = montarPayloadExclusao({ etapa_espacador: 'instalacao', status: 'concluido', status_antes_instalacao: 'pendente', motivo_reprovacao_fechamento: 'x', hist: [{ msg: 'x' }] }, { user, agora });
+    expect(p).toMatchObject({ etapa_espacador: null, dt_etapa: null, motivo_reprovacao_fechamento: null, status_antes_instalacao: null, status: 'pendente' });
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: 'Instalação de espaçadores excluída' });
+    expect(montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [] }, { user, agora }).status).toBe('cancelado');
     expect(() => montarPayloadExclusao({ etapa_espacador: 'revisao' }, { user, agora })).toThrow(/Em revisão|revis/i);
+  });
+
+  it('correção de quantidade registra no histórico', () => {
+    const p = montarPayloadQuantidade({ hist: [] }, 3, '4', { user, agora });
+    expect(p.hist[0].msg).toBe('Quantidade de espaçadores corrigida de 3 para 4');
+    expect(montarPayloadQuantidade({ hist: [] }, 3, '3', { user, agora })).toBeNull();
+    expect(() => montarPayloadQuantidade({ hist: [] }, 3, '0', { user, agora })).toThrow(/maior que zero/);
   });
 });
 
