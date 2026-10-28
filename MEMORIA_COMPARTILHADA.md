@@ -127,6 +127,13 @@ Windows porque o build nativo exige Visual Studio.
 Vitest cobre partes de domínio. Há arquivo ESLint, mas não script `lint`
 no manifesto lido. `npm.cmd run deploy` publica via gh-pages e não é um teste.
 
+**Commit (lei de Matheus):** a mensagem é somente
+`Corrigimos alguns erros e melhoramos a experiência geral. Até breve, Matheus`,
+sem título, sem descrição e sem `Co-Authored-By`. Ver o perfil APPWEB.
+Os commits `1934f35`, `5873e36`, `dba60c3`, `da81fc5` e `7c3be2a` (28/10) saíram
+fora desse padrão e já estavam publicados. Não foram reescritos porque isso
+exigiria force push na `main`.
+
 A alteração preexistente em `scripts/limpar-instalacoes-teste.sql` e o arquivo
 `.ignore` foram preservados. Esta tarefa só adicionou memória e instruções.
 
