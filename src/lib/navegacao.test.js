@@ -10,18 +10,20 @@ describe('menuDoPerfil', () => {
   it('dono vê tudo, com Usuários e Colaboradores no Admin', () => {
     expect(estrutura('dono')).toEqual([
       ['cadastro', ['cadastrar']],
-      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos']],
-      ['mapa', ['mapa']],
+      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos', 'mapa']],
       ['gestao', ['painel', 'faturamento']],
       ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'colaboradores', 'logs']],
     ]);
   });
-  it('despachante vê Despacho, Mapa e Colaboradores', () => {
+  it('despachante vê Despacho (com o Mapa) e Colaboradores', () => {
     expect(estrutura('despachante')).toEqual([
-      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos']],
-      ['mapa', ['mapa']],
+      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos', 'mapa']],
       ['admin', ['colaboradores']],
     ]);
+  });
+  it('o Mapa fica no grupo Despacho e a tela salva continua abrindo', () => {
+    expect(localizarTela('mapa')).toMatchObject({ grupo: { label: 'Despacho' }, item: { label: 'Mapa' } });
+    expect(telaInicial('despachante', 'mapa')).toBe('mapa');
   });
   it('colaborador e perfis desconhecidos não veem nada no web', () => {
     expect(estrutura('colaborador')).toEqual([]);

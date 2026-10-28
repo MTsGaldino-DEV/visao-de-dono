@@ -1,6 +1,8 @@
 // Regras do fluxo de instalação de espaçadores por vão.
 // Módulo puro (sem Supabase) para poder ser testado com Vitest.
 
+import { lerCoordenada, formatarCoordenada, distanciaMetros } from './coordenadas';
+
 export const LIMITE_VINCULO_M = 100;
 
 export const ETAPAS = {
@@ -40,34 +42,8 @@ export const ordenarResultadosTrafo = (lista, texto) => {
   return [...lista].sort((a, b) => rank(a) - rank(b) || String(a.equip).localeCompare(String(b.equip)));
 };
 
-const NUMERO_COORD = /^[+-]?\d+(?:[.,]\d+)?$/;
-
-// Separadores: ";", ", " (vírgula seguida de espaço) ou espaço. Sem nenhum deles, tenta "," simples.
-// Depois troca a vírgula decimal por ponto em cada parte.
-export const lerCoordenada = (texto) => {
-  const t = String(texto ?? '').trim();
-  if (!t) return null;
-  let partes = t.split(/\s*;\s*|\s*,\s+|\s+/);
-  if (partes.length === 1) partes = t.split(',');
-  if (partes.length !== 2 || !partes.every(p => NUMERO_COORD.test(p))) return null;
-  const [lat, lng] = partes.map(p => Number(p.replace(',', '.')));
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { lat, lng };
-};
-
-// Formato gravado no banco, o mesmo que o Mapa lê ("lat lng" com ponto decimal)
-export const formatarCoordenada = (texto) => {
-  const c = lerCoordenada(texto);
-  return c ? `${c.lat.toFixed(6)} ${c.lng.toFixed(6)}` : null;
-};
-
-export const distanciaMetros = (a, b) => {
-  const rad = (g) => (g * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * 6371000 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-};
+// Coordenadas vêm da leitura única do sistema; reexportadas para quem já importa daqui
+export { lerCoordenada, formatarCoordenada, distanciaMetros };
 
 // Candidatos do mais perto ao mais longe da coordenada do antes; sem coordenada no fim
 export const sugerirVinculo = (candidatos, coordAntes) => {

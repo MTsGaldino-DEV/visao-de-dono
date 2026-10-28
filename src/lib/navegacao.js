@@ -16,8 +16,6 @@ const GRUPOS = [
     { key: 'espacadores', label: 'Espaçadores', perfis: ESCRITORIO },
     { key: 'instalacoes', label: 'Instalações', perfis: COM_FECHAMENTO },
     { key: 'levantamentos', label: 'Levantamentos', perfis: ESCRITORIO },
-  ] },
-  { id: 'mapa', label: 'Mapa', itens: [
     { key: 'mapa', label: 'Mapa', perfis: ESCRITORIO },
   ] },
   { id: 'gestao', label: 'Gestão', itens: [
