@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, fetchAll } from '../lib/supabase';
 import { podeDespachar } from '../lib/colaboradores';
+import { isEspacador } from '../lib/espacadores';
 import { validarCoordenada, formatarCoordenada, coordenadaIncorreta, distanciaMetros, MENSAGEM_COORDENADA } from '../lib/coordenadas';
 import DetalheModal from './DetalheModal';
 import * as XLSX from 'xlsx';
@@ -1177,13 +1178,10 @@ const ServicosTable = ({ filterType }) => {
   useEffect(() => {
     let lista = [...services];
 
-    if (filterType === 'espacadores') {
-      // Cobre: espaçador, espacador, espaçadores, espacadores e erros comuns de digitação
-      // normStr já remove acentos → "espaçador" vira "espacador"
-      // Regex: esp + até 2 chars flex + ac + até 1 char flex + dor
-      const espacadorRegex = /esp.{0,2}ac.{0,2}dor/;
-      lista = lista.filter(s => espacadorRegex.test(normStr(s.desc || '')));
-    }
+    // isEspacador cobre espaçador/espacador(es), sem acento e erros comuns de digitação.
+    // 'diversos' é o complemento exato de 'espacadores': cada serviço aparece em uma só das duas.
+    if (filterType === 'espacadores') lista = lista.filter(isEspacador);
+    if (filterType === 'diversos') lista = lista.filter(s => !isEspacador(s));
 
     if (busca.trim()) {
       const raw = busca.trim();

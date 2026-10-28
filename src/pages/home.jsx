@@ -107,7 +107,7 @@ const Home = () => {
           )}
 
           {/* CONTEÚDO DAS TELAS
-              Mantemos CadastroForm, ServicosTable, Espaçadores e Painel sempre montados (display none/block)
+              Mantemos CadastroForm, ServicosTable (Serviços e Diversos), Espaçadores e Painel sempre montados (display none/block)
               para evitar que desmonte ao trocar de tela e perca o estado/listener */}
           {!soFechamento && (
             <>
@@ -117,6 +117,10 @@ const Home = () => {
 
               <div style={mostrar('servicos')}>
                 <ServicosTable />
+              </div>
+
+              <div style={mostrar('diversos')}>
+                <ServicosTable filterType="diversos" />
               </div>
 
               <div style={mostrar('espacadores')}>

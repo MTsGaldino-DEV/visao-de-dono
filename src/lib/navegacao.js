@@ -13,10 +13,14 @@ const GRUPOS = [
   ] },
   { id: 'despacho', label: 'Despacho', itens: [
     { key: 'servicos', label: 'Serviços', perfis: ESCRITORIO },
+    { key: 'diversos', label: 'Serviços diversos', perfis: ESCRITORIO },
     { key: 'espacadores', label: 'Espaçadores', perfis: ESCRITORIO },
     { key: 'instalacoes', label: 'Instalações', perfis: COM_FECHAMENTO },
-    { key: 'levantamentos', label: 'Levantamentos', perfis: ESCRITORIO },
     { key: 'mapa', label: 'Mapa', perfis: ESCRITORIO },
+  ] },
+  // Telas que só têm conteúdo quando o app Android envia dados
+  { id: 'campo', label: 'App de campo', itens: [
+    { key: 'levantamentos', label: 'Levantamentos', perfis: ESCRITORIO },
   ] },
   { id: 'gestao', label: 'Gestão', itens: [
     { key: 'painel', label: 'Painel', perfis: DONO },

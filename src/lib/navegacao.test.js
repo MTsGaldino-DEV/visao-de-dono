@@ -10,16 +10,26 @@ describe('menuDoPerfil', () => {
   it('dono vê tudo, com Usuários e Colaboradores no Admin', () => {
     expect(estrutura('dono')).toEqual([
       ['cadastro', ['cadastrar']],
-      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos', 'mapa']],
+      ['despacho', ['servicos', 'diversos', 'espacadores', 'instalacoes', 'mapa']],
+      ['campo', ['levantamentos']],
       ['gestao', ['painel', 'faturamento']],
       ['admin', ['gerar-os', 'duplicidade', 'usuarios', 'colaboradores', 'logs']],
     ]);
   });
-  it('despachante vê Despacho (com o Mapa) e Colaboradores', () => {
+  it('despachante vê Despacho (com o Mapa), App de campo e Colaboradores', () => {
     expect(estrutura('despachante')).toEqual([
-      ['despacho', ['servicos', 'espacadores', 'instalacoes', 'levantamentos', 'mapa']],
+      ['despacho', ['servicos', 'diversos', 'espacadores', 'instalacoes', 'mapa']],
+      ['campo', ['levantamentos']],
       ['admin', ['colaboradores']],
     ]);
+  });
+  it('Levantamentos fica no grupo App de campo e a tela salva continua abrindo', () => {
+    expect(localizarTela('levantamentos')).toMatchObject({ grupo: { label: 'App de campo' }, item: { label: 'Levantamentos' } });
+    expect(telaInicial('despachante', 'levantamentos')).toBe('levantamentos');
+  });
+  it('Serviços diversos fica no Despacho, depois de Serviços', () => {
+    expect(localizarTela('diversos')).toMatchObject({ grupo: { label: 'Despacho' }, item: { label: 'Serviços diversos' } });
+    expect(telaInicial('fechamento', 'diversos')).toBe('instalacoes');
   });
   it('o Mapa fica no grupo Despacho e a tela salva continua abrindo', () => {
     expect(localizarTela('mapa')).toMatchObject({ grupo: { label: 'Despacho' }, item: { label: 'Mapa' } });

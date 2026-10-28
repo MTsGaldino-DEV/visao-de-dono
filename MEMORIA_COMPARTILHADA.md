@@ -93,9 +93,19 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   "Corrigir coordenada" no painel do Mapa.
 - A checagem de repetidos da importação e a busca por proximidade usam a
   coordenada normalizada.
-- **Próximo pedido (não iniciado):** uma aba com os serviços que **não** são de
-  espaçador, ao lado de "Serviços" (todos) e "Espaçadores". Ainda precisa de
-  brainstorming com Matheus.
+- O DetalheModal (z 200) abria por trás do mapa. O container do mapa usa
+  `isolation: isolate` para prender os z-index do Leaflet; não remover.
+
+## Decisão: menu por origem dos dados (28/10/2026)
+
+- Despacho: Serviços · **Serviços diversos** · Espaçadores · Instalações · Mapa.
+  "Serviços diversos" é `ServicosTable filterType="diversos"`, ou seja, todos os
+  serviços menos os de espaçador. É o complemento exato da lista de Espaçadores:
+  as duas usam `isEspacador` de `src/lib/espacadores.js` (regex na descrição).
+- Novo grupo **"App de campo"** (`id: 'campo'`) para telas que só têm conteúdo
+  quando o app Android envia dados. Hoje só contém **Levantamentos**. O app grava
+  apenas em `levantamentos` e `servicos`, e Serviços também é alimentada pelo web,
+  por isso fica no Despacho. Nova tela dependente do app vai para esse grupo.
 
 ## Integrações e cuidados
 
