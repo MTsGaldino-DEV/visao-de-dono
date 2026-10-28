@@ -288,7 +288,8 @@ const MapaTab = () => {
         <div style={{
           borderRadius: '12px', overflow: 'hidden',
           border: '1px solid #0f2544', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-          height: '620px', position: 'relative', background: '#0b1220',
+          // isolation prende os z-index do Leaflet (400–1000) aqui dentro; sem isso o mapa cobre o DetalheModal (z 200)
+          height: '620px', position: 'relative', background: '#0b1220', isolation: 'isolate',
         }}>
           {servicosNoMapa.length === 0 ? (
             <div style={{
