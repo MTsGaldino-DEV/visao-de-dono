@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, fetchAll } from '../lib/supabase';
+import { validarCoordenada, formatarCoordenada, MENSAGEM_COORDENADA } from '../lib/coordenadas';
 
 // ── Localidades por posto ────────────────────────────────────────────────────
 const POSTOS = {
@@ -396,10 +397,13 @@ const CadastroForm = () => {
 
   const cadastrar = async () => {
     const campos = { data: formData.data, local: formData.local, desc: formData.desc, tipo: formData.tipo, equip: formData.equip, coord: formData.coord, foto: formData.foto, orig: formData.orig };
-    const novosErros = Object.fromEntries(Object.entries(campos).filter(([, v]) => !v?.trim()));
+    const novosErros = Object.fromEntries(Object.entries(campos).filter(([, v]) => !v?.trim()).map(([k]) => [k, true]));
+    const validacaoCoord = validarCoordenada(formData.coord);
+    const erroCoord = !validacaoCoord.ok && validacaoCoord.motivo !== 'vazia' ? MENSAGEM_COORDENADA[validacaoCoord.motivo] : '';
+    if (erroCoord) novosErros.coord = erroCoord;
     setErrors(novosErros);
     if (Object.keys(novosErros).length > 0) {
-      alert('Preencha todos os campos obrigatórios antes de cadastrar.');
+      alert(erroCoord && Object.keys(novosErros).length === 1 ? erroCoord : 'Preencha todos os campos obrigatórios antes de cadastrar.');
       return;
     }
     if (formData.data) {
@@ -417,6 +421,7 @@ const CadastroForm = () => {
       const novoId = `VD${String(nextIdNum).padStart(4, '0')}`;
       await supabase.from('servicos').insert({
         ...formData,
+        coord: formatarCoordenada(formData.coord),
         id: novoId,
         status: 'cadastrado',
         numServ: '',
@@ -543,6 +548,7 @@ const CadastroForm = () => {
                 value={formData.coord} onChange={handleChange}
                 style={inp('coord')} onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
               />
+              {typeof errors.coord === 'string' && <span style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{errors.coord}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>Técnico de origem <span style={{ color: '#ef4444' }}>*</span></label>

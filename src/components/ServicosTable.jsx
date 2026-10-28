@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, fetchAll } from '../lib/supabase';
 import { podeDespachar } from '../lib/colaboradores';
+import { validarCoordenada, formatarCoordenada, coordenadaIncorreta, distanciaMetros, MENSAGEM_COORDENADA } from '../lib/coordenadas';
 import DetalheModal from './DetalheModal';
 import * as XLSX from 'xlsx';
 
@@ -736,20 +737,13 @@ const ImportPopup = ({ onClose, onSuccess }) => {
         let validosCount = 0;
         let errosCount = 0;
 
-        const coordsNaPlanilha = Array.from(new Set(json.map(r => String(r['COORDENADA'] || '').trim()).filter(Boolean)));
+        // Compara a coordenada normalizada: "-18,85 -41,95" e "-18.85, -41.95" são o mesmo ponto
         let existentesMap = new Set();
-        if (coordsNaPlanilha.length > 0) {
-          const inChunks = [];
-          for (let i = 0; i < coordsNaPlanilha.length; i += 100) {
-            inChunks.push(coordsNaPlanilha.slice(i, i + 100));
-          }
-          for (const chunk of inChunks) {
-            const { data: dbExistentes } = await supabase.from('servicos').select('coord').in('coord', chunk);
-            if (dbExistentes) {
-              dbExistentes.forEach(e => existentesMap.add(e.coord));
-            }
-          }
-        }
+        const { data: dbExistentes } = await fetchAll(() => supabase.from('servicos').select('id, coord').not('coord', 'is', null));
+        (dbExistentes || []).forEach(e => {
+          const normalizada = formatarCoordenada(e.coord);
+          if (normalizada) existentesMap.add(normalizada);
+        });
 
         let coordenadasNoArquivo = new Set();
 
@@ -782,9 +776,13 @@ const ImportPopup = ({ onClose, onSuccess }) => {
           const desc = String(row['DESCRIÇÃO'] || '').trim();
           if (!desc) errors.push('DESCRIÇÃO está vazia');
 
-          const coord = String(row['COORDENADA'] || '').trim();
-          if (!coord) {
+          const coordRaw = String(row['COORDENADA'] || '').trim();
+          const validacaoCoord = validarCoordenada(coordRaw);
+          const coord = validacaoCoord.ok ? formatarCoordenada(coordRaw) : coordRaw;
+          if (!coordRaw) {
             errors.push('COORDENADA está vazia');
+          } else if (!validacaoCoord.ok) {
+            errors.push(`COORDENADA incorreta ("${coordRaw}"): ${MENSAGEM_COORDENADA[validacaoCoord.motivo]}`);
           } else {
             if (existentesMap.has(coord) || coordenadasNoArquivo.has(coord)) {
               errors.push('Duplicidade: já existe um serviço com esta mesma Coordenada.');
@@ -1085,57 +1083,12 @@ const ImportPopup = ({ onClose, onSuccess }) => {
   );
 };
 
-// ── Distância (Haversine) ─────────────────────────────────────────────────────
+// ── Distância em km (leitura única de coordenada; inválida fica no fim) ─────
 const calcularDistancia = (coord1, coord2) => {
-  if (!coord1 || !coord2) return Infinity;
-
-  // Aceita vários formatos: "-18.517, -41.936" | "-18.517;-41.936" | "-18.517 -41.936"
-  // Também vírgula como decimal no lugar do ponto: "-18,517;-41,936"
-  const parseCoord = (raw) => {
-    if (!raw) return null;
-    // Normaliza: troca vírgula decimal por ponto SOMENTE quando usada dentro de números
-    // Primeiro detecta o separador de lat/lon
-    let str = String(raw).trim();
-
-    // Tenta separar por ponto-e-vírgula primeiro
-    let parts = str.split(';');
-    if (parts.length !== 2) {
-      // Tenta separar por vírgula: "-18.517, -41.936"
-      // Precisa ter exatamente 2 partes após split por vírgula
-      const byComma = str.split(',');
-      if (byComma.length === 2) {
-        parts = byComma;
-      } else if (byComma.length === 4) {
-        // Formato com vírgula decimal: "-18,517,-41,936" → partes = ["-18","517","-41","936"]
-        // Reagrupa: "-18.517" e "-41.936"
-        parts = [byComma[0] + '.' + byComma[1], byComma[2] + '.' + byComma[3]];
-      } else {
-        // Tenta separar por espaço
-        const bySpace = str.trim().split(/\s+/);
-        if (bySpace.length === 2) parts = bySpace;
-        else return null;
-      }
-    }
-
-    // Substitui vírgula decimal por ponto em cada parte
-    const lat = parseFloat(parts[0].trim().replace(',', '.'));
-    const lon = parseFloat(parts[1].trim().replace(',', '.'));
-    if (isNaN(lat) || isNaN(lon)) return null;
-    return { lat, lon };
-  };
-
-  const p1 = parseCoord(coord1);
-  const p2 = parseCoord(coord2);
-  if (!p1 || !p2) return Infinity;
-
-  const R = 6371; // km
-  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-  const dLon = (p2.lon - p1.lon) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  const p1 = validarCoordenada(coord1);
+  const p2 = validarCoordenada(coord2);
+  if (!p1.ok || !p2.ok) return Infinity;
+  return distanciaMetros(p1, p2) / 1000;
 };
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -1478,6 +1431,11 @@ const ServicosTable = ({ filterType }) => {
             <div>
               <div style={{ fontSize: '14px', fontWeight: '700', color: '#15803d' }}>Exibindo serviços ordenados por proximidade</div>
               <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>Referência: <strong>{servicoReferencia.id}</strong> (Coordenadas: {servicoReferencia.coord})</div>
+              {!validarCoordenada(servicoReferencia.coord).ok && (
+                <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600', marginTop: '2px' }}>
+                  A coordenada deste serviço está vazia ou incorreta — corrija-a para ordenar por proximidade.
+                </div>
+              )}
             </div>
           </div>
           <button onClick={() => setServicoReferencia(null)} style={{ background: '#fff', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '600', color: '#15803d', cursor: 'pointer' }}>
@@ -1697,7 +1655,15 @@ const ServicosTable = ({ filterType }) => {
                     </div>
                   </td>
 
-                  <td style={td}><span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span></td>
+                  <td style={td}>
+                    <span style={{ fontWeight: '700', color: '#0f2544' }}>{s.id}</span>
+                    {coordenadaIncorreta(s.coord) && (
+                      <div title={`Coordenada "${s.coord}" — ${MENSAGEM_COORDENADA[validarCoordenada(s.coord).motivo]}`}
+                        style={{ marginTop: '2px', display: 'inline-block', fontSize: '9px', fontWeight: '700', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '20px', padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                        Coordenada incorreta
+                      </div>
+                    )}
+                  </td>
                   <td style={{ ...td, color: '#64748b' }}>{fmtDt(s.data)}</td>
                   <td style={td}>
                     <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.local}>
@@ -1706,7 +1672,7 @@ const ServicosTable = ({ filterType }) => {
                     {servicoReferencia && s._distancia !== undefined && (
                       <div style={{ fontSize: '10px', color: '#15803d', fontWeight: '600', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path></svg>
-                        {s._distancia === Infinity ? 'Sem coord.' : s._distancia === 0 ? 'Ref.' : `${s._distancia.toFixed(2)} km`}
+                        {s._distancia === Infinity ? (coordenadaIncorreta(s.coord) ? 'Coord. incorreta' : 'Sem coord.') : s._distancia === 0 ? 'Ref.' : `${s._distancia.toFixed(2)} km`}
                       </div>
                     )}
                   </td>

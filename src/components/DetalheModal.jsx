@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { validarCoordenada, formatarCoordenada, MENSAGEM_COORDENADA } from '../lib/coordenadas';
 import { LocalidadeSelect } from './ServicosTable';
 
 const STATUS_CONFIG = {
@@ -98,11 +99,17 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
   const hoje = new Date();
   const maxDate = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}T23:59:59`;
 
+  // Vazia é permitida; preenchida tem que ser legível e dentro do Brasil
+  const validacaoCoord = validarCoordenada(formData.coord);
+  const erroCoord = !validacaoCoord.ok && validacaoCoord.motivo !== 'vazia' ? MENSAGEM_COORDENADA[validacaoCoord.motivo] : '';
+
   const salvar = async () => {
+    if (erroCoord) { document.querySelector('input[name="coord"]')?.focus(); return; }
     setLoading(true);
     try {
       await supabase.from('servicos').update({
         ...formData,
+        coord: formatarCoordenada(formData.coord) || '',
         hist: [...(service.hist || []), {
           who: user.label, matricula: user.matricula,
           when: new Date().toISOString(),
@@ -287,8 +294,10 @@ const DetalheModal = ({ service, isOpen, onClose, isDono: isDonoProp, onAlterarL
               <Field label="Coordenada">
                 <input type="text" name="coord" placeholder="-18.517, -41.936"
                   value={formData.coord} onChange={handleChange} disabled={readOnly}
-                  style={inp('coord')} onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
+                  style={{ ...inp('coord'), ...(erroCoord ? { borderColor: '#ef4444', background: '#fef2f2' } : {}) }}
+                  onFocus={() => setFocused('coord')} onBlur={() => setFocused('')}
                 />
+                {erroCoord && <span style={{ fontSize: '11px', color: '#dc2626' }}>{erroCoord}</span>}
               </Field>
               <Field label="Técnico de origem">
                 <input type="text" name="orig" placeholder="Nome do técnico"
