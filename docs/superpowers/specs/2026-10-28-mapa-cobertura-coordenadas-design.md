@@ -115,9 +115,10 @@ escrito de outro jeito escapa da checagem de repetidos.
 - **Dados:** os mesmos de hoje. Busca com `fetchAll`, sem cancelados, e atualiza
   via Realtime no canal `servicos_mapa`. Só entram serviços com
   `validarCoordenada(...).ok`.
-- **Fundo:** CARTO Dark Matter
-  (`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`, com atribuição
-  OSM + CARTO).
+- **Fundo:** tiles do OpenStreetMap escurecidos por CSS (`.mapa-escuro`: invert +
+  hue-rotate), com atribuição OSM. *Mudou em 28/10 após publicar:* a CARTO Dark
+  Matter passou a devolver "API KEY REQUIRED" vindo do GitHub Pages. Não voltar
+  para a CARTO sem chave.
 - **Áreas:** agrupamento por ligação simples com régua D (padrão 1000 m) e
   envoltória convexa de cada grupo, pintada (preenchimento ~0,28, borda 2,5 px)
   em tons de azul que se alternam entre as áreas. Um serviço sozinho vira um círculo

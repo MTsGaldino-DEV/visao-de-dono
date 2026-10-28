@@ -188,6 +188,7 @@ const MapaTab = () => {
       <style>{`
         .mapa-grade { display: grid; grid-template-columns: 1fr 260px; gap: 12px; }
         @media (max-width: 900px) { .mapa-grade { grid-template-columns: 1fr; } }
+        .mapa-escuro { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.35); }
       `}</style>
 
       {/* ── Header com stats e controles ───────────────────────────────────── */}
@@ -309,10 +310,11 @@ const MapaTab = () => {
               style={{ height: '100%', width: '100%', background: '#0b1220' }}
               zoomControl={true}
             >
+              {/* OpenStreetMap escurecido por CSS: a CARTO Dark passou a exigir chave de API */}
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                subdomains="abcd"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                className="mapa-escuro"
                 maxZoom={19}
               />
 

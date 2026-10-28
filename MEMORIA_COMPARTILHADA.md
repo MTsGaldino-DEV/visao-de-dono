@@ -76,7 +76,8 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
 
 - O Mapa (`MapaTab.jsx`, chave `mapa`) virou **mapa de cobertura de
   levantamento** e saiu do grupo próprio para o grupo **Despacho**. Ele tem fundo
-  escuro (CARTO), áreas = envoltória convexa dos serviços de ponta, e abre área nova
+  escuro (OpenStreetMap escurecido por CSS; a CARTO Dark exige chave de API e
+  apareceu em produção com "API KEY REQUIRED"), áreas = envoltória convexa dos serviços de ponta, e abre área nova
   a partir de **1 km** (régua na tela, valor a ajustar com o uso). Os pins são
   **bolinhas na cor do status**. O pin em gota grande foi rejeitado por poluir.
 - Por enquanto não há filtro por levantador (`orig`); Matheus disse que não precisa.
