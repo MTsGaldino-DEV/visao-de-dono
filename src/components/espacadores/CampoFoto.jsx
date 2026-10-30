@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { lerCoordenada } from '../../lib/espacadores';
+import { validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA } from '../../lib/espacadores';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
 const botaoArquivo = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', background: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', boxSizing: 'border-box' };
@@ -12,7 +12,8 @@ const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, on
 
   const src = preview || url;
   const coordVazia = !coord?.trim();
-  const coordInvalidaDigitada = !coordVazia && !lerCoordenada(coord);
+  const validacao = validarCoordenadaVao(coord);
+  const coordInvalidaDigitada = !coordVazia && !validacao.ok;
   const erroCoord = coordInvalidaDigitada || (mostrarErros && coordVazia);
   const faltaFoto = mostrarErros && editavel && !src;
 
@@ -36,13 +37,13 @@ const CampoFoto = ({ rotulo, arquivo = null, url = null, coord = '', onCoord, on
       )}
       {editavel ? (
         <div>
-          <input value={coord} placeholder="-18.844040 -41.957216" onChange={e => onCoord(e.target.value)}
+          <input value={coord} placeholder="-18,844040 -41,957216" onChange={e => onCoord(e.target.value)}
             style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${erroCoord ? '#dc2626' : '#cbd5e1'}`, fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
-          {erroCoord && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{coordVazia ? 'Coordenada obrigatória' : 'Coordenada inválida'}</div>}
+          {erroCoord && <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px' }}>{coordVazia ? 'Coordenada obrigatória' : MENSAGEM_COORDENADA[validacao.motivo]}</div>}
         </div>
       ) : (
         <div style={{ fontSize: '12px', color: '#475569' }}>
-          <span style={{ color: '#94a3b8' }}>Coordenada:</span> {coord || '—'}
+          <span style={{ color: '#94a3b8' }}>Coordenada:</span> {coordenadaComVirgula(coord) || coord || '—'}
         </div>
       )}
     </div>

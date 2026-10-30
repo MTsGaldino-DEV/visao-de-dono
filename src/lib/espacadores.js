@@ -1,7 +1,9 @@
 // Regras do fluxo de instalação de espaçadores por vão.
 // Módulo puro (sem Supabase) para poder ser testado com Vitest.
 
-import { lerCoordenada, formatarCoordenada, distanciaMetros } from './coordenadas';
+import {
+  lerCoordenada, formatarCoordenada, distanciaMetros, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA,
+} from './coordenadas';
 
 export const LIMITE_VINCULO_M = 100;
 
@@ -45,7 +47,7 @@ export const ordenarResultadosTrafo = (lista, texto) => {
 };
 
 // Coordenadas vêm da leitura única do sistema; reexportadas para quem já importa daqui
-export { lerCoordenada, formatarCoordenada, distanciaMetros };
+export { lerCoordenada, formatarCoordenada, distanciaMetros, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA };
 
 // Candidatos do mais perto ao mais longe da coordenada do antes; sem coordenada no fim
 export const sugerirVinculo = (candidatos, coordAntes) => {
@@ -88,9 +90,9 @@ export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe 
     const texto = String(digitado ?? '').trim();
     const salvo = vao?.[campo] || '';
     if (!texto && !salvo) return;
-    const novo = formatarCoordenada(texto);
-    if (!novo) { invalido = true; return; }
-    if (novo !== (formatarCoordenada(salvo) ?? salvo)) campos[campo] = novo;
+    // O digitado precisa estar no formato do vão; o salvo pode estar em formato antigo ("lat lng" com ponto)
+    if (!validarCoordenadaVao(texto).ok) { invalido = true; return; }
+    if (formatarCoordenada(texto) !== (formatarCoordenada(salvo) ?? salvo)) campos[campo] = coordenadaComVirgula(texto);
   });
   const qtdSalva = vao?.qtd_espacadores ?? null;
   if (String(qtd ?? '').trim() !== '' || qtdSalva !== null) {
@@ -212,8 +214,10 @@ const ROTULOS_VAO = {
 
 // campos = saída de alteracoesPendentes; uma frase por campo para o histórico
 export const descreverAlteracoesVao = (vao, campos) =>
-  Object.keys(ROTULOS_VAO).filter(c => c in campos)
-    .map(c => `${ROTULOS_VAO[c]}: ${mostrar(vao?.[c])} → ${mostrar(campos[c])}`);
+  Object.keys(ROTULOS_VAO).filter(c => c in campos).map(c => {
+    const antes = c.startsWith('coord_') ? coordenadaComVirgula(vao?.[c]) ?? vao?.[c] : vao?.[c];
+    return `${ROTULOS_VAO[c]}: ${mostrar(antes)} → ${mostrar(campos[c])}`;
+  });
 
 // [campo, rótulo, mensagem quando apagam um valor que já existia]
 const CAMPOS_SERVICO = [
@@ -316,8 +320,8 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'Equipe': vao?.equipe || '',
     'Desde': s.dt_etapa ? formatarData(s.dt_etapa) : '',
     'Apropriação': s.apropriacao || '',
-    'Coordenada do antes': vao?.coord_antes || '',
-    'Coordenada do depois': vao?.coord_depois || '',
+    'Coordenada do antes': coordenadaComVirgula(vao?.coord_antes) || vao?.coord_antes || '',
+    'Coordenada do depois': coordenadaComVirgula(vao?.coord_depois) || vao?.coord_depois || '',
     'Foto do antes': vao?.fotos_antes?.[0] || '',
     'Foto do depois': vao?.fotos_depois?.[0] || '',
   };

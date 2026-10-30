@@ -53,16 +53,20 @@ describe('formatarCoordenada', () => {
 
 describe('alteracoesPendentes', () => {
   const vao = { coord_antes: '-18.844040 -41.957216', coord_depois: '-18.844040 -41.957216', qtd_espacadores: 3 };
-  const rascunho = { coordAntes: vao.coord_antes, coordDepois: vao.coord_depois, qtd: 3 };
+  const rascunho = { coordAntes: '-18,844040 -41,957216', coordDepois: '-18,844040 -41,957216', qtd: 3 };
   it('sem mudança não há nada pendente', () => {
     expect(alteracoesPendentes(vao, rascunho)).toEqual({ campos: {}, pendente: false, invalido: false });
   });
-  it('só leva o que mudou, já normalizado', () => {
-    const r = alteracoesPendentes(vao, { ...rascunho, coordDepois: '-18,9;-41,9', qtd: '4' });
-    expect(r).toEqual({ campos: { coord_depois: '-18.900000 -41.900000', qtd_espacadores: 4 }, pendente: true, invalido: false });
+  it('só leva o que mudou, já no formato do vão', () => {
+    const r = alteracoesPendentes(vao, { ...rascunho, coordDepois: '-18,9  -41,9', qtd: '4' });
+    expect(r).toEqual({ campos: { coord_depois: '-18,900000 -41,900000', qtd_espacadores: 4 }, pendente: true, invalido: false });
   });
   it('mesma coordenada em outro formato não conta como mudança', () => {
-    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '-18,844040;-41,957216' }).pendente).toBe(false);
+    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '-18,84404 -41,957216' }).pendente).toBe(false);
+  });
+  it('coordenada digitada fora do formato do vão não pode ser gravada', () => {
+    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '-18.9 -41.9' })).toEqual({ campos: {}, pendente: true, invalido: true });
+    expect(alteracoesPendentes(vao, { ...rascunho, coordAntes: '18,9 -41,9' }).invalido).toBe(true);
   });
   it('valor inválido digitado fica pendente e marcado', () => {
     expect(alteracoesPendentes(vao, { ...rascunho, qtd: '0' })).toEqual({ campos: {}, pendente: true, invalido: true });
@@ -243,7 +247,7 @@ describe('linhasPlanilhaInstalacoes', () => {
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
       'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Espaçadores': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
       'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Desde': '', 'Apropriação': '9844',
-      'Coordenada do antes': '-18.8 -41.9', 'Coordenada do depois': '-18.9 -41.9', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
+      'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
     }]);
     expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({ 'Espaçadores': '', 'Equipe': '', 'Situação': 'Em revisão' });
   });

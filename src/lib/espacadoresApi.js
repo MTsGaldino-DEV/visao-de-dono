@@ -3,7 +3,7 @@
 import { supabase, fetchAll } from './supabase';
 import {
   isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
-  entradaHist, formatarCoordenada, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadCorrecao,
+  entradaHist, formatarCoordenada, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadCorrecao,
   validarArquivo, caminhoArquivo,
 } from './espacadores';
 
@@ -152,13 +152,16 @@ export const corrigirInstalacao = async (servico, vao, { camposVao = {}, camposS
 // Se falhar depois do vínculo, o serviço fica em "Em instalação" para o despachante terminar.
 export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe }, user) => {
   const criadoPelaInstalacao = !servico;
-  // Grava no formato que o Mapa lê, seja qual for o formato digitado
-  const antes = formatarCoordenada(coordAntes);
-  const depois = formatarCoordenada(coordDepois);
-  if (!antes || !depois) throw new Error('Coordenada inválida.');
+  // Vão: digitada e gravada como "-18,844040 -41,957216". Serviço novo: formato padrão do sistema
+  [coordAntes, coordDepois].forEach(c => {
+    const v = validarCoordenadaVao(c);
+    if (!v.ok) throw new Error(MENSAGEM_COORDENADA[v.motivo] || 'Informe as coordenadas do antes e do depois.');
+  });
+  const antes = coordenadaComVirgula(coordAntes);
+  const depois = coordenadaComVirgula(coordDepois);
   const nomeEquipe = String(equipe ?? '').trim();
   if (!nomeEquipe) throw new Error('Informe a equipe.');
-  const base = servico || await criarServicoEspacador({ ...novo, coord: antes }, user);
+  const base = servico || await criarServicoEspacador({ ...novo, coord: formatarCoordenada(coordAntes) }, user);
   const iniciado = await iniciarInstalacao(base, user, { criadoPelaInstalacao });
   try {
     // Uma exclusão que falhou no meio pode ter deixado um vão órfão para este serviço

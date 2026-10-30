@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
-  permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao,
+  permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao, coordenadaComVirgula,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
@@ -63,7 +63,12 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
   const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}`;
   const digitado = rascunho?.versao === versaoVao ? rascunho : {
-    versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '', equipe: vao?.equipe || '',
+    // Gravada como "lat lng"; na tela já aparece no formato com vírgula que o vão exige
+    versao: versaoVao,
+    coordAntes: coordenadaComVirgula(vao?.coord_antes) || vao?.coord_antes || '',
+    coordDepois: coordenadaComVirgula(vao?.coord_depois) || vao?.coord_depois || '',
+    qtd: vao?.qtd_espacadores ?? '',
+    equipe: vao?.equipe || '',
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];

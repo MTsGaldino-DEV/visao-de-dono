@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { lerCoordenada, validarCoordenada, formatarCoordenada, distanciaMetros, MENSAGEM_COORDENADA } from './coordenadas';
+import {
+  lerCoordenada, validarCoordenada, formatarCoordenada, distanciaMetros, MENSAGEM_COORDENADA,
+  validarCoordenadaVao, coordenadaComVirgula,
+} from './coordenadas';
 
 describe('lerCoordenada', () => {
   const ok = { lat: -18.85, lng: -41.95 };
@@ -40,6 +43,26 @@ describe('formatarCoordenada', () => {
     expect(formatarCoordenada('-18,85,-41,95')).toBe('-18.850000 -41.950000');
     expect(formatarCoordenada(' -18.8440401, -41.95 ')).toBe('-18.844040 -41.950000');
     expect(formatarCoordenada('xx')).toBeNull();
+  });
+});
+
+describe('validarCoordenadaVao', () => {
+  it.each(['-18,844040 -41,957216', ' -18,84   -41,95 ', '-18 -41'])('aceita %s', (t) => {
+    expect(validarCoordenadaVao(t).ok).toBe(true);
+  });
+  it.each(['-18.85 -41.95', '-18.85, -41.95', '-18,85;-41,95', '-18,85, -41,95', '-18,85,-41,95', '-18,85 -41,95 3'])(
+    'exige vírgula nos decimais e espaço entre latitude e longitude: %s', (t) => {
+      expect(validarCoordenadaVao(t)).toEqual({ ok: false, motivo: 'virgula' });
+    });
+  it('vazia e fora do Brasil seguem a regra geral', () => {
+    expect(validarCoordenadaVao('  ')).toEqual({ ok: false, motivo: 'vazia' });
+    expect(validarCoordenadaVao('18,85 -41,95')).toEqual({ ok: false, motivo: 'fora_brasil' });
+    expect(MENSAGEM_COORDENADA.virgula).toMatch(/-18,844040 -41,957216/);
+  });
+  it('formata qualquer coordenada legível no padrão do vão', () => {
+    expect(coordenadaComVirgula('-18.844040 -41.957216')).toBe('-18,844040 -41,957216');
+    expect(coordenadaComVirgula('-18,84 -41,9')).toBe('-18,840000 -41,900000');
+    expect(coordenadaComVirgula('lixo')).toBeNull();
   });
 });
 

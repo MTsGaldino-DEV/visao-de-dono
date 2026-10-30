@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { buscarServicosPorTrafo, registrarInstalacao } from '../../lib/espacadoresApi';
-import { bloqueioNovaInstalacao, sugerirVinculo, lerCoordenada, qtdValida } from '../../lib/espacadores';
+import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
 import CampoFoto from './CampoFoto';
 
@@ -48,7 +48,8 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const candidatos = lista.filter(s => !s.etapa_espacador && !bloqueioNovaInstalacao(s));
   const jaInstalados = lista.filter(s => s.etapa_espacador);
   const bloqueados = lista.filter(s => !s.etapa_espacador && bloqueioNovaInstalacao(s));
-  const vinculo = useMemo(() => sugerirVinculo(candidatos, coordAntes), [resultados, coordAntes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const antesValida = validarCoordenadaVao(coordAntes).ok;
+  const vinculo = useMemo(() => sugerirVinculo(candidatos, antesValida ? coordAntes : ''), [resultados, coordAntes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let escolha = escolhaManual;
   if (!escolha && resultados) {
@@ -64,9 +65,9 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   else if (!escolha) faltando.push('escolher o serviço');
   else if (escolha.tipo === 'novo' && !local) faltando.push('localidade');
   if (!fotoAntes) faltando.push('foto do antes');
-  if (!lerCoordenada(coordAntes)) faltando.push('coordenada do antes');
+  if (!antesValida) faltando.push('coordenada do antes');
   if (!fotoDepois) faltando.push('foto do depois');
-  if (!lerCoordenada(coordDepois)) faltando.push('coordenada do depois');
+  if (!validarCoordenadaVao(coordDepois).ok) faltando.push('coordenada do depois');
   if (!qtdValida(qtd)) faltando.push('quantidade');
   if (!equipe.trim()) faltando.push('equipe');
   const pronto = faltando.length === 0 && !enviando;
@@ -96,7 +97,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
 
   const avisoSemVinculo = () => {
     const comDistancia = vinculo.ordenados.find(c => c.distancia != null);
-    if (!lerCoordenada(coordAntes)) return 'Digite a coordenada do antes para achar o serviço mais próximo.';
+    if (!antesValida) return 'Digite a coordenada do antes para achar o serviço mais próximo';
     if (!comDistancia) return 'Nenhum serviço deste trafo tem coordenada';
     return `O serviço mais próximo está a ${metros(comDistancia.distancia)}`;
   };

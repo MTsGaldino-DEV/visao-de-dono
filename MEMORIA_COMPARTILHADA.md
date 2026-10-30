@@ -135,6 +135,15 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   Na revisão, Aprovar exige salvar antes.
 - O modo `revisao` do VaoCard (só a quantidade) e `corrigirQuantidade`/`montarPayloadQuantidade`
   foram removidos: a correção completa os substitui.
+- **Coordenada do vão (30/10/2026, Matheus):** formato obrigatório
+  **`-18,844040 -41,957216`**, com vírgula nos decimais e espaço entre latitude e longitude.
+  Uma 1ª versão exigia "lat, lng" com ponto: foi engano de interpretação, corrigido.
+  Vale para digitar (Nova instalação, edição e correção; `validarCoordenadaVao`, motivo
+  `virgula`, também barra coordenada fora do Brasil), mostrar, exportar no Excel e **gravar em
+  `vaos.coord_antes/coord_depois`** (`coordenadaComVirgula`). Vãos antigos continuam com ponto
+  no banco até alguém corrigir; tudo lê pelos dois formatos com `lerCoordenada`. O `servicos.coord`
+  de serviço criado pela Nova instalação continua no padrão do sistema (`formatarCoordenada`).
+  O cadastro geral de serviços não mudou.
 - **"Baixar Excel"** na lista de Instalações gera um `.xlsx` real (lib `xlsx`) da etapa
   na tela, com a busca aplicada. Colunas em `linhasPlanilhaInstalacoes`, incluindo coordenadas
   e links das fotos. A lista de Serviços continua exportando CSV.

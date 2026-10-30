@@ -9,6 +9,7 @@ const BRASIL = { latMin: -33.8, latMax: 5.3, lngMin: -74.0, lngMax: -34.7 };
 export const MENSAGEM_COORDENADA = {
   formato: 'Não deu para ler a coordenada. Use "-18.85 -41.95".',
   fora_brasil: 'Coordenada fora do Brasil — confira o sinal de menos.',
+  virgula: 'Use vírgula nos decimais e espaço entre latitude e longitude: -18,844040 -41,957216',
 };
 
 // Separadores: ";", ", " (vírgula seguida de espaço) ou espaço. Sem nenhum deles, tenta "," simples;
@@ -34,6 +35,22 @@ export const validarCoordenada = (texto) => {
   if (!c) return { ok: false, motivo: 'formato' };
   const dentro = c.lat >= BRASIL.latMin && c.lat <= BRASIL.latMax && c.lng >= BRASIL.lngMin && c.lng <= BRASIL.lngMax;
   return dentro ? { ok: true, ...c } : { ok: false, motivo: 'fora_brasil' };
+};
+
+// Vão de espaçador: formato obrigatório "-18,844040 -41,957216" — vírgula nos decimais, espaço entre os dois
+const COORD_COM_VIRGULA = /^[+-]?\d+(?:,\d+)?\s+[+-]?\d+(?:,\d+)?$/;
+
+// Mesmo retorno de validarCoordenada, com o motivo extra 'virgula'
+export const validarCoordenadaVao = (texto) => {
+  const t = String(texto ?? '').trim();
+  if (t && !COORD_COM_VIRGULA.test(t)) return { ok: false, motivo: 'virgula' };
+  return validarCoordenada(t);
+};
+
+// Formato do vão ("-18,844040 -41,957216"), para gravar e mostrar; null se ilegível
+export const coordenadaComVirgula = (texto) => {
+  const c = lerCoordenada(texto);
+  return c ? `${c.lat.toFixed(6)} ${c.lng.toFixed(6)}`.replace(/\./g, ',') : null;
 };
 
 // Preenchida mas inválida (vazia não conta: é "sem coordenada")
