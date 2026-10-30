@@ -7,19 +7,18 @@ const inputQtd = { width: '100px', padding: '8px 10px', borderRadius: '8px', bor
 const botaoSalvar = { padding: '8px 14px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' };
 const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px solid ${borda}`, fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' });
 
-// O vão único da instalação. modo: 'edicao' (despachante), 'revisao' (fechamento) ou 'leitura'.
+// O vão único da instalação. modo: 'edicao' (despachante, ou quem fecha corrigindo) ou 'leitura'.
 // vao pode ser null quando o envio caiu antes de criar a linha; no modo edição os campos aparecem vazios.
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
-const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onSalvarQtd, onAmpliar }) => {
+// onSalvarDados ausente: o modal salva tudo junto no rodapé.
+const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onAmpliar }) => {
   const { coordAntes, coordDepois, qtd, equipe } = rascunho;
 
   const edicao = modo === 'edicao';
-  const revisao = modo === 'revisao';
   const pendencias = pendenciasInstalacao(vao);
   const destacarFalta = edicao && mostrarErros;
 
   const temAlteracao = Object.keys(alteracoes.campos).length > 0;
-  const qtdMudou = 'qtd_espacadores' in alteracoes.campos;
 
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', background: '#fff', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -40,14 +39,9 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, m
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
           <div style={titulo}>Espaçadores instalados</div>
-          {edicao || revisao ? (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input type="number" min="1" step="1" value={qtd} onChange={e => onRascunho('qtd', e.target.value)}
-                style={{ ...inputQtd, borderColor: !qtdValida(qtd) && (qtd !== '' || destacarFalta) ? '#dc2626' : '#cbd5e1' }} />
-              {revisao && (
-                <button onClick={onSalvarQtd} disabled={!qtdMudou} style={{ ...botaoSalvar, opacity: qtdMudou ? 1 : 0.5, cursor: qtdMudou ? 'pointer' : 'not-allowed' }}>Salvar</button>
-              )}
-            </div>
+          {edicao ? (
+            <input type="number" min="1" step="1" value={qtd} onChange={e => onRascunho('qtd', e.target.value)}
+              style={{ ...inputQtd, borderColor: !qtdValida(qtd) && (qtd !== '' || destacarFalta) ? '#dc2626' : '#cbd5e1' }} />
           ) : (
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao?.qtd_espacadores ?? '—'}</div>
           )}
@@ -63,7 +57,7 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, m
           )}
         </div>
 
-        {edicao && (
+        {edicao && onSalvarDados && (
           <button onClick={onSalvarDados} disabled={!temAlteracao}
             style={{ ...botaoSalvar, opacity: temAlteracao ? 1 : 0.5, cursor: temAlteracao ? 'pointer' : 'not-allowed' }}>
             Salvar alterações

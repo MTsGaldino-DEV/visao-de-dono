@@ -123,6 +123,22 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   precisa rodar no SQL Editor **antes** de publicar: sem a coluna `vaos.equipe` a Nova
   instalação falha.
 
+## Decisão: quem fecha corrige tudo + Excel por etapa (30/10/2026)
+
+- Quem tem `permissoesFluxo().fechar` (fechamento e dono) corrige a instalação inteira
+  em **qualquer etapa**, por "Ver detalhes" ou "Revisar", sem mudar a etapa.
+  Isso inclui o quadro "Dados do serviço" (trafo, localidade e os números que a etapa já
+  alcançou, via `camposCorrigiveis`), fotos, coordenadas, quantidade e equipe. Um único
+  "Salvar alterações" grava tudo (`corrigirInstalacao`) e registra no histórico
+  "Instalação corrigida: campo: antes → depois". Troca de foto também vai para o histórico.
+  NSMP/NSPR informadas não podem ser apagadas; a apropriação pode ficar vazia.
+  Na revisão, Aprovar exige salvar antes.
+- O modo `revisao` do VaoCard (só a quantidade) e `corrigirQuantidade`/`montarPayloadQuantidade`
+  foram removidos: a correção completa os substitui.
+- **"Baixar Excel"** na lista de Instalações gera um `.xlsx` real (lib `xlsx`) da etapa
+  na tela, com a busca aplicada. Colunas em `linhasPlanilhaInstalacoes`, incluindo coordenadas
+  e links das fotos. A lista de Serviços continua exportando CSV.
+
 ## Integrações e cuidados
 
 - Mudanças em `servicos`, fotos, atribuição/status e levantamentos podem afetar
@@ -162,6 +178,14 @@ vieram desta mudança.
 
 30/10/2026 (equipe e apropriação): `npx vitest run` (116 testes), `vite build` e ESLint
 dos arquivos de espaçadores passaram. Lista, Nova instalação e VaoCard foram conferidos
-em capturas headless com dados simulados. **Não foi testado com o banco real**: o SQL
-ainda não tinha sido rodado e não houve commit nem deploy.
+em capturas headless com dados simulados. Matheus rodou o SQL no SQL Editor; as colunas
+foram confirmadas pela API. Commit `e85a617` enviado e site publicado em 30/10. O bundle
+no ar tem "Nº da equipe" e "Nº apropriação". Não houve teste com login real.
+O `gh-pages` grava o commit da branch `gh-pages` com a mensagem padrão dele ("Updates").
+Para seguir a lei de commit, publicar com `npx gh-pages -d dist -m "<frase>"` depois do build.
+
+30/10/2026 (correção por quem fecha + Excel): 120 testes, build e ESLint dos arquivos de
+espaçadores passaram. Lista com "Baixar Excel" e modal como fechamento (Pago e Em revisão)
+foram conferidos em capturas headless com dados e API simulados. Não houve teste com login
+real nem download real do arquivo.
 

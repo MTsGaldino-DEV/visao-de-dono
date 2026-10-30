@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
   lerCoordenada, formatarCoordenada, podeApagarInstalacao, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao,
-  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
+  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
-  resumoEspacadoresPorGrupo,
+  resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
+  linhasPlanilhaInstalacoes,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -198,11 +199,53 @@ describe('transições', () => {
     expect(() => montarPayloadExclusao({ etapa_espacador: 'revisao' }, { user, agora })).toThrow(/Em revisão|revis/i);
   });
 
-  it('correção de quantidade registra no histórico', () => {
-    const p = montarPayloadQuantidade({ hist: [] }, 3, '4', { user, agora });
-    expect(p.hist[0].msg).toBe('Quantidade de espaçadores corrigida de 3 para 4');
-    expect(montarPayloadQuantidade({ hist: [] }, 3, '3', { user, agora })).toBeNull();
-    expect(() => montarPayloadQuantidade({ hist: [] }, 3, '0', { user, agora })).toThrow(/maior que zero/);
+});
+
+describe('correção da instalação por quem fecha', () => {
+  it('descreve o que mudou no vão, na ordem da tela', () => {
+    const vao = { coord_antes: '-18.8 -41.9', qtd_espacadores: 3, equipe: null };
+    expect(descreverAlteracoesVao(vao, { equipe: '7812', qtd_espacadores: 4 }))
+      .toEqual(['Quantidade de espaçadores: 3 → 4', 'Equipe: — → 7812']);
+    expect(descreverAlteracoesVao(vao, {})).toEqual([]);
+  });
+
+  it('dados do serviço: só o que mudou, sem espaços; número informado não pode ser apagado', () => {
+    const servico = { equip: '763-3-45', local: 'Itambacuri', numServ: '111', nsmc: '222', apropriacao: null };
+    expect(alteracoesServico(servico, { equip: ' 763-3-45 ', local: 'Itambacuri' }))
+      .toEqual({ campos: {}, mensagens: [], erro: null });
+    expect(alteracoesServico(servico, { equip: '763-3-46', nsmc: ' 333 ', apropriacao: '9844' })).toEqual({
+      campos: { equip: '763-3-46', nsmc: '333', apropriacao: '9844' },
+      mensagens: ['Trafo: 763-3-45 → 763-3-46', 'NSPR: 222 → 333', 'Apropriação: — → 9844'],
+      erro: null,
+    });
+    expect(alteracoesServico(servico, { numServ: '  ' }).erro).toMatch(/NSMP/);
+    expect(alteracoesServico(servico, { local: '' }).erro).toMatch(/localidade/);
+    expect(alteracoesServico(servico, { apropriacao: '' }).erro).toBeNull();
+  });
+
+  it('cada etapa libera só os números que já existem nela', () => {
+    expect(camposCorrigiveis('revisao')).toEqual(['equip', 'local']);
+    expect(camposCorrigiveis('aguardando_nsmc')).toEqual(['equip', 'local', 'numServ']);
+    expect(camposCorrigiveis('pago')).toEqual(['equip', 'local', 'numServ', 'nsmc', 'apropriacao']);
+  });
+
+  it('registra a correção no histórico; sem mudança não grava nada', () => {
+    const p = montarPayloadCorrecao({ hist: [{ msg: 'x' }] }, ['Trafo: 1 → 2', 'Equipe: — → 7812'], { user, agora });
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: 'Instalação corrigida: Trafo: 1 → 2; Equipe: — → 7812' });
+    expect(montarPayloadCorrecao({ hist: [] }, [], { user, agora })).toBeNull();
+  });
+});
+
+describe('linhasPlanilhaInstalacoes', () => {
+  it('uma linha por serviço com os dados do vão', () => {
+    const lista = [{ id: 'VD1', local: 'Itambacuri', equip: '763', etapa_espacador: 'pago', numServ: '111', nsmc: '222', apropriacao: '9844', dt_etapa: null }];
+    const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
+    expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
+      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Espaçadores': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
+      'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Desde': '', 'Apropriação': '9844',
+      'Coordenada do antes': '-18.8 -41.9', 'Coordenada do depois': '-18.9 -41.9', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
+    }]);
+    expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({ 'Espaçadores': '', 'Equipe': '', 'Situação': 'Em revisão' });
   });
 });
 

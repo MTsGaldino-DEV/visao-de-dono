@@ -199,14 +199,58 @@ export const montarPayloadExclusao = (servico, { user, agora }) => {
   };
 };
 
-// Correção feita pelo fechamento na revisão; null quando não mudou nada
-export const montarPayloadQuantidade = (servico, de, para, { user, agora }) => {
-  const nova = qtdValida(para);
-  if (nova === null) throw new Error('Informe uma quantidade inteira maior que zero.');
-  if (nova === de) return null;
-  return {
-    hist: [...(servico.hist || []), entradaHist(user, `Quantidade de espaçadores corrigida de ${de} para ${nova}`, agora)],
-  };
+// ── Correção da instalação por quem fecha (qualquer etapa) ───────────────────
+
+const mostrar = (v) => (v === null || v === undefined || String(v).trim() === '' ? '—' : v);
+
+const ROTULOS_VAO = {
+  coord_antes: 'Coordenada do antes',
+  coord_depois: 'Coordenada do depois',
+  qtd_espacadores: 'Quantidade de espaçadores',
+  equipe: 'Equipe',
+};
+
+// campos = saída de alteracoesPendentes; uma frase por campo para o histórico
+export const descreverAlteracoesVao = (vao, campos) =>
+  Object.keys(ROTULOS_VAO).filter(c => c in campos)
+    .map(c => `${ROTULOS_VAO[c]}: ${mostrar(vao?.[c])} → ${mostrar(campos[c])}`);
+
+// [campo, rótulo, mensagem quando apagam um valor que já existia]
+const CAMPOS_SERVICO = [
+  ['equip', 'Trafo', 'Informe o trafo.'],
+  ['local', 'Localidade', 'Informe a localidade.'],
+  ['numServ', 'NSMP', 'Informe o número da NSMP.'],
+  ['nsmc', 'NSPR', 'Informe o número da NSPR.'],
+  ['apropriacao', 'Apropriação', null], // pode ficar vazia: é informada depois
+];
+
+// Só os números que a etapa já alcançou podem ser corrigidos
+export const camposCorrigiveis = (etapa) => [
+  'equip', 'local',
+  ...(['aguardando_nsmc', 'pago'].includes(etapa) ? ['numServ'] : []),
+  ...(etapa === 'pago' ? ['nsmc', 'apropriacao'] : []),
+];
+
+export const alteracoesServico = (servico, digitado) => {
+  const campos = {};
+  const mensagens = [];
+  let erro = null;
+  CAMPOS_SERVICO.forEach(([campo, rotulo, msgVazio]) => {
+    if (!(campo in digitado)) return;
+    const novo = String(digitado[campo] ?? '').trim();
+    const salvo = String(servico?.[campo] ?? '').trim();
+    if (novo === salvo) return;
+    if (!novo && msgVazio) { erro = erro || msgVazio; return; }
+    campos[campo] = novo || null;
+    mensagens.push(`${rotulo}: ${mostrar(salvo)} → ${mostrar(novo)}`);
+  });
+  return { campos, mensagens, erro };
+};
+
+// null quando não mudou nada
+export const montarPayloadCorrecao = (servico, mensagens, { user, agora }) => {
+  if (!mensagens.length) return null;
+  return { hist: [...(servico.hist || []), entradaHist(user, `Instalação corrigida: ${mensagens.join('; ')}`, agora)] };
 };
 
 export const filtrarPorBusca = (lista, termo) => {
@@ -256,6 +300,28 @@ export const bloqueioNovaInstalacao = (s) => {
 export const ativosNoFluxo = (lista) => lista.filter(s => s.status !== 'cancelado');
 
 export const formatarData =(iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+
+// Planilha da etapa que está na tela: uma linha por serviço (= um vão)
+export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s => {
+  const vao = vaosPorServico[s.id]?.[0];
+  return {
+    'ID': s.id,
+    'Localidade': s.local || '',
+    'Trafo': s.equip || '',
+    'Espaçadores': vao?.qtd_espacadores ?? '',
+    'Situação': ETAPAS[s.etapa_espacador]?.label || '',
+    'Motivo da reprovação': s.motivo_reprovacao_fechamento || '',
+    'NSMP': s.numServ || '',
+    'NSPR': s.nsmc || '',
+    'Equipe': vao?.equipe || '',
+    'Desde': s.dt_etapa ? formatarData(s.dt_etapa) : '',
+    'Apropriação': s.apropriacao || '',
+    'Coordenada do antes': vao?.coord_antes || '',
+    'Coordenada do depois': vao?.coord_depois || '',
+    'Foto do antes': vao?.fotos_antes?.[0] || '',
+    'Foto do depois': vao?.fotos_depois?.[0] || '',
+  };
+});
 
 // ── Painel ───────────────────────────────────────────────────────────────────
 

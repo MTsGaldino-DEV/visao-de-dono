@@ -3,7 +3,7 @@
 import { supabase, fetchAll } from './supabase';
 import {
   isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
-  entradaHist, formatarCoordenada, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadQuantidade,
+  entradaHist, formatarCoordenada, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadCorrecao,
   validarArquivo, caminhoArquivo,
 } from './espacadores';
 
@@ -139,10 +139,11 @@ export const trocarFoto = async (vao, tipo, file) => {
   return salvarDadosVao(vao.servico_id, vao, { [tipo === 'antes' ? 'fotos_antes' : 'fotos_depois']: [url] });
 };
 
-export const corrigirQuantidade = async (servico, vao, qtd, user) => {
-  const payload = montarPayloadQuantidade(servico, vao.qtd_espacadores, qtd, { user, agora: agora() });
-  if (!payload) return;
-  await salvarDadosVao(servico.id, vao, { qtd_espacadores: Number(qtd) });
+// Correção por quem fecha: grava o vão e os dados do serviço e registra o que mudou no histórico
+export const corrigirInstalacao = async (servico, vao, { camposVao = {}, camposServico = {}, mensagens = [] }, user) => {
+  if (Object.keys(camposVao).length) await salvarDadosVao(servico.id, vao, camposVao);
+  const payload = { ...camposServico, ...montarPayloadCorrecao(servico, mensagens, { user, agora: agora() }) };
+  if (!Object.keys(payload).length) return;
   const { error } = await supabase.from('servicos').update(payload).eq('id', servico.id);
   if (error) throw error;
 };

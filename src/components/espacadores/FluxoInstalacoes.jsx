@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
 import {
   ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
+  linhasPlanilhaInstalacoes,
 } from '../../lib/espacadores';
 import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
@@ -35,6 +37,16 @@ const NUMERO_DA_ETAPA = {
 };
 
 const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc'];
+
+// Baixa a lista da etapa que está na tela (com a busca aplicada)
+const baixarExcel = (lista, vaosPorServico, filtro) => {
+  const rotulo = filtro === 'todas' ? 'Todas' : ETAPAS[filtro].label;
+  const planilha = XLSX.utils.json_to_sheet(linhasPlanilhaInstalacoes(lista, vaosPorServico));
+  const livro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(livro, planilha, rotulo.slice(0, 31));
+  const nome = rotulo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '-');
+  XLSX.writeFile(livro, `instalacoes_${nome}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`);
+};
 
 const ordenar = (lista, filtro) => {
   const porData = (a, b) => String(a.dt_etapa || '').localeCompare(String(b.dt_etapa || ''));
@@ -160,6 +172,14 @@ const FluxoInstalacoes = () => {
         )}
         <input type="text" placeholder="Buscar por ID, trafo ou localidade..." value={busca} onChange={e => setBusca(e.target.value)}
           style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', flex: '1 1 260px', maxWidth: '400px' }} />
+        <button onClick={() => baixarExcel(lista, vaosPorServico, filtro)} disabled={carregando || lista.length === 0}
+          title={`Baixar ${lista.length} instalações de "${filtro === 'todas' ? 'Todas' : ETAPAS[filtro].label}"`}
+          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', fontSize: '13px', fontWeight: '700', cursor: carregando || lista.length === 0 ? 'not-allowed' : 'pointer', opacity: carregando || lista.length === 0 ? 0.5 : 1 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Baixar Excel
+        </button>
       </div>
 
       {erro && (

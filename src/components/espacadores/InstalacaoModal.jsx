@@ -2,15 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
+  permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao,
 } from '../../lib/espacadores';
 import {
-  carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirQuantidade,
+  carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
   aplicarTransicao, excluirInstalacao, assinarMudancas,
 } from '../../lib/espacadoresApi';
+import { TODAS_LOCALIDADES } from '../ServicosTable';
 import VaoCard from './VaoCard';
 import EtapaBadge from './EtapaBadge';
 
 const secao = { fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px' };
+const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
+const campo = { width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fff' };
+const botaoSalvar = { padding: '12px 22px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700' };
+
+const ROTULO_CAMPO = { equip: 'Trafo', local: 'Localidade', numServ: 'NSMP', nsmc: 'NSPR', apropriacao: 'Apropriação' };
 
 const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const { user } = useAuth();
@@ -22,6 +29,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const [mostrarReprovacao, setMostrarReprovacao] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [rascunho, setRascunho] = useState(null); // o que está digitado, preso à versão salva do vão
+  const [rascunhoServico, setRascunhoServico] = useState(null); // idem para os dados do serviço (quem fecha)
   const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de enviar sem estar pronto
 
   const recarregar = useCallback(async () => {
@@ -48,6 +56,8 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   }
 
   const editavel = modo === 'edicao' && servico.etapa_espacador === 'instalacao';
+  // Quem fecha corrige a instalação inteira em qualquer etapa (Ver detalhes ou Revisar)
+  const corrigindo = permissoesFluxo(user?.role).fechar && !editavel;
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
   const vao = vaos[0] ?? null;
   // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
@@ -56,8 +66,15 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '', equipe: vao?.equipe || '',
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
+  const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];
+  const versaoServico = camposServico.map(c => servico[c] ?? '').join('|');
+  const digitadoServico = rascunhoServico?.versao === versaoServico ? rascunhoServico : {
+    versao: versaoServico, valores: Object.fromEntries(camposServico.map(c => [c, servico[c] ?? ''])),
+  };
+  const altServico = alteracoesServico(servico, digitadoServico.valores);
+  const temCorrecao = alteracoes.pendente || Object.keys(altServico.campos).length > 0 || !!altServico.erro;
   const prontoParaEnviar = podeEnviarInstalacao(vao) && !alteracoes.pendente;
-  const prontoParaAprovar = !alteracoes.pendente;
+  const prontoParaAprovar = !temCorrecao;
   const coordLevantamento = lerCoordenada(servico.coord);
   const coordAntes = lerCoordenada(vao?.coord_antes);
   const distanciaLevantamento = coordLevantamento && coordAntes ? Math.round(distanciaMetros(coordLevantamento, coordAntes)) : null;
@@ -103,7 +120,29 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const handleTrocarFoto = (tipo, file) => comEnvio(tipo, async () => {
     const alvo = vao || await salvarDadosVao(servico.id, null, {});
     await trocarFoto(alvo, tipo, file);
+    if (corrigindo) await corrigirInstalacao(servico, alvo, { mensagens: [`Foto do ${tipo} trocada`] }, user);
   });
+
+  const mudarServico = (c, valor) => setRascunhoServico({ ...digitadoServico, valores: { ...digitadoServico.valores, [c]: valor } });
+
+  const handleCorrigir = () => {
+    if (alteracoes.invalido) { setMostrarErros(true); alert('Confira as coordenadas e a quantidade.'); return; }
+    if (altServico.erro) { alert(altServico.erro); return; }
+    executar(() => corrigirInstalacao(servico, vao, {
+      camposVao: alteracoes.campos,
+      camposServico: altServico.campos,
+      mensagens: [...altServico.mensagens, ...descreverAlteracoesVao(vao, alteracoes.campos)],
+    }, user));
+  };
+  const botaoCorrigir = (
+    <button onClick={handleCorrigir} disabled={ocupado || !temCorrecao}
+      style={{ ...botaoSalvar, opacity: temCorrecao ? 1 : 0.5, cursor: ocupado || !temCorrecao ? 'not-allowed' : 'pointer' }}>
+      Salvar alterações
+    </button>
+  );
+  // Localidade fora da lista (cadastro antigo) continua aparecendo como opção
+  const localidades = TODAS_LOCALIDADES.map(l => l.loc);
+  if (servico.local && !localidades.includes(servico.local)) localidades.unshift(servico.local);
 
   const handleEnviar = () => {
     if (!prontoParaEnviar) { setMostrarErros(true); return; }
@@ -147,16 +186,41 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
             </div>
           )}
 
+          {corrigindo && (
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', background: '#fff' }}>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f2544', marginBottom: '12px' }}>Dados do serviço</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                {camposServico.map(c => {
+                  const valor = digitadoServico.valores[c];
+                  const vazioProibido = c !== 'apropriacao' && !String(valor ?? '').trim() && String(servico[c] ?? '').trim();
+                  const estilo = { ...campo, borderColor: vazioProibido ? '#dc2626' : '#cbd5e1' };
+                  return (
+                    <div key={c}>
+                      <div style={titulo}>{ROTULO_CAMPO[c]}</div>
+                      {c === 'local' ? (
+                        <select value={valor} onChange={e => mudarServico(c, e.target.value)} style={estilo}>
+                          {!valor && <option value="">Selecione…</option>}
+                          {localidades.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      ) : (
+                        <input type="text" value={valor} onChange={e => mudarServico(c, e.target.value)} style={estilo} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <VaoCard
             vao={vao}
             rascunho={digitado}
             alteracoes={alteracoes}
             onRascunho={(campo, valor) => setRascunho({ ...digitado, [campo]: valor })}
-            modo={editavel ? 'edicao' : podeRevisar ? 'revisao' : 'leitura'}
+            modo={editavel || corrigindo ? 'edicao' : 'leitura'}
             enviando={enviando}
             onTrocarFoto={handleTrocarFoto}
-            onSalvarDados={() => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos))}
-            onSalvarQtd={() => executar(() => corrigirQuantidade(servico, vao, digitado.qtd, user))}
+            onSalvarDados={editavel ? () => executar(() => salvarDadosVao(servico.id, vao, alteracoes.campos)) : undefined}
             mostrarErros={mostrarErros}
             onAmpliar={setFotoAmpliada}
           />
@@ -214,13 +278,22 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {!prontoParaAprovar && (
                   <span style={{ fontSize: '12px', color: '#92400e', width: '100%', textAlign: 'right' }}>
-                    Salve a quantidade antes de aprovar
+                    Salve as alterações antes de aprovar
                   </span>
                 )}
+                {botaoCorrigir}
                 <button onClick={() => setMostrarReprovacao(true)} disabled={ocupado} style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>✗ Reprovar</button>
                 <button onClick={() => transicionar('aprovar')} disabled={ocupado || !prontoParaAprovar} style={{ flex: 1, padding: '12px', background: prontoParaAprovar ? '#16a34a' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: ocupado || !prontoParaAprovar ? 'not-allowed' : 'pointer' }}>✓ Aprovar</button>
               </div>
             )}
+          </div>
+        )}
+        {corrigindo && !podeRevisar && (
+          <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: temCorrecao ? '#92400e' : '#64748b', flex: 1, textAlign: 'right' }}>
+              {temCorrecao ? 'Há alterações sem salvar.' : 'As correções ficam registradas no histórico.'}
+            </span>
+            {botaoCorrigir}
           </div>
         )}
       </div>
