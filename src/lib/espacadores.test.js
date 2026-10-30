@@ -68,6 +68,14 @@ describe('alteracoesPendentes', () => {
   });
   it('vão inexistente com campos vazios não tem pendência', () => {
     expect(alteracoesPendentes(null, { coordAntes: '', coordDepois: '', qtd: '' }).pendente).toBe(false);
+    expect(alteracoesPendentes(null, { coordAntes: '', coordDepois: '', qtd: '', equipe: '  ' }).pendente).toBe(false);
+  });
+  it('equipe digitada vai sem espaços nas pontas; igual à salva não conta', () => {
+    const comEquipe = { ...vao, equipe: '7812' };
+    expect(alteracoesPendentes(comEquipe, { ...rascunho, equipe: ' 7812 ' }).pendente).toBe(false);
+    expect(alteracoesPendentes(comEquipe, { ...rascunho, equipe: ' 7900 ' }))
+      .toEqual({ campos: { equipe: '7900' }, pendente: true, invalido: false });
+    expect(alteracoesPendentes(comEquipe, { ...rascunho, equipe: '' }).campos).toEqual({ equipe: null });
   });
 });
 
@@ -110,15 +118,16 @@ describe('sugerirVinculo', () => {
 });
 
 describe('instalação de um vão', () => {
-  const vao = { fotos_antes: ['a'], fotos_depois: ['d'], coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3 };
+  const vao = { fotos_antes: ['a'], fotos_depois: ['d'], coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3, equipe: '7812' };
   it('qtdValida aceita só inteiro > 0', () => {
     expect(qtdValida('3')).toBe(3);
     expect(qtdValida(4)).toBe(4);
     [0, -1, 2.5, '', null, 'abc'].forEach(v => expect(qtdValida(v)).toBeNull());
   });
   it('lista pendências na ordem e libera o envio', () => {
-    expect(pendenciasInstalacao(null)).toEqual(['foto de antes', 'coordenada do antes', 'foto de depois', 'coordenada do depois', 'quantidade']);
+    expect(pendenciasInstalacao(null)).toEqual(['foto de antes', 'coordenada do antes', 'foto de depois', 'coordenada do depois', 'quantidade', 'equipe']);
     expect(pendenciasInstalacao({ ...vao, coord_depois: 'xx', qtd_espacadores: 0 })).toEqual(['coordenada do depois', 'quantidade']);
+    expect(pendenciasInstalacao({ ...vao, equipe: '   ' })).toEqual(['equipe']);
     expect(podeEnviarInstalacao(vao)).toBe(true);
   });
   it('agrupa por serviço ordenando por número', () => {
@@ -172,6 +181,13 @@ describe('transições', () => {
     expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: ' ' })).toThrow(/NSPR/);
     expect(montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: '999' }))
       .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
+  });
+
+  it('apropriação: só no pago, exige número e não mexe na etapa nem na data', () => {
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'apropriacao', { user, agora, numero: '55' })).toThrow();
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'pago' }, 'apropriacao', { user, agora, numero: ' ' })).toThrow(/apropriação/);
+    const p = montarPayloadTransicao({ etapa_espacador: 'pago', hist: [] }, 'apropriacao', { user, agora, numero: ' 9844 ' });
+    expect(p).toEqual({ etapa_espacador: 'pago', apropriacao: '9844', hist: [expect.objectContaining({ msg: 'Apropriação informada: 9844' })] });
   });
 
   it('excluir devolve o serviço ao status anterior e tira do fluxo', () => {

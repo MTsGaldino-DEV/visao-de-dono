@@ -149,12 +149,14 @@ export const corrigirQuantidade = async (servico, vao, qtd, user) => {
 
 // Nova instalação: vincula (ou cria) o serviço, grava o vão com as fotos e envia para o fechamento.
 // Se falhar depois do vínculo, o serviço fica em "Em instalação" para o despachante terminar.
-export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd }, user) => {
+export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe }, user) => {
   const criadoPelaInstalacao = !servico;
   // Grava no formato que o Mapa lê, seja qual for o formato digitado
   const antes = formatarCoordenada(coordAntes);
   const depois = formatarCoordenada(coordDepois);
   if (!antes || !depois) throw new Error('Coordenada inválida.');
+  const nomeEquipe = String(equipe ?? '').trim();
+  if (!nomeEquipe) throw new Error('Informe a equipe.');
   const base = servico || await criarServicoEspacador({ ...novo, coord: antes }, user);
   const iniciado = await iniciarInstalacao(base, user, { criadoPelaInstalacao });
   try {
@@ -162,7 +164,7 @@ export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois
     const { error: erroOrfao } = await supabase.from('vaos').delete().eq('servico_id', iniciado.id);
     if (erroOrfao) throw erroOrfao;
     let vao = await salvarDadosVao(iniciado.id, null, {
-      coord_antes: antes, coord_depois: depois, qtd_espacadores: Number(qtd),
+      coord_antes: antes, coord_depois: depois, qtd_espacadores: Number(qtd), equipe: nomeEquipe,
     });
     vao = await trocarFoto(vao, 'antes', fotoAntes);
     await trocarFoto(vao, 'depois', fotoDepois);

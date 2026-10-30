@@ -2,6 +2,7 @@ import { pendenciasInstalacao, qtdValida } from '../../lib/espacadores';
 import CampoFoto from './CampoFoto';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
+const inputEquipe = { width: '160px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' };
 const inputQtd = { width: '100px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' };
 const botaoSalvar = { padding: '8px 14px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' };
 const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px solid ${borda}`, fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' });
@@ -10,7 +11,7 @@ const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px sol
 // vao pode ser null quando o envio caiu antes de criar a linha; no modo edição os campos aparecem vazios.
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
 const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onSalvarQtd, onAmpliar }) => {
-  const { coordAntes, coordDepois, qtd } = rascunho;
+  const { coordAntes, coordDepois, qtd, equipe } = rascunho;
 
   const edicao = modo === 'edicao';
   const revisao = modo === 'revisao';
@@ -49,6 +50,16 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, m
             </div>
           ) : (
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao?.qtd_espacadores ?? '—'}</div>
+          )}
+        </div>
+
+        <div>
+          <div style={titulo}>Equipe</div>
+          {edicao ? (
+            <input type="text" value={equipe} placeholder="Nº da equipe" onChange={e => onRascunho('equipe', e.target.value)}
+              style={{ ...inputEquipe, borderColor: destacarFalta && !String(equipe ?? '').trim() ? '#dc2626' : '#cbd5e1' }} />
+          ) : (
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao?.equipe || '—'}</div>
           )}
         </div>
 

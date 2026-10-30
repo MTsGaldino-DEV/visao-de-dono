@@ -51,9 +51,9 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
   const vao = vaos[0] ?? null;
   // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
-  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}`;
+  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}`;
   const digitado = rascunho?.versao === versaoVao ? rascunho : {
-    versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '',
+    versao: versaoVao, coordAntes: vao?.coord_antes || '', coordDepois: vao?.coord_depois || '', qtd: vao?.qtd_espacadores ?? '', equipe: vao?.equipe || '',
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const prontoParaEnviar = podeEnviarInstalacao(vao) && !alteracoes.pendente;
@@ -129,6 +129,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               <span style={{ color: '#94a3b8' }}>Local:</span> {servico.local || '—'}
               {servico.numServ && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMP:</span> <b>{servico.numServ}</b></>}
               {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSPR:</span> <b>{servico.nsmc}</b></>}
+              {servico.apropriacao && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Apropriação:</span> <b>{servico.apropriacao}</b></>}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
               <span style={{ color: '#94a3b8' }}>Levantamento:</span> {servico.coord || '—'}

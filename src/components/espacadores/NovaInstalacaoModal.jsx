@@ -22,6 +22,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const [coordAntes, setCoordAntes] = useState('');
   const [coordDepois, setCoordDepois] = useState('');
   const [qtd, setQtd] = useState('');
+  const [equipe, setEquipe] = useState('');
   const [escolhaManual, setEscolhaManual] = useState(null); // { tipo: 'servico', servico } | { tipo: 'novo' }
   const [mostrarLista, setMostrarLista] = useState(false);
   const [local, setLocal] = useState('');
@@ -67,6 +68,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   if (!fotoDepois) faltando.push('foto do depois');
   if (!lerCoordenada(coordDepois)) faltando.push('coordenada do depois');
   if (!qtdValida(qtd)) faltando.push('quantidade');
+  if (!equipe.trim()) faltando.push('equipe');
   const pronto = faltando.length === 0 && !enviando;
 
   const escolher = (e) => { setEscolhaManual(e); setMostrarLista(false); };
@@ -80,7 +82,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
       const id = await registrarInstalacao({
         servico: escolha.tipo === 'servico' ? escolha.servico : null,
         novo: escolha.tipo === 'novo' ? { equip: texto.trim(), local } : null,
-        fotoAntes, fotoDepois, coordAntes, coordDepois, qtd,
+        fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe,
       }, user);
       onConcluir(id);
     } catch (e) {
@@ -127,10 +129,17 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
             <CampoFoto rotulo="Foto do depois" arquivo={fotoDepois} onArquivo={setFotoDepois} coord={coordDepois} onCoord={setCoordDepois} editavel={!enviando} mostrarErros={mostrarErros} />
           </div>
 
-          <div>
-            <label style={rotulo}>Espaçadores instalados neste vão</label>
-            <input type="number" min="1" step="1" value={qtd} disabled={enviando} onChange={e => setQtd(e.target.value)}
-              style={{ ...input, width: '120px', borderColor: !qtdValida(qtd) && (qtd !== '' || mostrarErros) ? '#dc2626' : '#cbd5e1' }} />
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div>
+              <label style={rotulo}>Espaçadores instalados neste vão</label>
+              <input type="number" min="1" step="1" value={qtd} disabled={enviando} onChange={e => setQtd(e.target.value)}
+                style={{ ...input, width: '120px', borderColor: !qtdValida(qtd) && (qtd !== '' || mostrarErros) ? '#dc2626' : '#cbd5e1' }} />
+            </div>
+            <div>
+              <label style={rotulo}>Equipe</label>
+              <input type="text" value={equipe} placeholder="Nº da equipe" disabled={enviando} onChange={e => setEquipe(e.target.value)}
+                style={{ ...input, width: '180px', borderColor: mostrarErros && !equipe.trim() ? '#dc2626' : '#cbd5e1' }} />
+            </div>
           </div>
 
           {resultados && (

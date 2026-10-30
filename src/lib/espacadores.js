@@ -19,6 +19,8 @@ const TRANSICOES = {
   reprovar: { de: 'revisao',         para: 'instalacao' },
   nsmp:     { de: 'aguardando_nsmp', para: 'aguardando_nsmc' },
   nsmc:     { de: 'aguardando_nsmc', para: 'pago' },
+  // Depois da NSPR o fechamento informa a apropriação; a etapa continua "Pago"
+  apropriacao: { de: 'pago', para: 'pago' },
 };
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -73,12 +75,13 @@ export const pendenciasInstalacao = (vao) => {
   if (!vao?.fotos_depois?.length) faltando.push('foto de depois');
   if (!lerCoordenada(vao?.coord_depois)) faltando.push('coordenada do depois');
   if (!qtdValida(vao?.qtd_espacadores)) faltando.push('quantidade');
+  if (!String(vao?.equipe ?? '').trim()) faltando.push('equipe');
   return faltando;
 };
 
 // Compara o que está digitado na tela com o vão salvo: campos = o que gravar (já normalizado);
 // invalido = há um valor digitado que não pode ser gravado. Enviar e aprovar esperam pendente = false.
-export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd }) => {
+export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe }) => {
   const campos = {};
   let invalido = false;
   [['coord_antes', coordAntes], ['coord_depois', coordDepois]].forEach(([campo, digitado]) => {
@@ -94,6 +97,10 @@ export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd }) => {
     const nova = qtdValida(qtd);
     if (nova === null) invalido = true;
     else if (nova !== qtdSalva) campos.qtd_espacadores = nova;
+  }
+  if (equipe !== undefined) {
+    const nova = String(equipe ?? '').trim() || null;
+    if (nova !== (String(vao?.equipe ?? '').trim() || null)) campos.equipe = nova;
   }
   return { campos, pendente: invalido || Object.keys(campos).length > 0, invalido };
 };
@@ -149,7 +156,9 @@ const exigir = (valor, mensagem) => {
 };
 
 export const montarPayloadTransicao = (servico, acao, { user, agora, numero, motivo } = {}) => {
-  const payload = { etapa_espacador: proximaEtapa(servico.etapa_espacador, acao), dt_etapa: agora };
+  const payload = { etapa_espacador: proximaEtapa(servico.etapa_espacador, acao) };
+  // "Desde" conta a entrada na etapa; a apropriação não troca de etapa
+  if (acao !== 'apropriacao') payload.dt_etapa = agora;
   let msg;
   if (acao === 'enviar') {
     payload.status = 'concluido';
@@ -166,6 +175,9 @@ export const montarPayloadTransicao = (servico, acao, { user, agora, numero, mot
   } else if (acao === 'nsmc') {
     payload.nsmc = exigir(numero, 'Informe o número da NSPR.');
     msg = `NSPR informada: ${payload.nsmc}`;
+  } else if (acao === 'apropriacao') {
+    payload.apropriacao = exigir(numero, 'Informe o número da apropriação.');
+    msg = `Apropriação informada: ${payload.apropriacao}`;
   }
   payload.hist = [...(servico.hist || []), entradaHist(user, msg, agora)];
   return payload;

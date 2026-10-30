@@ -107,6 +107,22 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   apenas em `levantamentos` e `servicos`, e Serviços também é alimentada pelo web,
   por isso fica no Despacho. Nova tela dependente do app vai para esse grupo.
 
+## Decisão: equipe e apropriação nas Instalações (30/10/2026)
+
+- **Equipe** = número digitado (texto livre, escolha do Matheus; não é lista de
+  Colaboradores). Fica em `vaos.equipe` e é **obrigatória**: na Nova instalação e em
+  `pendenciasInstalacao` (instalação reaberta sem equipe não é enviada). Pode ser editada
+  no VaoCard em "Em instalação".
+- **Apropriação** = nº digitado pelo fechamento **depois da NSPR**, com o serviço já em
+  "Pago": ação `apropriacao` (pago → pago, não mexe em `dt_etapa`), botão
+  "Informar apropriação" na linha. Fica em `servicos.apropriacao`.
+  Não é puxada da planilha da aba Faturamento.
+- Colunas da lista: … NSMP · NSPR · **Equipe** (sempre) · Desde · **Apropriação**
+  (só nos filtros Pago e Todas) · Ações.
+- Script `supabase/migrations/instalacao_equipe_apropriacao.sql`. Só acrescenta colunas e
+  precisa rodar no SQL Editor **antes** de publicar: sem a coluna `vaos.equipe` a Nova
+  instalação falha.
+
 ## Integrações e cuidados
 
 - Mudanças em `servicos`, fotos, atribuição/status e levantamentos podem afetar
@@ -143,4 +159,9 @@ no navegador com login real** nem leitura do banco, que exige login. Os formatos
 reais de coordenada foram inferidos do código e do relato de Matheus.
 O ESLint acusa erros antigos em `DetalheModal.jsx`/`ServicosTable.jsx` que não
 vieram desta mudança.
+
+30/10/2026 (equipe e apropriação): `npx vitest run` (116 testes), `vite build` e ESLint
+dos arquivos de espaçadores passaram. Lista, Nova instalação e VaoCard foram conferidos
+em capturas headless com dados simulados. **Não foi testado com o banco real**: o SQL
+ainda não tinha sido rodado e não houve commit nem deploy.
 

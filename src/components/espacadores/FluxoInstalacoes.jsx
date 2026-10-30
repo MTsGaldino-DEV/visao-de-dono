@@ -27,10 +27,11 @@ const VAZIO = {
   todas: 'Nenhuma instalação no fluxo.',
 };
 
-// Número que o fechamento informa em cada etapa
+// Número que o fechamento informa em cada etapa (a apropriação vem depois da NSPR, já no Pago)
 const NUMERO_DA_ETAPA = {
   aguardando_nsmp: { acao: 'nsmp', label: 'NSMP', placeholder: 'Nº NSMP' },
   aguardando_nsmc: { acao: 'nsmc', label: 'NSPR', placeholder: 'Nº NSPR' },
+  pago: { acao: 'apropriacao', label: 'apropriação', placeholder: 'Nº apropriação' },
 };
 
 const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc'];
@@ -89,7 +90,8 @@ const FluxoInstalacoes = () => {
 
   const contagem = contarPorEtapa(servicos);
   const mostraNumeros = ['aguardando_nsmc', 'pago', 'todas'].includes(filtro);
-  const colunas = mostraNumeros ? 8 : 6;
+  const mostraApropriacao = ['pago', 'todas'].includes(filtro);
+  const colunas = 7 + (mostraNumeros ? 2 : 0) + (mostraApropriacao ? 1 : 0);
   const acoes = (s) => (
     <>
       {acoesDaEtapa(s)}
@@ -121,7 +123,8 @@ const FluxoInstalacoes = () => {
       return <button onClick={() => setAberto({ id: s.id, modo: 'revisao' })} style={{ ...botao, background: '#0f2544', color: '#fff' }}>Revisar →</button>;
     }
     const numeroDaEtapa = NUMERO_DA_ETAPA[etapa];
-    if (numeroDaEtapa && permissoes.fechar) {
+    const jaInformado = etapa === 'pago' && String(s.apropriacao || '').trim();
+    if (numeroDaEtapa && permissoes.fechar && !jaInformado) {
       if (editandoId === s.id) {
         return (
           <>
@@ -189,7 +192,9 @@ const FluxoInstalacoes = () => {
               <th style={th}>Situação</th>
               {mostraNumeros && <th style={th}>NSMP</th>}
               {mostraNumeros && <th style={th}>NSPR</th>}
+              <th style={th}>Equipe</th>
               <th style={th}>Desde</th>
+              {mostraApropriacao && <th style={th}>Apropriação</th>}
               <th style={{ ...th, textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
@@ -220,7 +225,9 @@ const FluxoInstalacoes = () => {
                   </td>
                   {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>{s.numServ || '—'}</td>}
                   {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#15803d' }}>{s.nsmc || '—'}</td>}
+                  <td style={{ ...td, color: '#334155' }}>{vao?.equipe || '—'}</td>
                   <td style={{ ...td, color: '#64748b', fontSize: '12px' }}>{formatarData(s.dt_etapa)}</td>
+                  {mostraApropriacao && <td style={{ ...td, fontWeight: '700', color: '#1d4ed8' }}>{s.apropriacao || '—'}</td>}
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>{acoes(s)}</div>
                   </td>
