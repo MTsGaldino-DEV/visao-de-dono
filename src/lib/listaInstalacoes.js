@@ -64,6 +64,12 @@ export const filtrarPorColunas = (lista, filtros, vaosPorServico, { ignorar, vis
   });
 };
 
+// O que o OK do menu grava: null quando os marcados cobrem todos os valores da coluna (sem filtro)
+export const selecaoDoMenu = (todos, marcados) => {
+  const conjunto = new Set(marcados);
+  return todos.every(v => conjunto.has(v)) ? null : marcados;
+};
+
 // Chave de comparação de um valor: número (qtd), instante (desde) ou texto; null = vazio
 const chaveDoValor = (colunaId, valor) => {
   if (!valor || valor === VAZIO) return null;

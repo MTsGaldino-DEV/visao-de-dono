@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  selecaoDoMenu,
   VAZIO, COLUNAS_INSTALACOES, colunasVisiveis, valorColuna, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
 } from './listaInstalacoes';
 
@@ -165,5 +166,19 @@ describe('ordenarPorColuna', () => {
     ];
     expect(ordenarPorColuna(itens, { coluna: 'desde', dir: 'asc' }, {}).map(s => s.id)).toEqual(['y', 'x', 'z']);
     expect(ordenarPorColuna(itens, { coluna: 'desde', dir: 'desc' }, {}).map(s => s.id)).toEqual(['x', 'y', 'z']);
+  });
+});
+
+describe('selecaoDoMenu', () => {
+  const todos = ['60439871', '60439872', '70000000'];
+
+  it('grava só os resultados marcados quando eles não cobrem a coluna', () => {
+    expect(selecaoDoMenu(todos, ['60439871'])).toEqual(['60439871']);
+    expect(selecaoDoMenu(todos, ['60439871', '60439872'])).toEqual(['60439871', '60439872']);
+  });
+
+  it('não grava filtro quando tudo está marcado', () => {
+    expect(selecaoDoMenu(todos, [...todos])).toBeNull();
+    expect(selecaoDoMenu([], [])).toBeNull();
   });
 });

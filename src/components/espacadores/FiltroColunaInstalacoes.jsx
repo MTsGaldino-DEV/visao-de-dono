@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { selecaoDoMenu } from '../../lib/listaInstalacoes';
 
 // Botão ▾ do cabeçalho com o menu do Excel: ordenar, pesquisar e marcar valores.
 // O menu vai num portal (position: fixed) porque a tabela fica num contêiner com overflow e cortaria o menu.
@@ -23,6 +24,8 @@ const Menu = ({ botao, coluna, valores, selecionados, ordem, onOrdenar, onFiltra
   const [busca, setBusca] = useState('');
   // null = todos marcados (sem filtro)
   const [marcados, setMarcados] = useState(selecionados?.length ? new Set(selecionados) : null);
+  // Seleção durante a pesquisa: null = todos os resultados marcados, como no Excel
+  const [marcadosBusca, setMarcadosBusca] = useState(null);
 
   // Posiciona o menu perto do botão, sem passar das bordas da janela
   useLayoutEffect(() => {
@@ -84,32 +87,30 @@ const Menu = ({ botao, coluna, valores, selecionados, ordem, onOrdenar, onFiltra
 
   const termo = semAcento(busca.trim());
   const visiveis = termo ? valores.filter(x => semAcento(x.valor).includes(termo)) : valores;
-  const marcado = (v) => (marcados ? marcados.has(v) : true);
+  const selecaoAtual = termo ? marcadosBusca : marcados;
+  const marcado = (v) => (selecaoAtual ? selecaoAtual.has(v) : true);
   const todosVisiveisMarcados = visiveis.length > 0 && visiveis.every(x => marcado(x.valor));
-  const todosMarcados = !marcados || (valores.length > 0 && valores.every(x => marcados.has(x.valor)));
 
-  const alternar = (v) => setMarcados(m => {
-    const n = new Set(m ?? valores.map(x => x.valor));
-    if (n.has(v)) n.delete(v); else n.add(v);
-    return n;
-  });
+  const pesquisar = (texto) => { setBusca(texto); setMarcadosBusca(null); };
 
-  const alternarTudo = () => {
-    if (!termo) { setMarcados(todosVisiveisMarcados ? new Set() : null); return; }
-    setMarcados(m => {
-      const n = new Set(m ?? valores.map(x => x.valor));
-      visiveis.forEach(x => { if (todosVisiveisMarcados) n.delete(x.valor); else n.add(x.valor); });
+  const alternar = (v) => {
+    const definir = termo ? setMarcadosBusca : setMarcados;
+    definir(m => {
+      const n = new Set(m ?? visiveis.map(x => x.valor));
+      if (n.has(v)) n.delete(v); else n.add(v);
       return n;
     });
   };
 
-  const escolhidos = (termo ? visiveis : valores).filter(x => marcado(x.valor)).map(x => x.valor);
-  const semNada = !todosMarcados && escolhidos.length === 0;
+  const alternarTudo = () => (termo ? setMarcadosBusca : setMarcados)(todosVisiveisMarcados ? new Set() : null);
+
+  // Com pesquisa, o filtro é o que está marcado entre os resultados
+  const escolhidos = visiveis.filter(x => marcado(x.valor)).map(x => x.valor);
+  const semNada = valores.length > 0 && escolhidos.length === 0;
 
   const aplicar = () => {
-    if (todosMarcados) onFiltrar(null);
-    else if (escolhidos.length > 0) onFiltrar(escolhidos);
-    else return;
+    if (semNada) return;
+    onFiltrar(selecaoDoMenu(valores.map(x => x.valor), escolhidos));
     onFechar();
   };
 
@@ -134,12 +135,13 @@ const Menu = ({ botao, coluna, valores, selecionados, ordem, onOrdenar, onFiltra
         </button>
       ))}
       <div style={{ margin: '6px 0', borderTop: '1px solid #e2e8f0' }} />
-      <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Pesquisar" aria-label={`Pesquisar em ${coluna.rotulo}`}
+      <input type="text" value={busca} onChange={e => pesquisar(e.target.value)} placeholder="Pesquisar" aria-label={`Pesquisar em ${coluna.rotulo}`}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicar(); } }}
         style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: '500', outline: 'none', fontFamily: 'inherit', color: '#0f172a', background: '#fff' }} />
       <div style={{ marginTop: '6px', maxHeight: '224px', overflow: 'auto' }}>
         <label className="fci-item" style={{ ...estiloItem, cursor: 'pointer' }}>
           <input type="checkbox" checked={todosVisiveisMarcados} onChange={alternarTudo} />
-          (Selecionar tudo)
+          {termo ? '(Selecionar resultados)' : '(Selecionar tudo)'}
         </label>
         {visiveis.map(x => (
           <label key={x.valor} className="fci-item" style={{ ...estiloItem, cursor: 'pointer' }}>

@@ -157,6 +157,9 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   `FiltroColunaInstalacoes.jsx`, num portal para a tabela com overflow não cortar.
 - Vazios ficam no fim nos dois sentidos. Clicar de novo na ordem atual volta à ordem padrão
   da etapa (fila do mais antigo; reprovados primeiro). Filtro de coluna oculta é ignorado.
+- Pesquisa no menu funciona como no Excel: os resultados vêm todos marcados e OK ou Enter filtra
+  só por eles, trocando o filtro anterior da coluna. Pesquisa sem resultado não faz nada.
+  A 1ª versão publicada ignorava a pesquisa e limpava o filtro (relato de Matheus, 06/11).
 - **"Baixar Excel" agora respeita também os filtros e a ordem das colunas.**
 - Clique na linha abre o mesmo destino do botão principal, exceto com texto selecionado
   (para poder copiar célula). Ações fica congelada à direita a partir de 900 px.
@@ -207,6 +210,7 @@ foram confirmadas pela API. Commit `e85a617` enviado e site publicado em 30/10. 
 no ar tem "Nº da equipe" e "Nº apropriação". Não houve teste com login real.
 O `gh-pages` grava o commit da branch `gh-pages` com a mensagem padrão dele ("Updates").
 Para seguir a lei de commit, publicar com `npx gh-pages -d dist -m "<frase>"` depois do build.
+**Build é sempre `npm run build`** (pedido de Matheus, 06/11/2026), não `npx vite build`.
 
 30/10/2026 (correção por quem fecha + Excel): 120 testes, build e ESLint dos arquivos de
 espaçadores passaram. Lista com "Baixar Excel" e modal como fechamento (Pago e Em revisão)
@@ -218,4 +222,8 @@ App real conferido no Chrome headless com Supabase todo simulado, em 1440 px, 12
 como dono e fechamento: filtro, ordem, cabeçalho fixo, menu com 1 linha, clique na linha, número
 na linha e Excel baixado de verdade (só as linhas filtradas). Não houve teste com login real,
 dados reais nem celular físico. Commit enviado e site publicado em 06/11 a pedido de Matheus.
+
+06/11/2026 (pesquisa no menu da coluna): defeito reproduzido antes da correção. 156 testes, build e
+ESLint passaram; pesquisa + OK, pesquisa + Enter e pesquisa sem resultado conferidos no Chrome
+headless com Supabase simulado. Commit e publicação a pedido de Matheus.
 
