@@ -148,6 +148,21 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
   na tela, com a busca aplicada. Colunas em `linhasPlanilhaInstalacoes`, incluindo coordenadas
   e links das fotos. A lista de Serviços continua exportando CSV.
 
+## Decisão: lista de Instalações em grade estilo Excel (06/11/2026)
+
+- Pedido de Matheus, com a Conferência do central-neo como referência. Colunas separadas
+  (ID e Localidade não ficam mais na mesma célula), uma linha por registro, cabeçalho fixo.
+- Cada coluna tem o menu ▾ do Excel: ordenar, pesquisar e marcar valores. Os filtros rodam no
+  navegador, porque a tela já carrega tudo. Regras em `src/lib/listaInstalacoes.js`; menu em
+  `FiltroColunaInstalacoes.jsx`, num portal para a tabela com overflow não cortar.
+- Vazios ficam no fim nos dois sentidos. Clicar de novo na ordem atual volta à ordem padrão
+  da etapa (fila do mais antigo; reprovados primeiro). Filtro de coluna oculta é ignorado.
+- **"Baixar Excel" agora respeita também os filtros e a ordem das colunas.**
+- Clique na linha abre o mesmo destino do botão principal, exceto com texto selecionado
+  (para poder copiar célula). Ações fica congelada à direita a partir de 900 px.
+- O motivo da reprovação fica em uma linha com reticências; o texto inteiro está no `title`
+  e no modal. Os filtros de coluna não vão para a URL nem para o `localStorage`.
+
 ## Integrações e cuidados
 
 - Mudanças em `servicos`, fotos, atribuição/status e levantamentos podem afetar
@@ -197,4 +212,10 @@ Para seguir a lei de commit, publicar com `npx gh-pages -d dist -m "<frase>"` de
 espaçadores passaram. Lista com "Baixar Excel" e modal como fechamento (Pago e Em revisão)
 foram conferidos em capturas headless com dados e API simulados. Não houve teste com login
 real nem download real do arquivo.
+
+06/11/2026 (grade estilo Excel): 154 testes, build e ESLint dos arquivos alterados passaram.
+App real conferido no Chrome headless com Supabase todo simulado, em 1440 px, 1280 px e 390 px,
+como dono e fechamento: filtro, ordem, cabeçalho fixo, menu com 1 linha, clique na linha, número
+na linha e Excel baixado de verdade (só as linhas filtradas). Não houve teste com login real,
+dados reais nem celular físico. Commit enviado e site publicado em 06/11 a pedido de Matheus.
 

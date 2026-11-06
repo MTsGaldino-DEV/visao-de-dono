@@ -1,0 +1,169 @@
+import { describe, it, expect } from 'vitest';
+import {
+  VAZIO, COLUNAS_INSTALACOES, colunasVisiveis, valorColuna, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
+} from './listaInstalacoes';
+
+const ids = (cols) => cols.map(c => c.id);
+
+const serv = (id, extra = {}) => ({ id, etapa_espacador: 'instalacao', ...extra });
+
+describe('colunasVisiveis', () => {
+  it('mantém todas as colunas na ordem definida em todas as etapas finais', () => {
+    expect(ids(colunasVisiveis('todas'))).toEqual(ids(COLUNAS_INSTALACOES));
+  });
+
+  it('esconde NSMP, NSPR e Apropriação em instalação e revisão', () => {
+    for (const etapa of ['instalacao', 'revisao']) {
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'qtd', 'situacao', 'equipe', 'desde']);
+    }
+  });
+
+  it('mostra NSMP e NSPR, mas não Apropriação, em aguardando NSPR', () => {
+    expect(ids(colunasVisiveis('aguardando_nsmc'))).toEqual(['id', 'local', 'equip', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde']);
+  });
+
+  it('esconde NSMP e NSPR em aguardando NSMP e mostra tudo em pago', () => {
+    expect(ids(colunasVisiveis('aguardando_nsmp'))).not.toContain('nsmp');
+    expect(ids(colunasVisiveis('pago'))).toEqual(ids(COLUNAS_INSTALACOES));
+  });
+});
+
+describe('valorColuna', () => {
+  it('devolve Reprovado só em instalação com motivo de reprovação', () => {
+    const s = serv('A', { motivo_reprovacao_fechamento: 'Foto ruim' });
+    expect(valorColuna('situacao', s)).toBe('Reprovado');
+    expect(valorColuna('situacao', { ...s, etapa_espacador: 'revisao' })).toBe('Em revisão');
+  });
+
+  it('devolve o rótulo da etapa e vazio quando a etapa é desconhecida', () => {
+    expect(valorColuna('situacao', serv('A', { etapa_espacador: 'pago' }))).toBe('Pago');
+    expect(valorColuna('situacao', serv('A', { etapa_espacador: 'x' }))).toBe('');
+  });
+
+  it('usa só o dia na coluna Desde', () => {
+    const s = serv('A', { dt_etapa: '2026-03-05T12:30:00' });
+    expect(valorColuna('desde', s)).toBe('05/03/2026');
+    expect(valorColuna('desde', serv('B'))).toBe('');
+  });
+
+  it('lê campos do serviço e do vão', () => {
+    const s = serv(' X1 ', { local: 'Centro', equip: 'T-9', numServ: 10, nsmc: 'N2', apropriacao: 'AP' });
+    const vao = { qtd_espacadores: 4, equipe: 'Equipe 1' };
+    expect(valorColuna('id', s, vao)).toBe('X1');
+    expect(valorColuna('local', s, vao)).toBe('Centro');
+    expect(valorColuna('equip', s, vao)).toBe('T-9');
+    expect(valorColuna('qtd', s, vao)).toBe('4');
+    expect(valorColuna('nsmp', s, vao)).toBe('10');
+    expect(valorColuna('nspr', s, vao)).toBe('N2');
+    expect(valorColuna('equipe', s, vao)).toBe('Equipe 1');
+    expect(valorColuna('apropriacao', s, vao)).toBe('AP');
+    expect(valorColuna('qtd', s, undefined)).toBe('');
+  });
+});
+
+describe('filtrarPorColunas', () => {
+  const lista = [
+    serv('1', { local: 'Norte' }),
+    serv('2', { local: 'Sul' }),
+    serv('3', { local: '', equip: 'T1' }),
+  ];
+  const vaos = { 1: [{ equipe: 'A' }], 2: [{ equipe: 'B' }], 3: [{ equipe: 'A' }] };
+
+  it('sem filtros devolve a mesma lista', () => {
+    expect(filtrarPorColunas(lista, {}, vaos)).toBe(lista);
+  });
+
+  it('filtra pelos valores marcados e aceita VAZIO', () => {
+    expect(filtrarPorColunas(lista, { local: ['Norte'] }, vaos).map(s => s.id)).toEqual(['1']);
+    expect(filtrarPorColunas(lista, { local: [VAZIO] }, vaos).map(s => s.id)).toEqual(['3']);
+    expect(filtrarPorColunas(lista, { local: [VAZIO, 'Sul'] }, vaos).map(s => s.id)).toEqual(['2', '3']);
+  });
+
+  it('combina colunas com E', () => {
+    expect(filtrarPorColunas(lista, { equipe: ['A'], local: ['Norte'] }, vaos).map(s => s.id)).toEqual(['1']);
+  });
+
+  it('ignora a coluna indicada em ignorar', () => {
+    const r = filtrarPorColunas(lista, { equipe: ['A'], local: ['Sul'] }, vaos, { ignorar: 'local' });
+    expect(r.map(s => s.id)).toEqual(['1', '3']);
+  });
+
+  it('ignora filtro de coluna que não está visível', () => {
+    const r = filtrarPorColunas(lista, { equipe: ['B'], local: ['Norte'] }, vaos, { visiveis: ['local'] });
+    expect(r.map(s => s.id)).toEqual(['1']);
+  });
+
+  it('não muta a lista', () => {
+    const copia = [...lista];
+    filtrarPorColunas(lista, { local: ['Sul'] }, vaos);
+    expect(lista).toEqual(copia);
+  });
+});
+
+describe('valoresDaColuna', () => {
+  it('conta valores distintos, ordena e põe VAZIO por último', () => {
+    const lista = [serv('1', { local: 'Sul' }), serv('2', { local: '' }), serv('3', { local: 'Norte' }), serv('4', { local: 'Sul' })];
+    expect(valoresDaColuna(lista, 'local', {})).toEqual([
+      { valor: 'Norte', n: 1 },
+      { valor: 'Sul', n: 2 },
+      { valor: VAZIO, n: 1 },
+    ]);
+  });
+
+  it('ordena datas em ordem cronológica, não alfabética', () => {
+    const lista = [
+      serv('1', { dt_etapa: '2026-12-01T10:00:00' }),
+      serv('2', { dt_etapa: '2027-01-15T10:00:00' }),
+      serv('3', { dt_etapa: '2026-02-20T10:00:00' }),
+      serv('4', { dt_etapa: '2026-12-01T15:00:00' }),
+    ];
+    expect(valoresDaColuna(lista, 'desde', {})).toEqual([
+      { valor: '20/02/2026', n: 1 },
+      { valor: '01/12/2026', n: 2 },
+      { valor: '15/01/2027', n: 1 },
+    ]);
+  });
+
+  it('ordena quantidades como números', () => {
+    const lista = [serv('1'), serv('2'), serv('3')];
+    const vaos = { 1: [{ qtd_espacadores: 10 }], 2: [{ qtd_espacadores: 2 }], 3: [{}] };
+    expect(valoresDaColuna(lista, 'qtd', vaos).map(v => v.valor)).toEqual(['2', '10', VAZIO]);
+  });
+});
+
+describe('ordenarPorColuna', () => {
+  const lista = [serv('a'), serv('b'), serv('c'), serv('d')];
+  const vaos = { a: [{ qtd_espacadores: 10 }], b: [{ qtd_espacadores: 2 }], c: [{}], d: [{ qtd_espacadores: 2 }] };
+
+  it('ordena números como números (2 antes de 10) e preserva empates', () => {
+    const r = ordenarPorColuna(lista, { coluna: 'qtd', dir: 'asc' }, vaos);
+    expect(r.map(s => s.id)).toEqual(['b', 'd', 'a', 'c']);
+  });
+
+  it('mantém vazios no fim também em ordem decrescente', () => {
+    const r = ordenarPorColuna(lista, { coluna: 'qtd', dir: 'desc' }, vaos);
+    expect(r.map(s => s.id)).toEqual(['a', 'b', 'd', 'c']);
+  });
+
+  it('não muta a entrada', () => {
+    const entrada = [...lista];
+    const r = ordenarPorColuna(lista, { coluna: 'qtd', dir: 'asc' }, vaos);
+    expect(lista).toEqual(entrada);
+    expect(r).not.toBe(lista);
+  });
+
+  it('ordena texto com números embutidos de forma natural', () => {
+    const itens = [serv('T10'), serv('T2'), serv('T1')];
+    expect(ordenarPorColuna(itens, { coluna: 'id', dir: 'asc' }, {}).map(s => s.id)).toEqual(['T1', 'T2', 'T10']);
+  });
+
+  it('ordena Desde pelo instante completo', () => {
+    const itens = [
+      serv('x', { dt_etapa: '2026-05-01T18:00:00' }),
+      serv('y', { dt_etapa: '2026-05-01T08:00:00' }),
+      serv('z'),
+    ];
+    expect(ordenarPorColuna(itens, { coluna: 'desde', dir: 'asc' }, {}).map(s => s.id)).toEqual(['y', 'x', 'z']);
+    expect(ordenarPorColuna(itens, { coluna: 'desde', dir: 'desc' }, {}).map(s => s.id)).toEqual(['x', 'y', 'z']);
+  });
+});

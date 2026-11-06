@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
@@ -6,17 +6,34 @@ import {
   ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
   linhasPlanilhaInstalacoes,
 } from '../../lib/espacadores';
+import {
+  colunasVisiveis, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
+} from '../../lib/listaInstalacoes';
 import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
 import InstalacaoModal from './InstalacaoModal';
 import EtapaBadge from './EtapaBadge';
+import FiltroColunaInstalacoes from './FiltroColunaInstalacoes';
 
 // Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR e pago.
 // As ações de cada linha dependem da etapa do serviço e do perfil (permissoesFluxo).
+// A lista é uma grade estilo Excel: cabeçalho fixo, filtro por coluna e ordenação.
 
-const th = { padding: '12px 16px', fontWeight: '600' };
-const td = { padding: '12px 16px' };
-const botao = { padding: '6px 14px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' };
+const BORDA = '1px solid #e2e8f0';
+const th = {
+  position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc', padding: '8px 10px', fontSize: '11px', fontWeight: '800',
+  letterSpacing: '0.03em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', borderRight: BORDA, borderBottom: BORDA,
+};
+const td = { padding: '7px 10px', borderBottom: BORDA, borderRight: BORDA, color: '#334155', verticalAlign: 'middle', whiteSpace: 'nowrap' };
+// Ações congelada à direita em telas largas (no celular ela tomaria quase toda a largura)
+const CSS_GRADE = `
+.fi-linha { cursor: pointer; }
+.fi-linha:hover > td { background-image: linear-gradient(rgba(15,37,68,0.05), rgba(15,37,68,0.05)); }
+@media (min-width: 900px) {
+  .fi-acoes { position: sticky; right: 0; z-index: 1; background: inherit; box-shadow: -1px 0 0 #e2e8f0; }
+  .fi-acoes-cab { right: 0; z-index: 3 !important; box-shadow: -1px 0 0 #e2e8f0; }
+}`;
+const botao = { padding: '4px 10px', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' };
 const botaoSec = { ...botao, background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' };
 
 const FILTROS = [
@@ -24,7 +41,7 @@ const FILTROS = [
   { etapa: 'todas', label: 'Todas' },
 ];
 
-const VAZIO = {
+const TEXTO_VAZIO = {
   instalacao: 'Nenhuma instalação em andamento.',
   todas: 'Nenhuma instalação no fluxo.',
 };
@@ -68,6 +85,8 @@ const FluxoInstalacoes = () => {
   const [editandoId, setEditandoId] = useState(null);
   const [numero, setNumero] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [filtrosColuna, setFiltrosColuna] = useState({}); // { colunaId: string[] }
+  const [ordemColuna, setOrdemColuna] = useState(null); // { coluna, dir }
 
   const excluir = async (s) => {
     if (!window.confirm(`Excluir a instalação ${s.id}? O vão e as fotos serão apagados e o serviço volta para a lista de serviços em aberto.`)) return;
@@ -101,9 +120,41 @@ const FluxoInstalacoes = () => {
   const trocarFiltro = (etapa) => { setFiltro(etapa); cancelarEdicao(); };
 
   const contagem = contarPorEtapa(servicos);
-  const mostraNumeros = ['aguardando_nsmc', 'pago', 'todas'].includes(filtro);
-  const mostraApropriacao = ['pago', 'todas'].includes(filtro);
-  const colunas = 7 + (mostraNumeros ? 2 : 0) + (mostraApropriacao ? 1 : 0);
+  const visiveis = colunasVisiveis(filtro);
+  const idsVisiveis = visiveis.map(c => c.id).join(',');
+  const base = useMemo(() => filtrarPorBusca(filtrarPorEtapa(servicos, filtro), busca), [servicos, filtro, busca]);
+  // Valores de cada menu: respeitam os filtros das outras colunas, não o da própria (como no Excel)
+  const valoresPorColuna = useMemo(() => {
+    const ids = idsVisiveis.split(',');
+    return Object.fromEntries(ids.map(id => [
+      id,
+      valoresDaColuna(filtrarPorColunas(base, filtrosColuna, vaosPorServico, { ignorar: id, visiveis: ids }), id, vaosPorServico),
+    ]));
+  }, [base, filtrosColuna, vaosPorServico, idsVisiveis]);
+  const filtrada = filtrarPorColunas(base, filtrosColuna, vaosPorServico, { visiveis: visiveis.map(c => c.id) });
+  const lista = ordemColuna && visiveis.some(c => c.id === ordemColuna.coluna)
+    ? ordenarPorColuna(filtrada, ordemColuna, vaosPorServico)
+    : ordenar([...filtrada], filtro);
+  const colunasComFiltro = visiveis.filter(c => filtrosColuna[c.id]?.length);
+
+  const definirFiltroColuna = (id, valores) => setFiltrosColuna(f => {
+    const novo = { ...f };
+    if (valores?.length) novo[id] = valores; else delete novo[id];
+    return novo;
+  });
+
+  const modoAoAbrir = (s) => {
+    if (s.etapa_espacador === 'instalacao' && permissoes.instalar) return 'edicao';
+    if (s.etapa_espacador === 'revisao' && permissoes.fechar) return 'revisao';
+    return 'leitura';
+  };
+
+  const abrirLinha = (s) => {
+    // Texto selecionado: o usuário está copiando a célula, não abrindo a instalação
+    if (window.getSelection()?.toString()) return;
+    setAberto({ id: s.id, modo: modoAoAbrir(s) });
+  };
+
   const acoes = (s) => (
     <>
       {acoesDaEtapa(s)}
@@ -114,8 +165,6 @@ const FluxoInstalacoes = () => {
       )}
     </>
   );
-
-  const lista = ordenar(filtrarPorBusca(filtrarPorEtapa(servicos, filtro), busca), filtro);
 
   const acoesDaEtapa = (s) => {
     const etapa = s.etapa_espacador;
@@ -142,11 +191,11 @@ const FluxoInstalacoes = () => {
           <>
             <input autoFocus type="text" placeholder={numeroDaEtapa.placeholder} value={numero} onChange={e => setNumero(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') salvarNumero(s); if (e.key === 'Escape') cancelarEdicao(); }}
-              style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', width: '130px', outline: 'none' }} />
+              style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11px', width: '130px', outline: 'none' }} />
             <button onClick={() => salvarNumero(s)} disabled={salvando} style={{ ...botao, background: '#0f2544', color: '#fff', cursor: salvando ? 'wait' : 'pointer' }}>
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
-            <button onClick={cancelarEdicao} style={{ ...botao, padding: '6px 10px', background: 'transparent', color: '#94a3b8' }}>✕</button>
+            <button onClick={cancelarEdicao} style={{ ...botao, background: 'transparent', color: '#94a3b8' }}>✕</button>
           </>
         );
       }
@@ -202,67 +251,115 @@ const FluxoInstalacoes = () => {
         })}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-          <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
-            <tr>
-              <th style={th}>ID / Localidade</th>
-              <th style={th}>Trafo</th>
-              <th style={th}>Espaçadores</th>
-              <th style={th}>Situação</th>
-              {mostraNumeros && <th style={th}>NSMP</th>}
-              {mostraNumeros && <th style={th}>NSPR</th>}
-              <th style={th}>Equipe</th>
-              <th style={th}>Desde</th>
-              {mostraApropriacao && <th style={th}>Apropriação</th>}
-              <th style={{ ...th, textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {carregando ? (
-              <tr><td colSpan={colunas} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Carregando…</td></tr>
-            ) : lista.length === 0 ? (
-              <tr><td colSpan={colunas} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>{VAZIO[filtro] || `Nenhuma instalação em "${ETAPAS[filtro].label}".`}</td></tr>
-            ) : lista.map(s => {
-              const vao = vaosPorServico[s.id]?.[0];
-              return (
-                <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={td}>
-                    <div style={{ fontWeight: '600', color: '#0f2544' }}>{s.id}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{s.local || '—'}</div>
-                  </td>
-                  <td style={{ ...td, color: '#334155' }}>{s.equip || '—'}</td>
-                  <td style={{ ...td, fontWeight: '700', color: '#475569' }}>{vao?.qtd_espacadores ?? '—'}</td>
-                  <td style={td}>
-                    {s.etapa_espacador === 'instalacao' && s.motivo_reprovacao_fechamento ? (
-                      <div>
-                        <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Reprovado</span>
-                        <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', maxWidth: '260px' }}>{s.motivo_reprovacao_fechamento}</div>
-                      </div>
-                    ) : (
-                      <EtapaBadge etapa={s.etapa_espacador} />
-                    )}
-                  </td>
-                  {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>{s.numServ || '—'}</td>}
-                  {mostraNumeros && <td style={{ ...td, fontWeight: '700', color: '#15803d' }}>{s.nsmc || '—'}</td>}
-                  <td style={{ ...td, color: '#334155' }}>{vao?.equipe || '—'}</td>
-                  <td style={{ ...td, color: '#64748b', fontSize: '12px' }}>{formatarData(s.dt_etapa)}</td>
-                  {mostraApropriacao && <td style={{ ...td, fontWeight: '700', color: '#1d4ed8' }}>{s.apropriacao || '—'}</td>}
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>{acoes(s)}</div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {colunasComFiltro.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', fontSize: '12px', color: '#64748b' }}>
+          <span style={{ fontWeight: '700' }}>Filtros:</span>
+          {colunasComFiltro.map(c => (
+            <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', maxWidth: '100%', background: '#eff6ff', color: '#1d4ed8', borderRadius: '20px', padding: '3px 6px 3px 10px', fontWeight: '600' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '420px' }}>
+                {c.rotulo}: {filtrosColuna[c.id].join(', ')}
+              </span>
+              <button type="button" aria-label={`Remover filtro ${c.rotulo}`} onClick={() => definirFiltroColuna(c.id, null)}
+                style={{ border: 'none', background: 'transparent', color: '#1d4ed8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}>×</button>
+            </span>
+          ))}
+          <button type="button" onClick={() => setFiltrosColuna({})}
+            style={{ border: 'none', background: 'transparent', color: '#1d4ed8', cursor: 'pointer', fontSize: '12px', fontWeight: '700', padding: '3px 6px' }}>
+            Limpar todos
+          </button>
+        </div>
+      )}
+
+      <div style={{ background: '#fff', border: BORDA, borderRadius: '12px', overflow: 'hidden' }}>
+        <style>{CSS_GRADE}</style>
+        <div style={{ padding: '10px 16px', borderBottom: BORDA, fontSize: '12px', color: '#64748b' }}>
+          <b>{lista.length}</b> {lista.length === 1 ? 'instalação' : 'instalações'}
+        </div>
+        <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 280px)', minHeight: '200px' }}>
+          <table style={{ width: '100%', minWidth: '1080px', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', textAlign: 'left' }}>
+            <thead>
+              <tr>
+                {visiveis.map(c => (
+                  <th key={c.id} style={{ ...th, textAlign: c.numero ? 'right' : 'left' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {c.rotulo}
+                      {ordemColuna?.coluna === c.id && <span aria-label={ordemColuna.dir === 'asc' ? 'ordem crescente' : 'ordem decrescente'} style={{ color: '#1d4ed8' }}>{ordemColuna.dir === 'asc' ? '↑' : '↓'}</span>}
+                      <FiltroColunaInstalacoes coluna={c} valores={valoresPorColuna[c.id] || []} selecionados={filtrosColuna[c.id]}
+                        ordem={ordemColuna?.coluna === c.id ? ordemColuna.dir : null} ativo={!!filtrosColuna[c.id]?.length}
+                        // Clicar de novo na ordem atual volta à ordem padrão da etapa
+                        onOrdenar={dir => setOrdemColuna(o => (o?.coluna === c.id && o.dir === dir ? null : { coluna: c.id, dir }))}
+                        onFiltrar={valores => definirFiltroColuna(c.id, valores)} />
+                    </span>
+                  </th>
+                ))}
+                <th className="fi-acoes-cab" style={{ ...th, textAlign: 'right', borderRight: 'none' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {carregando ? (
+                <tr><td colSpan={visiveis.length + 1} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>Carregando…</td></tr>
+              ) : lista.length === 0 ? (
+                <tr><td colSpan={visiveis.length + 1} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                  {colunasComFiltro.length > 0 ? 'Nenhuma instalação com esses filtros.' : (TEXTO_VAZIO[filtro] || `Nenhuma instalação em "${ETAPAS[filtro].label}".`)}
+                </td></tr>
+              ) : lista.map(s => {
+                const vao = vaosPorServico[s.id]?.[0];
+                const reprovado = s.etapa_espacador === 'instalacao' && !!s.motivo_reprovacao_fechamento;
+                const celula = (id) => {
+                  switch (id) {
+                    case 'id':
+                      return (
+                        <td key={id} style={td}>
+                          <button type="button" aria-label={`Abrir instalação ${s.id}`}
+                            onClick={e => { e.stopPropagation(); setAberto({ id: s.id, modo: modoAoAbrir(s) }); }}
+                            style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', fontWeight: '700', color: '#0f2544', cursor: 'pointer', textAlign: 'left' }}>
+                            {s.id}
+                          </button>
+                        </td>
+                      );
+                    case 'local': return <td key={id} style={td}>{s.local || '—'}</td>;
+                    case 'equip': return <td key={id} style={td}>{s.equip || '—'}</td>;
+                    case 'qtd': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: '#475569' }}>{vao?.qtd_espacadores ?? '—'}</td>;
+                    case 'situacao':
+                      return (
+                        <td key={id} style={td}>
+                          {reprovado ? (
+                            <div>
+                              <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Reprovado</span>
+                              <div title={s.motivo_reprovacao_fechamento} style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.motivo_reprovacao_fechamento}</div>
+                            </div>
+                          ) : (
+                            <EtapaBadge etapa={s.etapa_espacador} />
+                          )}
+                        </td>
+                      );
+                    case 'nsmp': return <td key={id} style={{ ...td, fontWeight: '700', color: s.numServ ? '#7c3aed' : '#94a3b8' }}>{s.numServ || '—'}</td>;
+                    case 'nspr': return <td key={id} style={{ ...td, fontWeight: '700', color: s.nsmc ? '#15803d' : '#94a3b8' }}>{s.nsmc || '—'}</td>;
+                    case 'equipe': return <td key={id} style={td}>{vao?.equipe || '—'}</td>;
+                    case 'desde': return <td key={id} style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>{formatarData(s.dt_etapa)}</td>;
+                    case 'apropriacao': return <td key={id} style={{ ...td, fontWeight: '700', color: s.apropriacao ? '#1d4ed8' : '#94a3b8' }}>{s.apropriacao || '—'}</td>;
+                    default: return null;
+                  }
+                };
+                return (
+                  <tr key={s.id} className="fi-linha" onClick={() => abrirLinha(s)} style={{ background: reprovado ? '#fef2f2' : '#fff' }}>
+                    {visiveis.map(c => celula(c.id))}
+                    <td className="fi-acoes" onClick={e => e.stopPropagation()} style={{ ...td, borderRight: 'none', textAlign: 'right', cursor: 'default' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>{acoes(s)}</div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {novaAberta && (
         <NovaInstalacaoModal
           onClose={() => setNovaAberta(false)}
-          onConcluir={() => { setNovaAberta(false); trocarFiltro('revisao'); }}
-          onErroParcial={(id) => { setNovaAberta(false); trocarFiltro('instalacao'); setAberto({ id, modo: 'edicao' }); }}
+          onConcluir={() => { setNovaAberta(false); setFiltrosColuna({}); trocarFiltro('revisao'); }}
+          onErroParcial={(id) => { setNovaAberta(false); setFiltrosColuna({}); trocarFiltro('instalacao'); setAberto({ id, modo: 'edicao' }); }}
         />
       )}
       {aberto && (
