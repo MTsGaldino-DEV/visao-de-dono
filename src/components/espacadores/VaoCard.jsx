@@ -1,4 +1,4 @@
-import { pendenciasInstalacao, qtdValida, TIPOS_SERVICO, tipoServicoDe } from '../../lib/espacadores';
+import { pendenciasInstalacao, qtdValida, TIPOS_SERVICO, tipoServicoDe, TIPOS_EQUIPE, rotuloTipoEquipe } from '../../lib/espacadores';
 import CampoFoto from './CampoFoto';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
@@ -12,7 +12,7 @@ const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px sol
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
 // onSalvarDados ausente: o modal salva tudo junto no rodapé.
 const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onAmpliar }) => {
-  const { coordAntes, coordDepois, qtd, equipe } = rascunho;
+  const { coordAntes, coordDepois, qtd, equipe, tipoEquipe } = rascunho;
 
   const edicao = modo === 'edicao';
   const pendencias = pendenciasInstalacao(vao);
@@ -54,6 +54,19 @@ const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviand
               style={{ ...inputEquipe, borderColor: destacarFalta && !String(equipe ?? '').trim() ? '#dc2626' : '#cbd5e1' }} />
           ) : (
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao?.equipe || '—'}</div>
+          )}
+        </div>
+
+        <div>
+          <div style={titulo}>Tipo de equipe</div>
+          {edicao ? (
+            <select value={tipoEquipe ?? ''} aria-label="Tipo de equipe" onChange={e => onRascunho('tipoEquipe', e.target.value)}
+              style={{ ...inputEquipe, width: '130px', background: '#fff' }}>
+              <option value="">—</option>
+              {Object.entries(TIPOS_EQUIPE).map(([chave, t]) => <option key={chave} value={chave}>{t.label}</option>)}
+            </select>
+          ) : (
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{rotuloTipoEquipe(vao?.tipo_equipe) || '—'}</div>
           )}
         </div>
 

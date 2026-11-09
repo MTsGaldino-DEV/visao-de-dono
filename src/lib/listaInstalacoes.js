@@ -1,4 +1,4 @@
-import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarMoeda, formatarDataDia } from './espacadores';
+import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarMoeda, formatarDataDia, rotuloTipoEquipe } from './espacadores';
 
 // Regras puras da grade de instalações (colunas, filtros estilo Excel e ordenação).
 // Sem React nem Supabase: tudo aqui é testável isoladamente.
@@ -16,6 +16,7 @@ export const COLUNAS_INSTALACOES = [
   { id: 'nsmp', rotulo: 'NSMP' },
   { id: 'nspr', rotulo: 'NSPR' },
   { id: 'equipe', rotulo: 'Equipe' },
+  { id: 'tipo_equipe', rotulo: 'Tipo de equipe', curto: 'Tipo eq.' },
   { id: 'desde', rotulo: 'Desde' },
   { id: 'apropriacao', rotulo: 'Apropriação', curto: 'Aprop.' },
   { id: 'lancamento_sf', rotulo: 'Lançamento SF', curto: 'Lanç. SF' },
@@ -49,6 +50,7 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'nsmp': v = s.numServ; break;
     case 'nspr': v = s.nsmc; break;
     case 'equipe': v = vao?.equipe; break;
+    case 'tipo_equipe': v = rotuloTipoEquipe(vao?.tipo_equipe); break;
     case 'desde': v = s.dt_etapa ? new Date(s.dt_etapa).toLocaleDateString('pt-BR') : ''; break;
     case 'apropriacao': v = s.apropriacao; break;
     case 'lancamento_sf': v = formatarDataDia(s.data_lancamento_sf); break;

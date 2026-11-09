@@ -6,6 +6,7 @@ import {
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
   linhasPlanilhaInstalacoes, lerValorNota, formatarMoeda, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
+  TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -112,6 +113,38 @@ describe('alteracoesPendentes', () => {
   });
 });
 
+describe('tipo de equipe', () => {
+  it('TIPOS_EQUIPE tem UMPLA, DUPLA e MOTO, gravados em minúsculas', () => {
+    expect(Object.keys(TIPOS_EQUIPE)).toEqual(['umpla', 'dupla', 'moto']);
+    expect(Object.values(TIPOS_EQUIPE).map(t => t.label)).toEqual(['UMPLA', 'DUPLA', 'MOTO']);
+  });
+  it('tipoEquipeValido aceita só os três valores (ignora caixa e espaços)', () => {
+    expect(tipoEquipeValido(' Moto ')).toBe('moto');
+    expect(tipoEquipeValido('umpla')).toBe('umpla');
+    ['', null, undefined, 'triplo', 'constructor', 'toString'].forEach(v => expect(tipoEquipeValido(v)).toBeNull());
+  });
+  it('rotuloTipoEquipe devolve o rótulo ou vazio', () => {
+    expect(rotuloTipoEquipe('dupla')).toBe('DUPLA');
+    expect(rotuloTipoEquipe(null)).toBe('');
+    expect(rotuloTipoEquipe('x')).toBe('');
+  });
+  it('registro antigo sem tipo não ganha pendência nem bloqueia o envio', () => {
+    const antigo = { fotos_antes: ['a'], fotos_depois: ['d'], coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3, equipe: '7812' };
+    expect(pendenciasInstalacao(antigo)).toEqual([]);
+    expect(podeEnviarInstalacao(antigo)).toBe(true);
+  });
+  it('alteracoesPendentes só grava o tipo quando mudou; vazio no vão antigo não é alteração', () => {
+    const vao = { coord_antes: '-18.8 -41.9', coord_depois: '-18.8 -41.9', qtd_espacadores: 3 };
+    const base = { coordAntes: '-18,800000 -41,900000', coordDepois: '-18,800000 -41,900000', qtd: 3 };
+    expect(alteracoesPendentes(vao, { ...base, tipoEquipe: '' }).pendente).toBe(false);
+    expect(alteracoesPendentes(vao, { ...base }).pendente).toBe(false);
+    expect(alteracoesPendentes(vao, { ...base, tipoEquipe: 'moto' }).campos).toEqual({ tipo_equipe: 'moto' });
+    expect(alteracoesPendentes({ ...vao, tipo_equipe: 'moto' }, { ...base, tipoEquipe: 'moto' }).pendente).toBe(false);
+    expect(alteracoesPendentes({ ...vao, tipo_equipe: 'moto' }, { ...base, tipoEquipe: 'dupla' }).campos).toEqual({ tipo_equipe: 'dupla' });
+    expect(alteracoesPendentes({ ...vao, tipo_equipe: 'moto' }, { ...base, tipoEquipe: '' }).campos).toEqual({ tipo_equipe: null });
+  });
+});
+
 describe('podeApagarInstalacao', () => {
   it('só a matrícula 27630 vê o botão de apagar', () => {
     expect(podeApagarInstalacao({ matricula: '27630' })).toBe(true);
@@ -198,7 +231,7 @@ describe('transições', () => {
 
   it('as pílulas seguem a ordem do fluxo, com SF entre NSPR e Pago', () => {
     expect(Object.keys(ETAPAS)).toEqual(['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf', 'pago']);
-    expect(ETAPAS.sf.label).toBe('SF');
+    expect(ETAPAS.sf.label).toBe('SalesForce');
   });
 
   it('início grava etapa, histórico e o status para onde voltar', () => {
@@ -283,6 +316,11 @@ describe('correção da instalação por quem fecha', () => {
       .toEqual(['Quantidade de espaçadores: 3 → 4']);
   });
 
+  it('descreve o tipo de equipe com o rótulo em maiúsculas', () => {
+    expect(descreverAlteracoesVao({ tipo_equipe: null }, { tipo_equipe: 'umpla' })).toEqual(['Tipo de equipe: — → UMPLA']);
+    expect(descreverAlteracoesVao({ tipo_equipe: 'umpla' }, { tipo_equipe: 'moto' })).toEqual(['Tipo de equipe: UMPLA → MOTO']);
+  });
+
   it('serviço de poda descreve a quantidade como árvores podadas', () => {
     const vao = { qtd_espacadores: 3, equipe: null };
     expect(descreverAlteracoesVao(vao, { equipe: '7812', qtd_espacadores: 5 }, { desc: 'Poda de árvore' }))
@@ -365,15 +403,15 @@ describe('linhasPlanilhaInstalacoes', () => {
       id: 'VD1', local: 'Itambacuri', equip: '763', etapa_espacador: 'pago', numServ: '111', nsmc: '222', apropriacao: '9844', dt_etapa: null,
       data_lancamento_sf: '2026-11-05', valor_nota: '1234.50',
     }];
-    const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
+    const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', tipo_equipe: 'dupla', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
       'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
-      'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Desde': '', 'Apropriação': '9844',
+      'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Tipo de equipe': 'DUPLA', 'Desde': '', 'Apropriação': '9844',
       'Lançamento SF': '05/11/2026', 'Valor da nota': 1234.5,
       'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
     }]);
     expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({
-      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota': '',
+      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Tipo de equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota': '',
     });
   });
 

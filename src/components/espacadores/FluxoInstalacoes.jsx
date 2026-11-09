@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
 import {
   ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
-  linhasPlanilhaInstalacoes, formatarDataDia, formatarMoeda, TIPOS_SERVICO, tipoServicoDe,
+  linhasPlanilhaInstalacoes, formatarDataDia, formatarMoeda, TIPOS_SERVICO, tipoServicoDe, rotuloTipoEquipe,
 } from '../../lib/espacadores';
 import {
   colunasVisiveis, valorColuna, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
@@ -345,6 +345,7 @@ const FluxoInstalacoes = () => {
                     case 'nsmp': return <td key={id} style={{ ...td, fontWeight: '700', color: s.numServ ? '#7c3aed' : '#94a3b8' }}>{s.numServ || '—'}</td>;
                     case 'nspr': return <td key={id} style={{ ...td, fontWeight: '700', color: s.nsmc ? '#15803d' : '#94a3b8' }}>{s.nsmc || '—'}</td>;
                     case 'equipe': return <td key={id} style={td}>{vao?.equipe || '—'}</td>;
+                    case 'tipo_equipe': return <td key={id} style={td}>{rotuloTipoEquipe(vao?.tipo_equipe) || '—'}</td>;
                     case 'desde': return <td key={id} title={formatarData(s.dt_etapa)} style={{ ...td, color: '#64748b' }}>{valorColuna('desde', s) || '—'}</td>;
                     case 'apropriacao': return <td key={id} style={{ ...td, fontWeight: '700', color: s.apropriacao ? '#1d4ed8' : '#94a3b8' }}>{s.apropriacao || '—'}</td>;
                     case 'lancamento_sf': return <td key={id} style={{ ...td, whiteSpace: 'nowrap', color: s.data_lancamento_sf ? '#334155' : '#94a3b8' }}>{formatarDataDia(s.data_lancamento_sf) || '—'}</td>;

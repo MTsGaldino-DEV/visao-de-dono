@@ -273,6 +273,7 @@ A publicação falhou no GitHub ("Deployment failed, try again later"), embora o
 headless com Supabase simulado e estado em memória, conferindo o que seria gravado: NSPR → SF →
 Pago, erros do formulário, data sem desvio de fuso, correção, Excel, despachante sem botão e celular.
 Não houve teste com login real, e o SQL não foi rodado por mim. Não publicado até aqui.
+(Atualizado em 09/11/2026: ver o registro de publicação no fim deste arquivo.)
 
 06/11/2026 (poda de árvore): 218 testes e `npm run build` passaram. ESLint sem erros novos (segue o
 erro antigo de `fetchServicos` em `DuplicidadeTab.jsx`). Formulário, vínculo, criação de serviço, troca
@@ -286,3 +287,36 @@ Poda e SF estão nos mesmos arquivos, então publicar a poda leva a SF junto.
 Chrome headless com Supabase simulado, tudo OK; em Pago, a 1440 px, Lançamento SF e Valor da nota aparecem
 sem rolar. Sem commit nem publicação: falta Matheus rodar o SQL e autorizar a publicação conjunta.
 
+
+09/11/2026 (publicação de poda + etapa SF): a pedido de Matheus, commit `d51a30d` na `main`, push feito e
+`npm run deploy` concluído (218 testes passaram antes). Matheus informou que **rodou o SQL**
+`supabase/migrations/instalacao_etapa_sf.sql` no SQL Editor (não conferi por consulta). O `gh-pages` disse
+"Published"; o CLI `gh` não está instalado, e a execução de Pages vista pela API pública era do branch
+`gh-pages`, sem ligação certa com este deploy. Pendente: conferir em Actions e no site servido, e testar
+NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e valor da nota por serviço.
+
+## Decisão: tipo de equipe e hover no "Novo serviço" (09/11/2026)
+
+- Pedido de Matheus: o "Novo serviço" ganha o **tipo de equipe**, obrigatório, para Espaçador e Poda:
+  **UMPLA, DUPLA ou MOTO** (grafia de Matheus). Valores gravados em minúsculo em `vaos.tipo_equipe`
+  ('umpla', 'dupla', 'moto'). O campo Equipe (nº digitado) continua como estava.
+- Registros antigos ficam com `tipo_equipe` NULL e **não são bloqueados**: `pendenciasInstalacao` não
+  exige o tipo. Só o Novo serviço exige (`registrarInstalacao` recusa sem tipo válido). No VaoCard e no
+  modal o tipo aparece junto da Equipe e é um `<select>` opcional onde a Equipe é editável.
+- Lista: coluna "Tipo de equipe" (cabeçalho "Tipo eq.") após Equipe, com filtro/ordem; entra no Excel.
+- Script `supabase/migrations/instalacao_tipo_equipe.sql` (só acrescenta coluna e CHECK). Matheus informou
+  em 09/11 que **já rodou**. Sem ele, o Novo serviço falha ao gravar o vão.
+- Hover dos botões Espaçador/Poda: classes `.ni-tipo` e `.ni-seg` em `CSS_NOVO_SERVICO`
+  (`NovaInstalacaoModal.jsx`); elevação, sombra azul e escala só com `hover: hover`, sem movimento com
+  `prefers-reduced-motion`. Tipo de equipe usa radiogroup acessível.
+- Verificação (09/11): 226 testes, `npm run build` e ESLint dos arquivos tocados passaram. Hover e radiogroup
+  foram conferidos só por revisão de código, não no navegador. Sem commit nem publicação até aqui.
+
+## Decisão: etapa SF passa a se chamar "SalesForce" e pagos voltam para ela (09/11/2026)
+
+- Pedido de Matheus: o rótulo da etapa `sf` (`ETAPAS.sf.label` em `src/lib/espacadores.js`) deixa de ser "SF" e
+  vira **"SalesForce"**. A chave interna continua `sf`. Os nomes de campo/coluna "Lançamento SF" não mudaram.
+- Os serviços em **Pago** devem voltar para a etapa SalesForce: script de uso único
+  `supabase/migrations/devolver_pagos_para_salesforce.sql` (muda `etapa_espacador` para 'sf', renova `dt_etapa`,
+  acrescenta linha no `hist`; preserva data de lançamento, valor da nota e apropriação). **Rodar no SQL Editor.**
+- Verificação (09/11): 226 testes passaram.

@@ -4,7 +4,7 @@ import { supabase, fetchAll } from './supabase';
 import {
   isEspacador, isPoda, TIPOS_SERVICO, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
   entradaHist, formatarCoordenada, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadCorrecao,
-  validarArquivo, caminhoArquivo,
+  validarArquivo, caminhoArquivo, tipoEquipeValido,
 } from './espacadores';
 
 const BUCKET = 'levantamentos';
@@ -151,7 +151,7 @@ export const corrigirInstalacao = async (servico, vao, { camposVao = {}, camposS
 
 // Novo serviço (espaçador ou poda): vincula (ou cria) o serviço, grava o vão com as fotos e envia para o fechamento.
 // Se falhar depois do vínculo, o serviço fica em "Em instalação" para o despachante terminar.
-export const registrarInstalacao = async ({ servico, novo, tipoServico = 'espacador', fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe }, user) => {
+export const registrarInstalacao = async ({ servico, novo, tipoServico = 'espacador', fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe, tipoEquipe }, user) => {
   const criadoPelaInstalacao = !servico;
   // Vão: digitada e gravada como "-18,844040 -41,957216". Serviço novo: formato padrão do sistema
   [coordAntes, coordDepois].forEach(c => {
@@ -162,6 +162,8 @@ export const registrarInstalacao = async ({ servico, novo, tipoServico = 'espaca
   const depois = coordenadaComVirgula(coordDepois);
   const nomeEquipe = String(equipe ?? '').trim();
   if (!nomeEquipe) throw new Error('Informe a equipe.');
+  const tipoEquipeGravar = tipoEquipeValido(tipoEquipe);
+  if (!tipoEquipeGravar) throw new Error('Informe o tipo de equipe (UMPLA, DUPLA ou MOTO).');
   const base = servico || await criarServicoDoFluxo({ ...novo, tipoServico, coord: formatarCoordenada(coordAntes) }, user);
   const iniciado = await iniciarInstalacao(base, user, { criadoPelaInstalacao });
   try {
@@ -169,7 +171,7 @@ export const registrarInstalacao = async ({ servico, novo, tipoServico = 'espaca
     const { error: erroOrfao } = await supabase.from('vaos').delete().eq('servico_id', iniciado.id);
     if (erroOrfao) throw erroOrfao;
     let vao = await salvarDadosVao(iniciado.id, null, {
-      coord_antes: antes, coord_depois: depois, qtd_espacadores: Number(qtd), equipe: nomeEquipe,
+      coord_antes: antes, coord_depois: depois, qtd_espacadores: Number(qtd), equipe: nomeEquipe, tipo_equipe: tipoEquipeGravar,
     });
     vao = await trocarFoto(vao, 'antes', fotoAntes);
     await trocarFoto(vao, 'depois', fotoDepois);

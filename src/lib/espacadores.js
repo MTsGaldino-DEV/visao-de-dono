@@ -12,7 +12,7 @@ export const ETAPAS = {
   revisao:         { label: 'Em revisão',      cor: '#854d0e', bg: '#fef9c3', borda: '#fde68a' },
   aguardando_nsmp: { label: 'Aguardando NSMP', cor: '#7c3aed', bg: '#faf5ff', borda: '#ddd6fe' },
   aguardando_nsmc: { label: 'Aguardando NSPR', cor: '#c2410c', bg: '#fff7ed', borda: '#fed7aa' },
-  sf:              { label: 'SF',              cor: '#0f766e', bg: '#f0fdfa', borda: '#99f6e4' },
+  sf:              { label: 'SalesForce',             cor: '#0f766e', bg: '#f0fdfa', borda: '#99f6e4' },
   pago:            { label: 'Pago',            cor: '#15803d', bg: '#f0fdf4', borda: '#bbf7d0' },
 };
 
@@ -66,6 +66,22 @@ export const TIPOS_SERVICO = {
 // Serviço do fluxo com descrição desconhecida continua tratado como espaçador
 export const tipoServicoDe = (servico) => (isPoda(servico) ? 'poda' : 'espacador');
 
+// Tipo de equipe do vão (vaos.tipo_equipe). Obrigatório só no Novo serviço; registros antigos ficam sem tipo.
+export const TIPOS_EQUIPE = {
+  umpla: { label: 'UMPLA' },
+  dupla: { label: 'DUPLA' },
+  moto:  { label: 'MOTO' },
+};
+
+// Valor gravado ('umpla' | 'dupla' | 'moto') ou null quando vazio/desconhecido
+export const tipoEquipeValido = (valor) => {
+  const v = String(valor ?? '').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(TIPOS_EQUIPE, v) ? v : null;
+};
+
+// Rótulo para a tela e o Excel; '' quando não há tipo
+export const rotuloTipoEquipe = (valor) => TIPOS_EQUIPE[tipoEquipeValido(valor)]?.label || '';
+
 export const normalizarTrafo = (texto) => (texto || '').trim().toLowerCase();
 
 // Exato primeiro, depois "763-…", depois "763…", depois o resto
@@ -118,7 +134,7 @@ export const pendenciasInstalacao = (vao) => {
 
 // Compara o que está digitado na tela com o vão salvo: campos = o que gravar (já normalizado);
 // invalido = há um valor digitado que não pode ser gravado. Enviar e aprovar esperam pendente = false.
-export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe }) => {
+export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe, tipoEquipe }) => {
   const campos = {};
   let invalido = false;
   [['coord_antes', coordAntes], ['coord_depois', coordDepois]].forEach(([campo, digitado]) => {
@@ -138,6 +154,11 @@ export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe 
   if (equipe !== undefined) {
     const nova = String(equipe ?? '').trim() || null;
     if (nova !== (String(vao?.equipe ?? '').trim() || null)) campos.equipe = nova;
+  }
+  // Tipo de equipe não é obrigatório numa instalação já existente: pode ficar vazio e só grava se mudou
+  if (tipoEquipe !== undefined) {
+    const nova = tipoEquipeValido(tipoEquipe);
+    if (nova !== tipoEquipeValido(vao?.tipo_equipe)) campos.tipo_equipe = nova;
   }
   return { campos, pendente: invalido || Object.keys(campos).length > 0, invalido };
 };
@@ -299,15 +320,18 @@ const ROTULOS_VAO = {
   coord_depois: 'Coordenada do depois',
   qtd_espacadores: 'Quantidade de espaçadores',
   equipe: 'Equipe',
+  tipo_equipe: 'Tipo de equipe',
 };
 
 // campos = saída de alteracoesPendentes; uma frase por campo para o histórico.
 // O rótulo da quantidade depende do tipo do serviço (sem serviço = espaçador).
 export const descreverAlteracoesVao = (vao, campos, servico) =>
   Object.keys(ROTULOS_VAO).filter(c => c in campos).map(c => {
-    const antes = c.startsWith('coord_') ? coordenadaComVirgula(vao?.[c]) ?? vao?.[c] : vao?.[c];
+    let antes = c.startsWith('coord_') ? coordenadaComVirgula(vao?.[c]) ?? vao?.[c] : vao?.[c];
+    let depois = campos[c];
+    if (c === 'tipo_equipe') { antes = rotuloTipoEquipe(antes); depois = rotuloTipoEquipe(depois); }
     const rotulo = c === 'qtd_espacadores' ? TIPOS_SERVICO[tipoServicoDe(servico)].rotuloHist : ROTULOS_VAO[c];
-    return `${rotulo}: ${mostrar(antes)} → ${mostrar(campos[c])}`;
+    return `${rotulo}: ${mostrar(antes)} → ${mostrar(depois)}`;
   });
 
 // [campo, rótulo, mensagem quando apagam um valor que já existia]
@@ -429,6 +453,7 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'NSMP': s.numServ || '',
     'NSPR': s.nsmc || '',
     'Equipe': vao?.equipe || '',
+    'Tipo de equipe': rotuloTipoEquipe(vao?.tipo_equipe),
     'Desde': s.dt_etapa ? formatarData(s.dt_etapa) : '',
     'Apropriação': s.apropriacao || '',
     'Lançamento SF': formatarDataDia(s.data_lancamento_sf),

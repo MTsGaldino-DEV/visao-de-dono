@@ -15,20 +15,20 @@ describe('colunasVisiveis', () => {
 
   it('esconde NSMP, NSPR, Apropriação e dados do SalesForce em instalação e revisão', () => {
     for (const etapa of ['instalacao', 'revisao']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'equipe', 'tipo_equipe', 'desde']);
     }
   });
 
   it('mostra NSMP e NSPR, mas não Apropriação nem SalesForce, em aguardando NSPR e em SF', () => {
     for (const etapa of ['aguardando_nsmc', 'sf']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'tipo_equipe', 'desde']);
     }
   });
 
   it('Apropriação, Lançamento SF e Valor da nota só aparecem em pago e em todas', () => {
     for (const etapa of ['pago', 'todas']) {
       expect(ids(colunasVisiveis(etapa))).toEqual(
-        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde', 'apropriacao', 'lancamento_sf', 'valor_nota'],
+        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'tipo_equipe', 'desde', 'apropriacao', 'lancamento_sf', 'valor_nota'],
       );
     }
     for (const etapa of ['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf']) {
@@ -66,6 +66,25 @@ describe('valorColuna', () => {
     expect(cols.servico.rotulo).toBe('Serviço');
     expect(cols.qtd).toMatchObject({ rotulo: 'Quantidade', numero: true });
     expect(ids(COLUNAS_INSTALACOES).slice(0, 5)).toEqual(['id', 'local', 'equip', 'servico', 'qtd']);
+  });
+
+  it('coluna Tipo de equipe mostra o rótulo em maiúsculas e fica vazia em vão antigo', () => {
+    const s = serv('A');
+    expect(valorColuna('tipo_equipe', s, { tipo_equipe: 'umpla' })).toBe('UMPLA');
+    expect(valorColuna('tipo_equipe', s, { tipo_equipe: 'dupla' })).toBe('DUPLA');
+    expect(valorColuna('tipo_equipe', s, { tipo_equipe: 'moto' })).toBe('MOTO');
+    expect(valorColuna('tipo_equipe', s, { tipo_equipe: null })).toBe('');
+    expect(valorColuna('tipo_equipe', s, undefined)).toBe('');
+    expect(ids(COLUNAS_INSTALACOES).indexOf('tipo_equipe')).toBe(ids(COLUNAS_INSTALACOES).indexOf('equipe') + 1);
+  });
+
+  it('filtra e ordena pela coluna Tipo de equipe, com vazios no fim', () => {
+    const lista = [serv('1'), serv('2'), serv('3'), serv('4')];
+    const vaos = { 1: [{ tipo_equipe: 'moto' }], 2: [{ tipo_equipe: 'dupla' }], 3: [{ equipe: 'x' }], 4: [{ tipo_equipe: 'moto' }] };
+    expect(filtrarPorColunas(lista, { tipo_equipe: ['MOTO'] }, vaos).map(s => s.id)).toEqual(['1', '4']);
+    expect(filtrarPorColunas(lista, { tipo_equipe: [VAZIO] }, vaos).map(s => s.id)).toEqual(['3']);
+    expect(ordenarPorColuna(lista, { coluna: 'tipo_equipe', dir: 'asc' }, vaos).map(s => s.id)).toEqual(['2', '1', '4', '3']);
+    expect(valoresDaColuna(lista, 'tipo_equipe', vaos).map(v => v.valor)).toEqual(['DUPLA', 'MOTO', VAZIO]);
   });
 
   it('usa só o dia na coluna Desde', () => {

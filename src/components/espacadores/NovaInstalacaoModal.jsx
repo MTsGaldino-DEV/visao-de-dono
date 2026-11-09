@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { buscarServicosPorTrafo, registrarInstalacao } from '../../lib/espacadoresApi';
-import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida, TIPOS_SERVICO } from '../../lib/espacadores';
+import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida, TIPOS_SERVICO, TIPOS_EQUIPE } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
 import CampoFoto from './CampoFoto';
 
@@ -10,6 +10,40 @@ const rotulo = { display: 'block', fontSize: '12px', color: '#64748b', marginBot
 const linkBotao = { background: 'none', border: 'none', color: '#1d4ed8', fontSize: '12px', fontWeight: '700', cursor: 'pointer', padding: 0, textDecoration: 'underline' };
 
 const metros = (d) => `${Math.round(d)} m`;
+
+const chavesTipoEquipe = Object.keys(TIPOS_EQUIPE);
+
+// Botões do seletor de tipo de serviço e do tipo de equipe. Em CSS (não em style inline) para ter :hover, :active e :focus-visible.
+// Destaque do projeto: azul #1d4ed8 / #eff6ff; selecionado = azul-marinho #0f2544 (distinto do hover).
+const CSS_NOVO_SERVICO = `
+.ni-tipo, .ni-seg {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;
+  border: 1px solid #cbd5e1; background: #fff; color: #475569; font-family: inherit; font-weight: 700; cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+.ni-tipo { flex: 1 1 140px; min-width: 0; padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+.ni-seg { padding: 10px 14px; border-radius: 8px; font-size: 13px; letter-spacing: 0.02em; }
+.ni-tipo-rotulo { display: inline-block; transition: transform 180ms ease; }
+.ni-tipo:disabled, .ni-seg:disabled { cursor: not-allowed; opacity: 0.7; }
+.ni-tipo[aria-pressed="true"], .ni-seg[aria-checked="true"] { border-color: #0f2544; background: #0f2544; color: #fff; box-shadow: 0 0 0 1px #0f2544; }
+.ni-tipo[aria-pressed="true"]::before, .ni-seg[aria-checked="true"]::before { content: "\\2713"; font-size: 12px; }
+.ni-tipo:focus-visible, .ni-seg:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+@media (hover: hover) {
+  .ni-tipo:not(:disabled):hover, .ni-seg:not(:disabled):hover {
+    transform: translateY(-2px); border-color: #1d4ed8; background: #eff6ff; color: #1d4ed8; box-shadow: 0 6px 14px rgba(29,78,216,0.2);
+  }
+  .ni-tipo:not(:disabled):hover .ni-tipo-rotulo { transform: scale(1.06); }
+  .ni-tipo[aria-pressed="true"]:not(:disabled):hover, .ni-seg[aria-checked="true"]:not(:disabled):hover {
+    border-color: #0f2544; background: #0f2544; color: #fff; box-shadow: 0 6px 14px rgba(15,37,68,0.35);
+  }
+}
+.ni-tipo:not(:disabled):active, .ni-seg:not(:disabled):active { transform: translateY(0) scale(0.97); box-shadow: 0 1px 3px rgba(15,37,68,0.2); }
+.ni-tipo:not(:disabled):active .ni-tipo-rotulo { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .ni-tipo, .ni-seg, .ni-tipo-rotulo { transition: none; }
+  .ni-tipo:hover, .ni-seg:hover, .ni-tipo:active, .ni-seg:active, .ni-tipo:hover .ni-tipo-rotulo, .ni-tipo:active .ni-tipo-rotulo { transform: none !important; }
+}
+`;
 
 // Uma instalação = um vão. O vínculo vai para o serviço do trafo mais perto da coordenada do antes.
 const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
@@ -24,6 +58,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const [coordDepois, setCoordDepois] = useState('');
   const [qtd, setQtd] = useState('');
   const [equipe, setEquipe] = useState('');
+  const [tipoEquipe, setTipoEquipe] = useState(''); // 'umpla' | 'dupla' | 'moto'; obrigatório
   const [escolhaManual, setEscolhaManual] = useState(null); // { tipo: 'servico', servico } | { tipo: 'novo' }
   const [mostrarLista, setMostrarLista] = useState(false);
   const [local, setLocal] = useState('');
@@ -39,6 +74,16 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
     setEscolhaManual(null);
     setMostrarLista(false);
     setQtd('');
+  };
+
+  // Radiogroup: setas movem e marcam a opção, como num radio nativo
+  const moverTipoEquipe = (e, i) => {
+    const passo = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!passo) return;
+    e.preventDefault();
+    const proximo = chavesTipoEquipe[(i + passo + chavesTipoEquipe.length) % chavesTipoEquipe.length];
+    setTipoEquipe(proximo);
+    e.currentTarget.parentElement.querySelector(`[data-chave="${proximo}"]`)?.focus();
   };
 
   const buscar = async () => {
@@ -85,6 +130,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
     if (!validarCoordenadaVao(coordDepois).ok) faltando.push('coordenada do depois');
     if (!qtdValida(qtd)) faltando.push('quantidade');
     if (!equipe.trim()) faltando.push('equipe');
+    if (!tipoEquipe) faltando.push('tipo de equipe');
   }
   const pronto = faltando.length === 0 && !enviando;
 
@@ -99,7 +145,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
       const id = await registrarInstalacao({
         servico: escolha.tipo === 'servico' ? escolha.servico : null,
         novo: escolha.tipo === 'novo' ? { equip: texto.trim(), local } : null,
-        tipoServico, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe,
+        tipoServico, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe, tipoEquipe,
       }, user);
       onConcluir(id);
     } catch (e) {
@@ -120,6 +166,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
 
   return (
     <>
+      <style>{CSS_NOVO_SERVICO}</style>
       <div onClick={enviando ? undefined : onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
       <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, background: '#fff', borderRadius: '16px', width: '94%', maxWidth: '720px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(15,37,68,0.25)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
@@ -135,9 +182,8 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
               {Object.entries(TIPOS_SERVICO).map(([chave, t]) => {
                 const marcado = tipoServico === chave;
                 return (
-                  <button key={chave} type="button" aria-pressed={marcado} disabled={enviando} onClick={() => trocarTipo(chave)}
-                    style={{ flex: '1 1 140px', minWidth: 0, padding: '10px 14px', borderRadius: '8px', border: `1px solid ${marcado ? '#0f2544' : '#cbd5e1'}`, background: marcado ? '#0f2544' : '#fff', color: marcado ? '#fff' : '#475569', fontSize: '14px', fontWeight: '700', fontFamily: 'inherit', cursor: enviando ? 'not-allowed' : 'pointer' }}>
-                    {t.label}
+                  <button key={chave} type="button" className="ni-tipo" aria-pressed={marcado} disabled={enviando} onClick={() => trocarTipo(chave)}>
+                    <span className="ni-tipo-rotulo">{t.label}</span>
                   </button>
                 );
               })}
@@ -173,6 +219,23 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
               <label style={rotulo}>Equipe</label>
               <input type="text" value={equipe} placeholder="Nº da equipe" disabled={enviando} onChange={e => setEquipe(e.target.value)}
                 style={{ ...input, width: '180px', borderColor: mostrarErros && !equipe.trim() ? '#dc2626' : '#cbd5e1' }} />
+            </div>
+            <div>
+              <div id="tipo-equipe-rotulo" style={rotulo}>Tipo de equipe</div>
+              <div role="radiogroup" aria-labelledby="tipo-equipe-rotulo" aria-required="true"
+                style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderRadius: '10px', outline: mostrarErros && !tipoEquipe ? '2px solid #dc2626' : 'none', outlineOffset: '3px' }}>
+                {chavesTipoEquipe.map((chave, i) => {
+                  const marcado = tipoEquipe === chave;
+                  return (
+                    <button key={chave} type="button" role="radio" className="ni-seg" data-chave={chave} aria-checked={marcado} disabled={enviando}
+                      tabIndex={marcado || (!tipoEquipe && i === 0) ? 0 : -1}
+                      onClick={() => setTipoEquipe(chave)}
+                      onKeyDown={e => moverTipoEquipe(e, i)}>
+                      {TIPOS_EQUIPE[chave].label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

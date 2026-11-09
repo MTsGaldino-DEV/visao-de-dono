@@ -74,7 +74,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
   const vao = vaos[0] ?? null;
   // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
-  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}`;
+  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}|${vao?.tipo_equipe}`;
   const digitado = rascunho?.versao === versaoVao ? rascunho : {
     // Gravada como "lat lng"; na tela já aparece no formato com vírgula que o vão exige
     versao: versaoVao,
@@ -82,6 +82,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     coordDepois: coordenadaComVirgula(vao?.coord_depois) || vao?.coord_depois || '',
     qtd: vao?.qtd_espacadores ?? '',
     equipe: vao?.equipe || '',
+    tipoEquipe: vao?.tipo_equipe || '',
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];
