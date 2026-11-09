@@ -15,20 +15,20 @@ describe('colunasVisiveis', () => {
 
   it('esconde NSMP, NSPR, Apropriação e dados do SalesForce em instalação e revisão', () => {
     for (const etapa of ['instalacao', 'revisao']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'equipe', 'tipo_equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'tipo_equipe', 'equipe', 'desde']);
     }
   });
 
   it('mostra NSMP e NSPR, mas não Apropriação nem SalesForce, em aguardando NSPR e em SF', () => {
     for (const etapa of ['aguardando_nsmc', 'sf']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'tipo_equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'tipo_equipe', 'equipe', 'desde']);
     }
   });
 
   it('Apropriação, Lançamento SF e Valor da nota só aparecem em pago e em todas', () => {
     for (const etapa of ['pago', 'todas']) {
       expect(ids(colunasVisiveis(etapa))).toEqual(
-        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'tipo_equipe', 'desde', 'apropriacao', 'lancamento_sf', 'valor_nota'],
+        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'valor_nota', 'tipo_equipe', 'equipe', 'desde', 'apropriacao', 'lancamento_sf'],
       );
     }
     for (const etapa of ['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf']) {
@@ -75,7 +75,9 @@ describe('valorColuna', () => {
     expect(valorColuna('tipo_equipe', s, { tipo_equipe: 'moto' })).toBe('MOTO');
     expect(valorColuna('tipo_equipe', s, { tipo_equipe: null })).toBe('');
     expect(valorColuna('tipo_equipe', s, undefined)).toBe('');
-    expect(ids(COLUNAS_INSTALACOES).indexOf('tipo_equipe')).toBe(ids(COLUNAS_INSTALACOES).indexOf('equipe') + 1);
+    // ordem pedida: NSPR, Valor, Tipo eq., Equipe
+    expect(ids(COLUNAS_INSTALACOES).slice(ids(COLUNAS_INSTALACOES).indexOf('nspr'), ids(COLUNAS_INSTALACOES).indexOf('equipe') + 1))
+      .toEqual(['nspr', 'valor_nota', 'tipo_equipe', 'equipe']);
   });
 
   it('filtra e ordena pela coluna Tipo de equipe, com vazios no fim', () => {

@@ -320,3 +320,11 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   `supabase/migrations/devolver_pagos_para_salesforce.sql` (muda `etapa_espacador` para 'sf', renova `dt_etapa`,
   acrescenta linha no `hist`; preserva data de lançamento, valor da nota e apropriação). **Rodar no SQL Editor.**
 - Verificação (09/11): 226 testes passaram.
+
+## Decisão: ordem das colunas da lista de instalações e Situação enxuta (09/11/2026)
+
+- Pedido de Matheus: na grade, ordem **NSPR, Valor, Tipo eq., Equipe** (depois Desde, Aprop., Lanç. SF).
+  Valor continua só em Pago/Todas. A ordem do Excel (`espacadores.js`) não mudou.
+- Situação mostra só a etiqueta (ex.: "Reprovado"), sem o motivo embaixo, para diminuir a grade; o motivo fica
+  no `title` da etiqueta e no modal da instalação.
+- Verificação (09/11): 226 testes e `npm run build` passaram; visual não conferido no navegador.

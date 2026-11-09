@@ -15,12 +15,12 @@ export const COLUNAS_INSTALACOES = [
   { id: 'situacao', rotulo: 'Situação' },
   { id: 'nsmp', rotulo: 'NSMP' },
   { id: 'nspr', rotulo: 'NSPR' },
-  { id: 'equipe', rotulo: 'Equipe' },
+  { id: 'valor_nota', rotulo: 'Valor da nota', curto: 'Valor', numero: true },
   { id: 'tipo_equipe', rotulo: 'Tipo de equipe', curto: 'Tipo eq.' },
+  { id: 'equipe', rotulo: 'Equipe' },
   { id: 'desde', rotulo: 'Desde' },
   { id: 'apropriacao', rotulo: 'Apropriação', curto: 'Aprop.' },
   { id: 'lancamento_sf', rotulo: 'Lançamento SF', curto: 'Lanç. SF' },
-  { id: 'valor_nota', rotulo: 'Valor da nota', curto: 'Valor', numero: true },
 ];
 
 const ETAPAS_COM_NUMEROS = ['aguardando_nsmc', 'sf', 'pago', 'todas'];

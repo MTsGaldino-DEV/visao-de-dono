@@ -333,10 +333,7 @@ const FluxoInstalacoes = () => {
                       return (
                         <td key={id} style={td}>
                           {reprovado ? (
-                            <div>
-                              <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Reprovado</span>
-                              <div title={s.motivo_reprovacao_fechamento} style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.motivo_reprovacao_fechamento}</div>
-                            </div>
+                            <span title={s.motivo_reprovacao_fechamento} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px' }}>Reprovado</span>
                           ) : (
                             <EtapaBadge etapa={s.etapa_espacador} />
                           )}
