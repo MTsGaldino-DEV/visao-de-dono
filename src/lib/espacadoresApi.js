@@ -1,8 +1,8 @@
-// Acesso ao Supabase do fluxo de instalação de espaçadores.
+// Acesso ao Supabase do fluxo de instalação de espaçadores e poda de árvore.
 // As regras ficam em ./espacadores (puro, testado); aqui só I/O.
 import { supabase, fetchAll } from './supabase';
 import {
-  isEspacador, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
+  isEspacador, isPoda, TIPOS_SERVICO, normalizarTrafo, ordenarResultadosTrafo, proximoIdVD,
   entradaHist, formatarCoordenada, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, montarPayloadCorrecao,
   validarArquivo, caminhoArquivo,
 } from './espacadores';
@@ -10,7 +10,7 @@ import {
 const BUCKET = 'levantamentos';
 const agora = () => new Date().toISOString();
 
-export const buscarServicosPorTrafo = async (texto) => {
+export const buscarServicosPorTrafo = async (texto, tipoServico = 'espacador') => {
   const alvo = normalizarTrafo(texto);
   if (!alvo) return [];
   const padrao = `%${alvo.replace(/[%_\\]/g, '\\$&')}%`;
@@ -20,10 +20,11 @@ export const buscarServicosPorTrafo = async (texto) => {
     .ilike('equip', padrao)
     .neq('status', 'cancelado');
   if (error) throw error;
-  return ordenarResultadosTrafo((data || []).filter(isEspacador), alvo);
+  return ordenarResultadosTrafo((data || []).filter(tipoServico === 'poda' ? isPoda : isEspacador), alvo);
 };
 
-export const criarServicoEspacador = async ({ equip, local, coord }, user) => {
+export const criarServicoDoFluxo = async ({ equip, local, coord, tipoServico = 'espacador' }, user) => {
+  const tipo = TIPOS_SERVICO[tipoServico] || TIPOS_SERVICO.espacador;
   const { data: ultimo, error: erroUltimo } = await supabase
     .from('servicos').select('id').order('dtCadastro', { ascending: false }).limit(1);
   if (erroUltimo) throw erroUltimo;
@@ -31,7 +32,7 @@ export const criarServicoEspacador = async ({ equip, local, coord }, user) => {
   const novo = {
     id: proximoIdVD(ultimo?.[0]?.id),
     tipo: 'NSIS',
-    desc: 'Instalação de espaçador',
+    desc: tipo.descNovo,
     equip: equip.trim(),
     local: local.trim(),
     coord: coord.trim(),
@@ -41,7 +42,7 @@ export const criarServicoEspacador = async ({ equip, local, coord }, user) => {
     autor: user.label,
     matriculaAutor: user.matricula,
     dtCadastro: t,
-    hist: [entradaHist(user, 'Serviço cadastrado pela Nova instalação de espaçadores.', t)],
+    hist: [entradaHist(user, tipo.cadastrado, t)],
   };
   const { data, error } = await supabase.from('servicos').insert(novo).select().single();
   if (error) throw error;
@@ -148,9 +149,9 @@ export const corrigirInstalacao = async (servico, vao, { camposVao = {}, camposS
   if (error) throw error;
 };
 
-// Nova instalação: vincula (ou cria) o serviço, grava o vão com as fotos e envia para o fechamento.
+// Novo serviço (espaçador ou poda): vincula (ou cria) o serviço, grava o vão com as fotos e envia para o fechamento.
 // Se falhar depois do vínculo, o serviço fica em "Em instalação" para o despachante terminar.
-export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe }, user) => {
+export const registrarInstalacao = async ({ servico, novo, tipoServico = 'espacador', fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe }, user) => {
   const criadoPelaInstalacao = !servico;
   // Vão: digitada e gravada como "-18,844040 -41,957216". Serviço novo: formato padrão do sistema
   [coordAntes, coordDepois].forEach(c => {
@@ -161,7 +162,7 @@ export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois
   const depois = coordenadaComVirgula(coordDepois);
   const nomeEquipe = String(equipe ?? '').trim();
   if (!nomeEquipe) throw new Error('Informe a equipe.');
-  const base = servico || await criarServicoEspacador({ ...novo, coord: formatarCoordenada(coordAntes) }, user);
+  const base = servico || await criarServicoDoFluxo({ ...novo, tipoServico, coord: formatarCoordenada(coordAntes) }, user);
   const iniciado = await iniciarInstalacao(base, user, { criadoPelaInstalacao });
   try {
     // Uma exclusão que falhou no meio pode ter deixado um vão órfão para este serviço
@@ -174,7 +175,7 @@ export const registrarInstalacao = async ({ servico, novo, fotoAntes, fotoDepois
     await trocarFoto(vao, 'depois', fotoDepois);
     await aplicarTransicao(iniciado, 'enviar', { user });
   } catch (e) {
-    const erro = new Error(`A instalação foi salva incompleta em ${iniciado.id}. Abra-a em Em instalação para terminar. (${e.message})`);
+    const erro = new Error(`O serviço foi salvo incompleto em ${iniciado.id}. Abra-o em Em instalação para terminar. (${e.message})`);
     erro.servicoId = iniciado.id;
     throw erro;
   }

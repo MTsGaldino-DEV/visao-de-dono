@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
   permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao, coordenadaComVirgula,
+  lerValorNota, formatarMoeda, formatarDataDia, TIPOS_SERVICO, tipoServicoDe,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
@@ -17,7 +18,19 @@ const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSp
 const campo = { width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fff' };
 const botaoSalvar = { padding: '12px 22px', background: '#0f2544', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700' };
 
-const ROTULO_CAMPO = { equip: 'Trafo', local: 'Localidade', numServ: 'NSMP', nsmc: 'NSPR', apropriacao: 'Apropriação' };
+const ROTULO_CAMPO = {
+  equip: 'Trafo', local: 'Localidade', numServ: 'NSMP', nsmc: 'NSPR', apropriacao: 'Apropriação',
+  data_lancamento_sf: 'Lançamento SF', valor_nota: 'Valor da nota',
+};
+
+// Valor da nota no formato de digitação brasileiro ("1234,50"); vazio se não houver
+const valorNotaParaDigitar = (v) => {
+  if (v === null || v === undefined || String(v).trim() === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : String(v);
+};
+
+const valorInicialServico = (servico, c) => (c === 'valor_nota' ? valorNotaParaDigitar(servico[c]) : (servico[c] ?? ''));
 
 const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const { user } = useAuth();
@@ -74,7 +87,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];
   const versaoServico = camposServico.map(c => servico[c] ?? '').join('|');
   const digitadoServico = rascunhoServico?.versao === versaoServico ? rascunhoServico : {
-    versao: versaoServico, valores: Object.fromEntries(camposServico.map(c => [c, servico[c] ?? ''])),
+    versao: versaoServico, valores: Object.fromEntries(camposServico.map(c => [c, valorInicialServico(servico, c)])),
   };
   const altServico = alteracoesServico(servico, digitadoServico.valores);
   const temCorrecao = alteracoes.pendente || Object.keys(altServico.campos).length > 0 || !!altServico.erro;
@@ -136,7 +149,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     executar(() => corrigirInstalacao(servico, vao, {
       camposVao: alteracoes.campos,
       camposServico: altServico.campos,
-      mensagens: [...altServico.mensagens, ...descreverAlteracoesVao(vao, alteracoes.campos)],
+      mensagens: [...altServico.mensagens, ...descreverAlteracoesVao(vao, alteracoes.campos, servico)],
     }, user));
   };
   const botaoCorrigir = (
@@ -162,7 +175,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
         {/* Cabeçalho */}
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Instalação de espaçadores</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>{TIPOS_SERVICO[tipoServicoDe(servico)].tituloModal}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '18px', fontWeight: '800', color: '#0f2544' }}>{servico.id}</span>
               <EtapaBadge etapa={servico.etapa_espacador} />
@@ -174,6 +187,8 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               {servico.numServ && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSMP:</span> <b>{servico.numServ}</b></>}
               {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSPR:</span> <b>{servico.nsmc}</b></>}
               {servico.apropriacao && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Apropriação:</span> <b>{servico.apropriacao}</b></>}
+              {servico.data_lancamento_sf && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Lançamento SF:</span> <b>{formatarDataDia(servico.data_lancamento_sf)}</b></>}
+              {formatarMoeda(servico.valor_nota) && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Valor da nota:</span> <b>{formatarMoeda(servico.valor_nota)}</b></>}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
               <span style={{ color: '#94a3b8' }}>Levantamento:</span> {servico.coord || '—'}
@@ -197,8 +212,9 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
                 {camposServico.map(c => {
                   const valor = digitadoServico.valores[c];
-                  const vazioProibido = c !== 'apropriacao' && !String(valor ?? '').trim() && String(servico[c] ?? '').trim();
-                  const estilo = { ...campo, borderColor: vazioProibido ? '#dc2626' : '#cbd5e1' };
+                  const vazioProibido = !String(valor ?? '').trim() && String(servico[c] ?? '').trim();
+                  const notaInvalida = c === 'valor_nota' && String(valor ?? '').trim() && lerValorNota(valor) === null;
+                  const estilo = { ...campo, borderColor: vazioProibido || notaInvalida ? '#dc2626' : '#cbd5e1' };
                   return (
                     <div key={c}>
                       <div style={titulo}>{ROTULO_CAMPO[c]}</div>
@@ -207,8 +223,10 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
                           {!valor && <option value="">Selecione…</option>}
                           {localidades.map(l => <option key={l} value={l}>{l}</option>)}
                         </select>
+                      ) : c === 'data_lancamento_sf' ? (
+                        <input type="date" value={valor} onChange={e => mudarServico(c, e.target.value)} style={estilo} />
                       ) : (
-                        <input type="text" value={valor} onChange={e => mudarServico(c, e.target.value)} style={estilo} />
+                        <input type="text" inputMode={c === 'valor_nota' ? 'decimal' : undefined} value={valor} onChange={e => mudarServico(c, e.target.value)} style={estilo} />
                       )}
                     </div>
                   );
@@ -219,6 +237,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
 
           <VaoCard
             vao={vao}
+            servico={servico}
             rascunho={digitado}
             alteracoes={alteracoes}
             onRascunho={(campo, valor) => setRascunho({ ...digitado, [campo]: valor })}

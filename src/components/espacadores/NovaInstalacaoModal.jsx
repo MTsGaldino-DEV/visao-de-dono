@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { buscarServicosPorTrafo, registrarInstalacao } from '../../lib/espacadoresApi';
-import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida } from '../../lib/espacadores';
+import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida, TIPOS_SERVICO } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
 import CampoFoto from './CampoFoto';
 
@@ -14,6 +14,7 @@ const metros = (d) => `${Math.round(d)} m`;
 // Uma instalação = um vão. O vínculo vai para o serviço do trafo mais perto da coordenada do antes.
 const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const { user } = useAuth();
+  const [tipoServico, setTipoServico] = useState(null); // 'espacador' | 'poda'; a escolha é obrigatória
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState(null); // null = ainda não buscou
   const [buscando, setBuscando] = useState(false);
@@ -30,11 +31,21 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de enviar; acende os campos que faltam
   const travaEnvio = useRef(false); // o estado só muda no próximo render; a trava barra o duplo clique
 
+  // Trocar de tipo zera o que dependia dele; trafo, fotos, coordenadas e equipe ficam
+  const trocarTipo = (novo) => {
+    if (novo === tipoServico) return;
+    setTipoServico(novo);
+    setResultados(null);
+    setEscolhaManual(null);
+    setMostrarLista(false);
+    setQtd('');
+  };
+
   const buscar = async () => {
-    if (!texto.trim()) return;
+    if (!tipoServico || !texto.trim()) return;
     setBuscando(true);
     try {
-      setResultados(await buscarServicosPorTrafo(texto));
+      setResultados(await buscarServicosPorTrafo(texto, tipoServico));
       setEscolhaManual(null);
       setMostrarLista(false);
     } catch (e) {
@@ -60,16 +71,21 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
     ? vinculo.ordenados.find(c => c.id === escolha.servico.id)?.distancia
     : null;
 
+  const tipo = tipoServico ? TIPOS_SERVICO[tipoServico] : null;
   const faltando = [];
-  if (!resultados) faltando.push('buscar o trafo');
-  else if (!escolha) faltando.push('escolher o serviço');
-  else if (escolha.tipo === 'novo' && !local) faltando.push('localidade');
-  if (!fotoAntes) faltando.push('foto do antes');
-  if (!antesValida) faltando.push('coordenada do antes');
-  if (!fotoDepois) faltando.push('foto do depois');
-  if (!validarCoordenadaVao(coordDepois).ok) faltando.push('coordenada do depois');
-  if (!qtdValida(qtd)) faltando.push('quantidade');
-  if (!equipe.trim()) faltando.push('equipe');
+  if (!tipo) {
+    faltando.push('tipo de serviço');
+  } else {
+    if (!resultados) faltando.push('buscar o trafo');
+    else if (!escolha) faltando.push('escolher o serviço');
+    else if (escolha.tipo === 'novo' && !local) faltando.push('localidade');
+    if (!fotoAntes) faltando.push('foto do antes');
+    if (!antesValida) faltando.push('coordenada do antes');
+    if (!fotoDepois) faltando.push('foto do depois');
+    if (!validarCoordenadaVao(coordDepois).ok) faltando.push('coordenada do depois');
+    if (!qtdValida(qtd)) faltando.push('quantidade');
+    if (!equipe.trim()) faltando.push('equipe');
+  }
   const pronto = faltando.length === 0 && !enviando;
 
   const escolher = (e) => { setEscolhaManual(e); setMostrarLista(false); };
@@ -83,7 +99,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
       const id = await registrarInstalacao({
         servico: escolha.tipo === 'servico' ? escolha.servico : null,
         novo: escolha.tipo === 'novo' ? { equip: texto.trim(), local } : null,
-        fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe,
+        tipoServico, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe,
       }, user);
       onConcluir(id);
     } catch (e) {
@@ -107,11 +123,28 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
       <div onClick={enviando ? undefined : onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,37,68,0.65)', zIndex: 1000, backdropFilter: 'blur(3px)' }} />
       <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, background: '#fff', borderRadius: '16px', width: '94%', maxWidth: '720px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(15,37,68,0.25)' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-          <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f2544' }}>Nova instalação</div>
+          <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f2544' }}>Novo serviço</div>
           <button onClick={onClose} disabled={enviando} style={{ background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div>
+            <div id="tipo-servico-rotulo" style={rotulo}>Tipo de serviço</div>
+            <div role="group" aria-labelledby="tipo-servico-rotulo"
+              style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderRadius: '10px', outline: mostrarErros && !tipo ? '2px solid #dc2626' : 'none', outlineOffset: '3px' }}>
+              {Object.entries(TIPOS_SERVICO).map(([chave, t]) => {
+                const marcado = tipoServico === chave;
+                return (
+                  <button key={chave} type="button" aria-pressed={marcado} disabled={enviando} onClick={() => trocarTipo(chave)}
+                    style={{ flex: '1 1 140px', minWidth: 0, padding: '10px 14px', borderRadius: '8px', border: `1px solid ${marcado ? '#0f2544' : '#cbd5e1'}`, background: marcado ? '#0f2544' : '#fff', color: marcado ? '#fff' : '#475569', fontSize: '14px', fontWeight: '700', fontFamily: 'inherit', cursor: enviando ? 'not-allowed' : 'pointer' }}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {tipo && (<>
           <div>
             <label style={rotulo}>Número do trafo</label>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -132,7 +165,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
 
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div>
-              <label style={rotulo}>Espaçadores instalados neste vão</label>
+              <label style={rotulo}>{tipo.campoQtd}</label>
               <input type="number" min="1" step="1" value={qtd} disabled={enviando} onChange={e => setQtd(e.target.value)}
                 style={{ ...input, width: '120px', borderColor: !qtdValida(qtd) && (qtd !== '' || mostrarErros) ? '#dc2626' : '#cbd5e1' }} />
             </div>
@@ -192,13 +225,14 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
               )}
 
               {jaInstalados.length > 0 && (
-                <div style={{ fontSize: '12px', color: '#64748b' }}>Já instalados neste trafo: {jaInstalados.map(s => s.id).join(', ')}</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>{tipoServico === 'poda' ? 'Já lançados' : 'Já instalados'} neste trafo: {jaInstalados.map(s => s.id).join(', ')}</div>
               )}
               {bloqueados.map(s => (
                 <div key={s.id} style={{ fontSize: '12px', color: '#92400e' }}><b>{s.id}</b>: {bloqueioNovaInstalacao(s)}</div>
               ))}
             </div>
           )}
+          </>)}
         </div>
 
         <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>

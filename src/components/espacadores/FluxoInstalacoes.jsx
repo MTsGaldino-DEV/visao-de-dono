@@ -4,27 +4,28 @@ import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
 import {
   ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
-  linhasPlanilhaInstalacoes,
+  linhasPlanilhaInstalacoes, formatarDataDia, formatarMoeda, TIPOS_SERVICO, tipoServicoDe,
 } from '../../lib/espacadores';
 import {
-  colunasVisiveis, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
+  colunasVisiveis, valorColuna, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
 } from '../../lib/listaInstalacoes';
 import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
 import InstalacaoModal from './InstalacaoModal';
+import InformarSalesforceModal from './InformarSalesforceModal';
 import EtapaBadge from './EtapaBadge';
 import FiltroColunaInstalacoes from './FiltroColunaInstalacoes';
 
-// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR e pago.
+// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR, SF (SalesForce) e pago.
 // As ações de cada linha dependem da etapa do serviço e do perfil (permissoesFluxo).
 // A lista é uma grade estilo Excel: cabeçalho fixo, filtro por coluna e ordenação.
 
 const BORDA = '1px solid #e2e8f0';
 const th = {
-  position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc', padding: '8px 10px', fontSize: '11px', fontWeight: '800',
+  position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc', padding: '8px 6px', fontSize: '11px', fontWeight: '800',
   letterSpacing: '0.03em', textTransform: 'uppercase', color: '#64748b', whiteSpace: 'nowrap', borderRight: BORDA, borderBottom: BORDA,
 };
-const td = { padding: '7px 10px', borderBottom: BORDA, borderRight: BORDA, color: '#334155', verticalAlign: 'middle', whiteSpace: 'nowrap' };
+const td = { padding: '7px 6px', borderBottom: BORDA, borderRight: BORDA, color: '#334155', verticalAlign: 'middle', whiteSpace: 'nowrap' };
 // Ações congelada à direita em telas largas (no celular ela tomaria quase toda a largura)
 const CSS_GRADE = `
 .fi-linha { cursor: pointer; }
@@ -46,14 +47,13 @@ const TEXTO_VAZIO = {
   todas: 'Nenhuma instalação no fluxo.',
 };
 
-// Número que o fechamento informa em cada etapa (a apropriação vem depois da NSPR, já no Pago)
+// Número que o fechamento informa em cada etapa (na etapa SF ele informa data, valor e apropriação pelo modal)
 const NUMERO_DA_ETAPA = {
   aguardando_nsmp: { acao: 'nsmp', label: 'NSMP', placeholder: 'Nº NSMP' },
   aguardando_nsmc: { acao: 'nsmc', label: 'NSPR', placeholder: 'Nº NSPR' },
-  pago: { acao: 'apropriacao', label: 'apropriação', placeholder: 'Nº apropriação' },
 };
 
-const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc'];
+const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf'];
 
 // Baixa a lista da etapa que está na tela (com a busca aplicada)
 const baixarExcel = (lista, vaosPorServico, filtro) => {
@@ -83,6 +83,7 @@ const FluxoInstalacoes = () => {
   const [aberto, setAberto] = useState(null); // { id, modo }
   const [excluindoId, setExcluindoId] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
+  const [salesforceDe, setSalesforceDe] = useState(null); // serviço do modal "Informar SalesForce"
   const [numero, setNumero] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [filtrosColuna, setFiltrosColuna] = useState({}); // { colunaId: string[] }
@@ -183,9 +184,16 @@ const FluxoInstalacoes = () => {
     if (etapa === 'revisao' && permissoes.fechar) {
       return <button onClick={() => setAberto({ id: s.id, modo: 'revisao' })} style={{ ...botao, background: '#0f2544', color: '#fff' }}>Revisar →</button>;
     }
+    if (etapa === 'sf' && permissoes.fechar) {
+      return (
+        <>
+          {verDetalhes}
+          <button onClick={() => setSalesforceDe(s)} style={{ ...botao, background: '#1d4ed8', color: '#fff' }}>Informar SalesForce</button>
+        </>
+      );
+    }
     const numeroDaEtapa = NUMERO_DA_ETAPA[etapa];
-    const jaInformado = etapa === 'pago' && String(s.apropriacao || '').trim();
-    if (numeroDaEtapa && permissoes.fechar && !jaInformado) {
+    if (numeroDaEtapa && permissoes.fechar) {
       if (editandoId === s.id) {
         return (
           <>
@@ -216,7 +224,7 @@ const FluxoInstalacoes = () => {
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
         {permissoes.instalar && (
           <button onClick={() => setNovaAberta(true)} style={{ padding: '10px 18px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
-            + Nova instalação
+            + Novo serviço
           </button>
         )}
         <input type="text" placeholder="Buscar por ID, trafo ou localidade..." value={busca} onChange={e => setBusca(e.target.value)}
@@ -280,9 +288,9 @@ const FluxoInstalacoes = () => {
             <thead>
               <tr>
                 {visiveis.map(c => (
-                  <th key={c.id} style={{ ...th, textAlign: c.numero ? 'right' : 'left' }}>
+                  <th key={c.id} title={c.rotulo} style={{ ...th, textAlign: c.numero ? 'right' : 'left' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      {c.rotulo}
+                      {c.curto || c.rotulo}
                       {ordemColuna?.coluna === c.id && <span aria-label={ordemColuna.dir === 'asc' ? 'ordem crescente' : 'ordem decrescente'} style={{ color: '#1d4ed8' }}>{ordemColuna.dir === 'asc' ? '↑' : '↓'}</span>}
                       <FiltroColunaInstalacoes coluna={c} valores={valoresPorColuna[c.id] || []} selecionados={filtrosColuna[c.id]}
                         ordem={ordemColuna?.coluna === c.id ? ordemColuna.dir : null} ativo={!!filtrosColuna[c.id]?.length}
@@ -319,6 +327,7 @@ const FluxoInstalacoes = () => {
                       );
                     case 'local': return <td key={id} style={td}>{s.local || '—'}</td>;
                     case 'equip': return <td key={id} style={td}>{s.equip || '—'}</td>;
+                    case 'servico': return <td key={id} style={td}>{TIPOS_SERVICO[tipoServicoDe(s)].label}</td>;
                     case 'qtd': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: '#475569' }}>{vao?.qtd_espacadores ?? '—'}</td>;
                     case 'situacao':
                       return (
@@ -336,8 +345,10 @@ const FluxoInstalacoes = () => {
                     case 'nsmp': return <td key={id} style={{ ...td, fontWeight: '700', color: s.numServ ? '#7c3aed' : '#94a3b8' }}>{s.numServ || '—'}</td>;
                     case 'nspr': return <td key={id} style={{ ...td, fontWeight: '700', color: s.nsmc ? '#15803d' : '#94a3b8' }}>{s.nsmc || '—'}</td>;
                     case 'equipe': return <td key={id} style={td}>{vao?.equipe || '—'}</td>;
-                    case 'desde': return <td key={id} style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>{formatarData(s.dt_etapa)}</td>;
+                    case 'desde': return <td key={id} title={formatarData(s.dt_etapa)} style={{ ...td, color: '#64748b' }}>{valorColuna('desde', s) || '—'}</td>;
                     case 'apropriacao': return <td key={id} style={{ ...td, fontWeight: '700', color: s.apropriacao ? '#1d4ed8' : '#94a3b8' }}>{s.apropriacao || '—'}</td>;
+                    case 'lancamento_sf': return <td key={id} style={{ ...td, whiteSpace: 'nowrap', color: s.data_lancamento_sf ? '#334155' : '#94a3b8' }}>{formatarDataDia(s.data_lancamento_sf) || '—'}</td>;
+                    case 'valor_nota': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: formatarMoeda(s.valor_nota) ? '#15803d' : '#94a3b8' }}>{formatarMoeda(s.valor_nota) || '—'}</td>;
                     default: return null;
                   }
                 };
@@ -364,6 +375,9 @@ const FluxoInstalacoes = () => {
       )}
       {aberto && (
         <InstalacaoModal servicoId={aberto.id} modo={aberto.modo} onClose={() => setAberto(null)} />
+      )}
+      {salesforceDe && (
+        <InformarSalesforceModal servico={salesforceDe} onClose={() => setSalesforceDe(null)} />
       )}
     </div>
   );

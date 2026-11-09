@@ -166,6 +166,46 @@ Spec: `docs/superpowers/specs/2026-10-28-mapa-cobertura-coordenadas-design.md`.
 - O motivo da reprovação fica em uma linha com reticências; o texto inteiro está no `title`
   e no modal. Os filtros de coluna não vão para a URL nem para o `localStorage`.
 
+## Decisão: etapa SF antes do Pago (06/11/2026)
+
+- Fluxo de Matheus: … Aguardando NSPR → **SF** (`etapa_espacador = 'sf'`) → Pago, que é o fim do
+  fluxo. Só muda para Pago ao informar o SalesForce: **data de lançamento**
+  (`servicos.data_lancamento_sf`, DATE), **valor da nota** (`servicos.valor_nota`, NUMERIC 12,2)
+  e **nº da apropriação**, todos obrigatórios. Ação `salesforce`; formulário em
+  `InformarSalesforceModal.jsx`; perfil `fechar`.
+- Isto substitui a decisão de 30/10 sobre a apropriação: a ação `apropriacao` e o botão
+  "Informar apropriação" no Pago **saíram**. As colunas Apropriação, Lançamento SF e Valor da nota
+  aparecem em Pago e Todas.
+- **Serviços que já estavam em Pago ficam em Pago**, sem migração. Os dados de SF podem ser
+  completados em "Ver detalhes", sem obrigar; o que já foi preenchido não pode ser apagado.
+- Valor: `lerValorNota` aceita "1.234,56", "1234,56", "1234.56" e "1.234", e recusa ponto fora do
+  lugar ("1.50,00") para não gravar valor errado. O Excel recebe número. A data é `AAAA-MM-DD`:
+  mostrar com `formatarDataDia`; `new Date` voltaria um dia pelo fuso.
+- **Suposição a confirmar:** o valor é por serviço. Se uma nota cobrir vários serviços e o mesmo
+  valor for digitado em cada um, uma soma futura contaria em dobro. Não há soma na tela hoje.
+- Script `supabase/migrations/instalacao_etapa_sf.sql`: acrescenta colunas e amplia a CHECK de
+  etapas, sem alterar dados. **Precisa rodar no SQL Editor antes de publicar**: sem ele, informar a
+  NSPR falha, porque o banco recusa a etapa `sf`. O script sozinho não afeta o site atual.
+- O app `visao-de-dono-app` não usa `etapa_espacador`, e o Painel conta por `status`: sem impacto.
+
+## Decisão: poda de árvore na aba Instalações (06/11/2026)
+
+- Pedido de Matheus: botão e formulário viram **"Novo serviço"**, com seleção obrigatória do tipo
+  (Espaçador ou Poda de árvore). Na poda só muda a quantidade ("Árvores podadas"); fotos, coordenadas,
+  equipe e todas as etapas são as mesmas. A busca pelo trafo vincula a serviço com "poda" na descrição
+  ou cria um novo (`desc` "Poda de árvore", `tipo` NSIS; o NSIS foi escolha do Claude, a confirmar).
+- O tipo vem de `servicos.desc`: `isPoda`, `tipoServicoDe` e `TIPOS_SERVICO` em `espacadores.js`.
+  Se a descrição citar os dois, vale espaçador.
+- **Sem migration:** a quantidade de árvores fica em `vaos.qtd_espacadores` e a etapa em
+  `etapa_espacador`, sem renomear, como já acontece com `nsmc` = NSPR. Escolha do Claude para não mudar o
+  contrato de dados. Uma soma futura de `qtd_espacadores` precisa filtrar pelo tipo.
+- Painel: o bloco Espaçadores não conta poda, e não há bloco de poda (escolha de Matheus, por enquanto).
+- Poda fica em Serviços diversos, fora de Gerar OS, que só trata espaçador, e fora de Duplicidade (vários
+  no mesmo trafo são esperados; escolha do Claude, para não sugerir cancelamento indevido).
+- Grade: coluna "Serviço" e coluna "Quantidade" (cabeçalho "Qtd."); o Excel troca "Espaçadores" por
+  "Tipo de serviço" e "Quantidade". Espaço lateral das células reduzido para 6 px, para o Valor da nota
+  caber em 1440 px com valores comuns. Valores ou localidades maiores usam a rolagem da tabela.
+
 ## Integrações e cuidados
 
 - Mudanças em `servicos`, fotos, atribuição/status e levantamentos podem afetar
@@ -226,4 +266,23 @@ dados reais nem celular físico. Commit enviado e site publicado em 06/11 a pedi
 06/11/2026 (pesquisa no menu da coluna): defeito reproduzido antes da correção. 156 testes, build e
 ESLint passaram; pesquisa + OK, pesquisa + Enter e pesquisa sem resultado conferidos no Chrome
 headless com Supabase simulado. Commit e publicação a pedido de Matheus.
+A publicação falhou no GitHub ("Deployment failed, try again later"), embora o `gh-pages` dissesse
+"Published". Depois de publicar, conferir a tarefa em Actions e o arquivo servido no site.
+
+06/11/2026 (etapa SF): 208 testes, `npm run build` e ESLint passaram. Fluxo conferido no Chrome
+headless com Supabase simulado e estado em memória, conferindo o que seria gravado: NSPR → SF →
+Pago, erros do formulário, data sem desvio de fuso, correção, Excel, despachante sem botão e celular.
+Não houve teste com login real, e o SQL não foi rodado por mim. Não publicado até aqui.
+
+06/11/2026 (poda de árvore): 218 testes e `npm run build` passaram. ESLint sem erros novos (segue o
+erro antigo de `fetchServicos` em `DuplicidadeTab.jsx`). Formulário, vínculo, criação de serviço, troca
+de tipo, grade em Pago e modal conferidos no Chrome headless com Supabase simulado, em 1440 px e 390 px,
+incluindo o que seria gravado. Sem login real nem dados reais. Consulta de leitura em 06/11 mostrou
+que `servicos.data_lancamento_sf` e `valor_nota` ainda não existem: **o SQL da etapa SF não foi rodado**.
+Poda e SF estão nos mesmos arquivos, então publicar a poda leva a SF junto.
+
+06/11/2026 (etapa SF + poda juntas): 218 testes, `npm run build` e ESLint de `espacadores.js`,
+`listaInstalacoes.js` e `components/espacadores` passaram. Verificação da grade e fluxo SF repetidos no
+Chrome headless com Supabase simulado, tudo OK; em Pago, a 1440 px, Lançamento SF e Valor da nota aparecem
+sem rolar. Sem commit nem publicação: falta Matheus rodar o SQL e autorizar a publicação conjunta.
 

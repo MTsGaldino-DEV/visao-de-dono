@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   isEspacador, ordenarResultadosTrafo, agruparVaos, proximoIdVD,
   lerCoordenada, formatarCoordenada, podeApagarInstalacao, alteracoesPendentes, distanciaMetros, sugerirVinculo, qtdValida, pendenciasInstalacao, podeEnviarInstalacao,
-  proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
+  ETAPAS, proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
-  linhasPlanilhaInstalacoes,
+  linhasPlanilhaInstalacoes, lerValorNota, formatarMoeda, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
 } from './espacadores';
 
 const user = { label: 'Ana', matricula: '123' };
@@ -17,6 +17,34 @@ describe('isEspacador', () => {
     expect(isEspacador({ desc: 'ESPACADORES no trafo' })).toBe(true);
     expect(isEspacador({ desc: 'Troca de placa' })).toBe(false);
     expect(isEspacador({ desc: null })).toBe(false);
+  });
+});
+
+describe('isPoda e tipoServicoDe', () => {
+  it('reconhece poda de árvore', () => {
+    expect(isPoda({ desc: 'Poda de árvore' })).toBe(true);
+    expect(isPoda({ desc: 'PODA LEVE' })).toBe(true);
+    expect(isPoda({ desc: 'podar galhos' })).toBe(true);
+    expect(isPoda({ desc: 'Apoda' })).toBe(false);
+    expect(isPoda({ desc: 'Troca de placa' })).toBe(false);
+    expect(isPoda(null)).toBe(false);
+    expect(isPoda({ desc: null })).toBe(false);
+  });
+
+  it('se a descrição citar espaçador e poda, continua sendo espaçador', () => {
+    const misto = { desc: 'Poda e instalação de espaçador' };
+    expect(isPoda(misto)).toBe(false);
+    expect(isEspacador(misto)).toBe(true);
+    expect(tipoServicoDe(misto)).toBe('espacador');
+  });
+
+  it('tipo do serviço: poda só quando a descrição é de poda; o resto é espaçador', () => {
+    expect(tipoServicoDe({ desc: 'Poda de árvore' })).toBe('poda');
+    expect(tipoServicoDe({ desc: 'Instalação de espaçador' })).toBe('espacador');
+    expect(tipoServicoDe({ desc: 'Descrição desconhecida', etapa_espacador: 'instalacao' })).toBe('espacador');
+    expect(tipoServicoDe(undefined)).toBe('espacador');
+    expect(TIPOS_SERVICO.poda.label).toBe('Poda de árvore');
+    expect(TIPOS_SERVICO.espacador.label).toBe('Espaçador');
   });
 });
 
@@ -159,12 +187,32 @@ describe('transições', () => {
     expect(() => proximaEtapa('revisao', 'voar')).toThrow(/desconhecida/);
   });
 
+  it('nsmc vai para SF, salesforce vai para pago e pago não tem próxima ação', () => {
+    expect(proximaEtapa('aguardando_nsmc', 'nsmc')).toBe('sf');
+    expect(proximaEtapa('sf', 'salesforce')).toBe('pago');
+    expect(() => proximaEtapa('aguardando_nsmc', 'salesforce')).toThrow(/Aguardando NSPR/);
+    expect(() => proximaEtapa('pago', 'salesforce')).toThrow(/Pago/);
+    expect(() => proximaEtapa('pago', 'apropriacao')).toThrow(/desconhecida/);
+    expect(() => proximaEtapa('sf', 'apropriacao')).toThrow(/desconhecida/);
+  });
+
+  it('as pílulas seguem a ordem do fluxo, com SF entre NSPR e Pago', () => {
+    expect(Object.keys(ETAPAS)).toEqual(['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf', 'pago']);
+    expect(ETAPAS.sf.label).toBe('SF');
+  });
+
   it('início grava etapa, histórico e o status para onde voltar', () => {
     const p = montarPayloadInicio({ status: 'pendente', hist: [] }, { user, agora });
     expect(p).toMatchObject({ etapa_espacador: 'instalacao', dt_etapa: agora, status_antes_instalacao: 'pendente' });
     expect(p.hist[0]).toMatchObject({ who: 'Ana', matricula: '123', when: agora });
     expect(montarPayloadInicio({ status: 'cadastrado' }, { user, agora, criadoPelaInstalacao: true }).status_antes_instalacao).toBe('cancelado');
     expect(() => montarPayloadInicio({ etapa_espacador: 'revisao' }, { user, agora })).toThrow();
+  });
+
+  it('histórico do início: texto atual no espaçador e texto próprio na poda', () => {
+    expect(montarPayloadInicio({ desc: 'Instalação de espaçador', hist: [] }, { user, agora }).hist[0].msg).toBe('Instalação de espaçadores iniciada');
+    expect(montarPayloadInicio({ status: 'pendente', hist: [] }, { user, agora }).hist[0].msg).toBe('Instalação de espaçadores iniciada');
+    expect(montarPayloadInicio({ desc: 'Poda de árvore', hist: [] }, { user, agora }).hist[0].msg).toBe('Poda de árvore iniciada');
   });
 
   it('enviar conclui o serviço e limpa o motivo', () => {
@@ -185,14 +233,33 @@ describe('transições', () => {
       .toMatchObject({ etapa_espacador: 'aguardando_nsmc', numServ: '123' });
     expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: ' ' })).toThrow(/NSPR/);
     expect(montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'nsmc', { user, agora, numero: '999' }))
-      .toMatchObject({ etapa_espacador: 'pago', nsmc: '999' });
+      .toMatchObject({ etapa_espacador: 'sf', nsmc: '999', dt_etapa: agora });
   });
 
-  it('apropriação: só no pago, exige número e não mexe na etapa nem na data', () => {
-    expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'apropriacao', { user, agora, numero: '55' })).toThrow();
-    expect(() => montarPayloadTransicao({ etapa_espacador: 'pago' }, 'apropriacao', { user, agora, numero: ' ' })).toThrow(/apropriação/);
-    const p = montarPayloadTransicao({ etapa_espacador: 'pago', hist: [] }, 'apropriacao', { user, agora, numero: ' 9844 ' });
-    expect(p).toEqual({ etapa_espacador: 'pago', apropriacao: '9844', hist: [expect.objectContaining({ msg: 'Apropriação informada: 9844' })] });
+  it('salesforce: só na etapa SF e exige data, valor e apropriação', () => {
+    const sf = { etapa_espacador: 'sf', hist: [] };
+    const ok = { user, agora, dataLancamento: '2026-11-05', valorNota: '1.234,56', apropriacao: '9844' };
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'salesforce', ok)).toThrow(/Aguardando NSPR/);
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'pago' }, 'salesforce', ok)).toThrow(/Pago/);
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '' })).toThrow('Informe a data de lançamento no SalesForce.');
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '05/11/2026' })).toThrow(/data de lançamento/);
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '2026-02-30' })).toThrow(/data de lançamento/);
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '' })).toThrow('Informe um valor da nota válido.');
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '1,234' })).toThrow('Informe um valor da nota válido.');
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: '  ' })).toThrow('Informe o número da apropriação.');
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: undefined })).toThrow('Informe o número da apropriação.');
+  });
+
+  it('salesforce grava data, valor, apropriação, dt_etapa e histórico e vai para pago', () => {
+    const p = montarPayloadTransicao({ etapa_espacador: 'sf', hist: [{ msg: 'x' }] }, 'salesforce', {
+      user, agora, dataLancamento: '2026-11-05', valorNota: 'R$ 1.234,56', apropriacao: ' 9844 ',
+    });
+    expect(p).toMatchObject({
+      etapa_espacador: 'pago', data_lancamento_sf: '2026-11-05', valor_nota: 1234.56, apropriacao: '9844', dt_etapa: agora,
+    });
+    expect(p.hist).toHaveLength(2);
+    expect(p.hist[1].msg).toBe(`SalesForce informado: lançamento 05/11/2026, nota ${formatarMoeda(1234.56)}, apropriação 9844`);
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora });
   });
 
   it('excluir devolve o serviço ao status anterior e tira do fluxo', () => {
@@ -200,6 +267,7 @@ describe('transições', () => {
     expect(p).toMatchObject({ etapa_espacador: null, dt_etapa: null, motivo_reprovacao_fechamento: null, status_antes_instalacao: null, status: 'pendente' });
     expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: 'Instalação de espaçadores excluída' });
     expect(montarPayloadExclusao({ etapa_espacador: 'instalacao', hist: [] }, { user, agora }).status).toBe('cancelado');
+    expect(montarPayloadExclusao({ desc: 'Poda de árvore', etapa_espacador: 'instalacao', hist: [] }, { user, agora }).hist[0].msg).toBe('Poda de árvore excluída');
     expect(() => montarPayloadExclusao({ etapa_espacador: 'revisao' }, { user, agora })).toThrow(/Em revisão|revis/i);
   });
 
@@ -211,6 +279,14 @@ describe('correção da instalação por quem fecha', () => {
     expect(descreverAlteracoesVao(vao, { equipe: '7812', qtd_espacadores: 4 }))
       .toEqual(['Quantidade de espaçadores: 3 → 4', 'Equipe: — → 7812']);
     expect(descreverAlteracoesVao(vao, {})).toEqual([]);
+    expect(descreverAlteracoesVao(vao, { qtd_espacadores: 4 }, { desc: 'Instalação de espaçador' }))
+      .toEqual(['Quantidade de espaçadores: 3 → 4']);
+  });
+
+  it('serviço de poda descreve a quantidade como árvores podadas', () => {
+    const vao = { qtd_espacadores: 3, equipe: null };
+    expect(descreverAlteracoesVao(vao, { equipe: '7812', qtd_espacadores: 5 }, { desc: 'Poda de árvore' }))
+      .toEqual(['Quantidade de árvores podadas: 3 → 5', 'Equipe: — → 7812']);
   });
 
   it('dados do serviço: só o que mudou, sem espaços; número informado não pode ser apagado', () => {
@@ -224,13 +300,56 @@ describe('correção da instalação por quem fecha', () => {
     });
     expect(alteracoesServico(servico, { numServ: '  ' }).erro).toMatch(/NSMP/);
     expect(alteracoesServico(servico, { local: '' }).erro).toMatch(/localidade/);
+    // apropriação nunca informada (serviço antigo em Pago) pode continuar vazia
     expect(alteracoesServico(servico, { apropriacao: '' }).erro).toBeNull();
+    expect(alteracoesServico({ ...servico, apropriacao: '9844' }, { apropriacao: ' ' }).erro).toBe('Informe o número da apropriação.');
+  });
+
+  it('valor da nota compara pelo número, não pelo texto', () => {
+    const servico = { equip: 'T', valor_nota: 1234.5, data_lancamento_sf: '2026-11-05' };
+    expect(alteracoesServico(servico, { valor_nota: '1234,50' })).toEqual({ campos: {}, mensagens: [], erro: null });
+    expect(alteracoesServico(servico, { valor_nota: 'R$ 1.234,5' }).campos).toEqual({});
+    expect(alteracoesServico({ valor_nota: '1234.50' }, { valor_nota: '1.234,50' }).campos).toEqual({});
+    const r = alteracoesServico(servico, { valor_nota: '2.000,00' });
+    expect(r.campos).toEqual({ valor_nota: 2000 });
+    expect(r.mensagens).toEqual([`Valor da nota: ${formatarMoeda(1234.5)} → ${formatarMoeda(2000)}`]);
+    expect(r.erro).toBeNull();
+  });
+
+  it('valor da nota inválido ou apagado dá erro e não entra em campos', () => {
+    const servico = { valor_nota: 1234.5, data_lancamento_sf: '2026-11-05' };
+    for (const digitado of ['abc', '0', '-5', '1,234']) {
+      expect(alteracoesServico(servico, { valor_nota: digitado })).toEqual({ campos: {}, mensagens: [], erro: 'Informe um valor da nota válido.' });
+    }
+    expect(alteracoesServico(servico, { valor_nota: '  ' })).toEqual({ campos: {}, mensagens: [], erro: 'Informe o valor da nota.' });
+  });
+
+  it('serviço antigo em Pago sem os dados do SalesForce não acusa erro nem alteração', () => {
+    const antigo = { equip: 'T', apropriacao: null, data_lancamento_sf: null, valor_nota: null };
+    expect(alteracoesServico(antigo, { data_lancamento_sf: '', valor_nota: '', apropriacao: '' }))
+      .toEqual({ campos: {}, mensagens: [], erro: null });
+    // quem fecha completa pelo Ver detalhes
+    const r = alteracoesServico(antigo, { data_lancamento_sf: '2026-11-05', valor_nota: '10,5', apropriacao: '77' });
+    expect(r.campos).toEqual({ data_lancamento_sf: '2026-11-05', valor_nota: 10.5, apropriacao: '77' });
+    expect(r.mensagens).toEqual([
+      'Apropriação: — → 77', 'Lançamento SF: — → 05/11/2026', `Valor da nota: — → ${formatarMoeda(10.5)}`,
+    ]);
+  });
+
+  it('data de lançamento: compara o texto, descreve em DD/MM/AAAA e não deixa apagar', () => {
+    const servico = { data_lancamento_sf: '2026-11-05' };
+    expect(alteracoesServico(servico, { data_lancamento_sf: '2026-11-05' }).campos).toEqual({});
+    const r = alteracoesServico(servico, { data_lancamento_sf: '2026-12-01' });
+    expect(r.campos).toEqual({ data_lancamento_sf: '2026-12-01' });
+    expect(r.mensagens).toEqual(['Lançamento SF: 05/11/2026 → 01/12/2026']);
+    expect(alteracoesServico(servico, { data_lancamento_sf: '' }).erro).toBe('Informe a data de lançamento no SalesForce.');
   });
 
   it('cada etapa libera só os números que já existem nela', () => {
     expect(camposCorrigiveis('revisao')).toEqual(['equip', 'local']);
     expect(camposCorrigiveis('aguardando_nsmc')).toEqual(['equip', 'local', 'numServ']);
-    expect(camposCorrigiveis('pago')).toEqual(['equip', 'local', 'numServ', 'nsmc', 'apropriacao']);
+    expect(camposCorrigiveis('sf')).toEqual(['equip', 'local', 'numServ', 'nsmc']);
+    expect(camposCorrigiveis('pago')).toEqual(['equip', 'local', 'numServ', 'nsmc', 'apropriacao', 'data_lancamento_sf', 'valor_nota']);
   });
 
   it('registra a correção no histórico; sem mudança não grava nada', () => {
@@ -242,14 +361,33 @@ describe('correção da instalação por quem fecha', () => {
 
 describe('linhasPlanilhaInstalacoes', () => {
   it('uma linha por serviço com os dados do vão', () => {
-    const lista = [{ id: 'VD1', local: 'Itambacuri', equip: '763', etapa_espacador: 'pago', numServ: '111', nsmc: '222', apropriacao: '9844', dt_etapa: null }];
+    const lista = [{
+      id: 'VD1', local: 'Itambacuri', equip: '763', etapa_espacador: 'pago', numServ: '111', nsmc: '222', apropriacao: '9844', dt_etapa: null,
+      data_lancamento_sf: '2026-11-05', valor_nota: '1234.50',
+    }];
     const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
-      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Espaçadores': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
+      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
       'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Desde': '', 'Apropriação': '9844',
+      'Lançamento SF': '05/11/2026', 'Valor da nota': 1234.5,
       'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
     }]);
-    expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({ 'Espaçadores': '', 'Equipe': '', 'Situação': 'Em revisão' });
+    expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({
+      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota': '',
+    });
+  });
+
+  it('serviço de poda sai com o tipo e a quantidade de árvores', () => {
+    const lista = [
+      { id: 'VD3', desc: 'Poda de árvore', etapa_espacador: 'revisao' },
+      { id: 'VD4', desc: 'Instalação de espaçador', etapa_espacador: 'revisao' },
+    ];
+    const vaos = { VD3: [{ qtd_espacadores: 6 }], VD4: [{ qtd_espacadores: 2 }] };
+    const linhas = linhasPlanilhaInstalacoes(lista, vaos);
+    expect(linhas[0]).toMatchObject({ 'ID': 'VD3', 'Tipo de serviço': 'Poda de árvore', 'Quantidade': 6 });
+    expect(linhas[1]).toMatchObject({ 'ID': 'VD4', 'Tipo de serviço': 'Espaçador', 'Quantidade': 2 });
+    expect(Object.keys(linhas[0]).slice(0, 5)).toEqual(['ID', 'Localidade', 'Trafo', 'Tipo de serviço', 'Quantidade']);
+    expect(linhas[0]).not.toHaveProperty('Espaçadores');
   });
 });
 
@@ -273,7 +411,9 @@ describe('filtro por etapa', () => {
     expect(filtrarPorEtapa(lista, 'todas')).toHaveLength(4);
   });
   it('conta por etapa, com zero nas vazias e o total em "todas"', () => {
-    expect(contarPorEtapa(lista)).toEqual({ instalacao: 1, revisao: 1, aguardando_nsmp: 2, aguardando_nsmc: 0, pago: 0, todas: 4 });
+    expect(contarPorEtapa(lista)).toEqual({ instalacao: 1, revisao: 1, aguardando_nsmp: 2, aguardando_nsmc: 0, sf: 0, pago: 0, todas: 4 });
+    expect(contarPorEtapa([{ etapa_espacador: 'sf' }, { etapa_espacador: 'sf' }, { etapa_espacador: 'pago' }]))
+      .toMatchObject({ sf: 2, pago: 1, todas: 3 });
   });
 });
 
@@ -344,6 +484,20 @@ describe('resumoEspacadoresPainel', () => {
     });
   });
 
+  it('poda de árvore fica fora da conta, mesmo no fluxo com etapa preenchida', () => {
+    const esp = { id: '1', status: 'cadastrado', equip: '100-1-1', desc: 'Instalar espaçador' };
+    const poda = (id, status, extra = {}) => ({ id, status, equip: '200-1-1', desc: 'Poda de árvore', ...extra });
+    const lista = [
+      esp,
+      poda('2', 'cadastrado'),
+      poda('3', 'pendente', { etapa_espacador: 'instalacao' }),
+      poda('4', 'concluido', { etapa_espacador: 'pago' }),
+    ];
+    expect(resumoEspacadoresPainel(lista)).toEqual({
+      aInstalar: 1, cadastrados: 1, pendentes: 0, outros: 0, concluidos: 0, trafosAInstalar: 1,
+    });
+  });
+
   it('lista vazia', () => {
     expect(resumoEspacadoresPainel([])).toEqual({
       aInstalar: 0, cadastrados: 0, pendentes: 0, outros: 0, concluidos: 0, trafosAInstalar: 0,
@@ -368,5 +522,70 @@ describe('resumoEspacadoresPorGrupo', () => {
       chave: 'MANTENA', aInstalar: 2, cadastrados: 1, pendentes: 1, outros: 0, concluidos: 1, trafosAInstalar: 1,
     });
     expect(porLocal.TIPITI.aInstalar).toBe(1);
+  });
+
+  it('poda não entra na conta, nem faz o grupo aparecer', () => {
+    const lista = [
+      { local: 'MANTENA', status: 'cadastrado', equip: '100-1-1', desc: 'Instalar espaçador' },
+      { local: 'MANTENA', status: 'pendente', equip: '100-3-2', desc: 'Poda de árvore', etapa_espacador: 'instalacao' },
+      { local: 'COROACI', status: 'concluido', equip: '400-1-1', desc: 'Poda de árvore', etapa_espacador: 'pago' },
+    ];
+    const grupos = resumoEspacadoresPorGrupo(lista, s => s.local);
+    expect(grupos.map(g => g.chave)).toEqual(['MANTENA']);
+    expect(grupos[0]).toMatchObject({ aInstalar: 1, cadastrados: 1, pendentes: 0, concluidos: 0 });
+  });
+});
+
+describe('lerValorNota', () => {
+  it.each([
+    ['1.234,56', 1234.56], ['1234,56', 1234.56], ['1234.56', 1234.56], ['1234', 1234], ['R$ 1.234,56', 1234.56],
+    ['  R$  1.234,56 ', 1234.56], ['1.234', 1234], ['1.234.567', 1234567], ['10,5', 10.5], ['0,01', 0.01], ['1234.5', 1234.5],
+    [1234.56, 1234.56], [1234.5, 1234.5], [7, 7],
+  ])('lê %s', (entrada, esperado) => {
+    expect(lerValorNota(entrada)).toBe(esperado);
+  });
+  it.each([
+    '0', '0,00', '-5', 'abc', '', '   ', null, undefined, '1,234', '1.234,567', '12,3,4', '1e3', 'R$', '10000000000', '9999999999,999',
+    0, -1, NaN, Infinity, 1.234,
+  ])('recusa %s', (entrada) => {
+    expect(lerValorNota(entrada)).toBeNull();
+  });
+  it('aceita o maior valor abaixo do limite', () => {
+    expect(lerValorNota('9999999999,99')).toBe(9999999999.99);
+  });
+});
+
+describe('formatarMoeda', () => {
+  it('formata em reais e devolve vazio sem valor', () => {
+    expect(formatarMoeda(1234.5).replace(/\s/g, ' ')).toBe('R$ 1.234,50');
+    expect(formatarMoeda('1234.50').replace(/\s/g, ' ')).toBe('R$ 1.234,50');
+    expect(formatarMoeda(0).replace(/\s/g, ' ')).toBe('R$ 0,00');
+    for (const v of [null, undefined, '', '  ', 'abc']) expect(formatarMoeda(v)).toBe('');
+  });
+});
+
+describe('formatarDataDia', () => {
+  it('corta o texto, sem passar por Date (nenhum desvio de fuso)', () => {
+    expect(formatarDataDia('2026-11-05')).toBe('05/11/2026');
+    expect(formatarDataDia('2026-01-01')).toBe('01/01/2026');
+    expect(formatarDataDia('2026-12-31')).toBe('31/12/2026');
+    expect(formatarDataDia('2026-11-05T00:00:00+00:00')).toBe('05/11/2026');
+  });
+  it('vazio vira vazio', () => {
+    for (const v of ['', null, undefined, '  ']) expect(formatarDataDia(v)).toBe('');
+  });
+});
+
+describe('lerValorNota: ponto fora do lugar', () => {
+  it('recusa o que parece erro de digitação em vez de adivinhar', () => {
+    expect(lerValorNota('1.50,00')).toBeNull();
+    expect(lerValorNota('12.34,56')).toBeNull();
+    expect(lerValorNota('1,2,3')).toBeNull();
+  });
+
+  it('continua aceitando milhar correto', () => {
+    expect(lerValorNota('1.234,56')).toBe(1234.56);
+    expect(lerValorNota('1.234.567,8')).toBe(1234567.8);
+    expect(lerValorNota('150,00')).toBe(150);
   });
 });

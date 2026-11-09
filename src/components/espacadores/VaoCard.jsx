@@ -1,4 +1,4 @@
-import { pendenciasInstalacao, qtdValida } from '../../lib/espacadores';
+import { pendenciasInstalacao, qtdValida, TIPOS_SERVICO, tipoServicoDe } from '../../lib/espacadores';
 import CampoFoto from './CampoFoto';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
@@ -11,7 +11,7 @@ const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px sol
 // vao pode ser null quando o envio caiu antes de criar a linha; no modo edição os campos aparecem vazios.
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
 // onSalvarDados ausente: o modal salva tudo junto no rodapé.
-const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onAmpliar }) => {
+const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onAmpliar }) => {
   const { coordAntes, coordDepois, qtd, equipe } = rascunho;
 
   const edicao = modo === 'edicao';
@@ -38,7 +38,7 @@ const VaoCard = ({ vao, modo, rascunho, alteracoes, onRascunho, enviando = {}, m
 
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
-          <div style={titulo}>Espaçadores instalados</div>
+          <div style={titulo}>{TIPOS_SERVICO[tipoServicoDe(servico)].tituloQtd}</div>
           {edicao ? (
             <input type="number" min="1" step="1" value={qtd} onChange={e => onRascunho('qtd', e.target.value)}
               style={{ ...inputQtd, borderColor: !qtdValida(qtd) && (qtd !== '' || destacarFalta) ? '#dc2626' : '#cbd5e1' }} />

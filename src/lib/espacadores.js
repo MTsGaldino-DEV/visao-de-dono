@@ -12,6 +12,7 @@ export const ETAPAS = {
   revisao:         { label: 'Em revisão',      cor: '#854d0e', bg: '#fef9c3', borda: '#fde68a' },
   aguardando_nsmp: { label: 'Aguardando NSMP', cor: '#7c3aed', bg: '#faf5ff', borda: '#ddd6fe' },
   aguardando_nsmc: { label: 'Aguardando NSPR', cor: '#c2410c', bg: '#fff7ed', borda: '#fed7aa' },
+  sf:              { label: 'SF',              cor: '#0f766e', bg: '#f0fdfa', borda: '#99f6e4' },
   pago:            { label: 'Pago',            cor: '#15803d', bg: '#f0fdf4', borda: '#bbf7d0' },
 };
 
@@ -20,9 +21,9 @@ const TRANSICOES = {
   aprovar:  { de: 'revisao',         para: 'aguardando_nsmp' },
   reprovar: { de: 'revisao',         para: 'instalacao' },
   nsmp:     { de: 'aguardando_nsmp', para: 'aguardando_nsmc' },
-  nsmc:     { de: 'aguardando_nsmc', para: 'pago' },
-  // Depois da NSPR o fechamento informa a apropriação; a etapa continua "Pago"
-  apropriacao: { de: 'pago', para: 'pago' },
+  nsmc:     { de: 'aguardando_nsmc', para: 'sf' },
+  // Depois da NSPR o fechamento informa data, valor da nota e apropriação no SalesForce; aí o serviço está Pago
+  salesforce: { de: 'sf', para: 'pago' },
 };
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -30,6 +31,40 @@ const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]
 // Mesma regra de ServicosTable (filterType 'espacadores')
 const ESPACADOR_REGEX = /esp.{0,2}ac.{0,2}dor/;
 export const isEspacador = (servico) => ESPACADOR_REGEX.test(normStr(servico?.desc));
+
+// Poda de árvore usa o mesmo fluxo do espaçador. O tipo vem de servicos.desc e a quantidade de árvores
+// podadas é gravada na mesma coluna vaos.qtd_espacadores (mesmo precedente de nsmc = NSPR e de etapa_espacador).
+const PODA_REGEX = /\bpoda/;
+// Se a descrição citar os dois, continua sendo espaçador
+export const isPoda = (servico) => PODA_REGEX.test(normStr(servico?.desc)) && !isEspacador(servico);
+
+export const TIPOS_SERVICO = {
+  espacador: {
+    label: 'Espaçador',
+    descNovo: 'Instalação de espaçador',
+    campoQtd: 'Espaçadores instalados neste vão',
+    tituloQtd: 'Espaçadores instalados',
+    rotuloHist: 'Quantidade de espaçadores',
+    iniciado: 'Instalação de espaçadores iniciada',
+    excluido: 'Instalação de espaçadores excluída',
+    cadastrado: 'Serviço cadastrado pela Nova instalação de espaçadores.',
+    tituloModal: 'Instalação de espaçadores',
+  },
+  poda: {
+    label: 'Poda de árvore',
+    descNovo: 'Poda de árvore',
+    campoQtd: 'Árvores podadas',
+    tituloQtd: 'Árvores podadas',
+    rotuloHist: 'Quantidade de árvores podadas',
+    iniciado: 'Poda de árvore iniciada',
+    excluido: 'Poda de árvore excluída',
+    cadastrado: 'Serviço cadastrado pelo Novo serviço: poda de árvore.',
+    tituloModal: 'Poda de árvore',
+  },
+};
+
+// Serviço do fluxo com descrição desconhecida continua tratado como espaçador
+export const tipoServicoDe = (servico) => (isPoda(servico) ? 'poda' : 'espacador');
 
 export const normalizarTrafo = (texto) => (texto || '').trim().toLowerCase();
 
@@ -126,6 +161,52 @@ export const proximoIdVD = (ultimoId) => {
   return `VD${String(atual + 1).padStart(4, '0')}`;
 };
 
+// ── Valor da nota e data do lançamento (SalesForce) ─────────────────────────
+
+// Aceita número ou texto ("1.234,56", "1234,56", "1234.56", "R$ 1.234,56"); null se inválido
+export const lerValorNota = (texto) => {
+  let n;
+  if (typeof texto === 'number') {
+    n = texto;
+  } else {
+    let s = String(texto ?? '').replace(/R\$/gi, '').replace(/\s/g, '');
+    if (!/^[\d.,]+$/.test(s)) return null;
+    if (s.includes(',')) {
+      // Com vírgula, o ponto só vale como milhar: "1.50,00" é erro de digitação, não R$ 150,00
+      if (!/^(\d+|\d{1,3}(\.\d{3})+),\d*$/.test(s)) return null;
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    n = Number(s);
+  }
+  if (!Number.isFinite(n) || n <= 0 || n >= 10000000000) return null;
+  // No máximo 2 casas decimais
+  if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) return null;
+  return Math.round(n * 100) / 100;
+};
+
+export const formatarMoeda = (valor) => {
+  if (valor === null || valor === undefined || String(valor).trim() === '') return '';
+  const n = Number(valor);
+  return Number.isFinite(n) ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+};
+
+// 'AAAA-MM-DD' vira 'DD/MM/AAAA' cortando o texto (new Date voltaria um dia pelo fuso)
+export const formatarDataDia = (iso) => {
+  const texto = String(iso ?? '').trim();
+  if (!texto) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : texto;
+};
+
+// 'AAAA-MM-DD' que existe no calendário
+const dataDiaValida = (texto) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(texto ?? '').trim());
+  if (!m) return false;
+  const [a, mes, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const data = new Date(Date.UTC(a, mes - 1, d));
+  return data.getUTCFullYear() === a && data.getUTCMonth() === mes - 1 && data.getUTCDate() === d;
+};
+
 export const entradaHist = (user, msg, agora) => ({
   who: user?.label || 'Sistema', matricula: user?.matricula, when: agora, msg,
 });
@@ -147,7 +228,7 @@ export const montarPayloadInicio = (servico, { user, agora, criadoPelaInstalacao
     etapa_espacador: 'instalacao',
     dt_etapa: agora,
     status_antes_instalacao: criadoPelaInstalacao ? 'cancelado' : servico.status,
-    hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores iniciada', agora)],
+    hist: [...(servico.hist || []), entradaHist(user, TIPOS_SERVICO[tipoServicoDe(servico)].iniciado, agora)],
   };
 };
 
@@ -157,10 +238,12 @@ const exigir = (valor, mensagem) => {
   return limpo;
 };
 
-export const montarPayloadTransicao = (servico, acao, { user, agora, numero, motivo } = {}) => {
+export const montarPayloadTransicao = (servico, acao, {
+  user, agora, numero, motivo, dataLancamento, valorNota, apropriacao,
+} = {}) => {
   const payload = { etapa_espacador: proximaEtapa(servico.etapa_espacador, acao) };
-  // "Desde" conta a entrada na etapa; a apropriação não troca de etapa
-  if (acao !== 'apropriacao') payload.dt_etapa = agora;
+  // "Desde" conta a entrada na etapa
+  payload.dt_etapa = agora;
   let msg;
   if (acao === 'enviar') {
     payload.status = 'concluido';
@@ -177,9 +260,15 @@ export const montarPayloadTransicao = (servico, acao, { user, agora, numero, mot
   } else if (acao === 'nsmc') {
     payload.nsmc = exigir(numero, 'Informe o número da NSPR.');
     msg = `NSPR informada: ${payload.nsmc}`;
-  } else if (acao === 'apropriacao') {
-    payload.apropriacao = exigir(numero, 'Informe o número da apropriação.');
-    msg = `Apropriação informada: ${payload.apropriacao}`;
+  } else if (acao === 'salesforce') {
+    const data = String(dataLancamento ?? '').trim();
+    if (!dataDiaValida(data)) throw new Error('Informe a data de lançamento no SalesForce.');
+    const valor = lerValorNota(valorNota);
+    if (valor === null) throw new Error('Informe um valor da nota válido.');
+    payload.data_lancamento_sf = data;
+    payload.valor_nota = valor;
+    payload.apropriacao = exigir(apropriacao, 'Informe o número da apropriação.');
+    msg = `SalesForce informado: lançamento ${formatarDataDia(data)}, nota ${formatarMoeda(valor)}, apropriação ${payload.apropriacao}`;
   }
   payload.hist = [...(servico.hist || []), entradaHist(user, msg, agora)];
   return payload;
@@ -197,7 +286,7 @@ export const montarPayloadExclusao = (servico, { user, agora }) => {
     motivo_reprovacao_fechamento: null,
     status_antes_instalacao: null,
     status: servico.status_antes_instalacao || 'cancelado',
-    hist: [...(servico.hist || []), entradaHist(user, 'Instalação de espaçadores excluída', agora)],
+    hist: [...(servico.hist || []), entradaHist(user, TIPOS_SERVICO[tipoServicoDe(servico)].excluido, agora)],
   };
 };
 
@@ -212,11 +301,13 @@ const ROTULOS_VAO = {
   equipe: 'Equipe',
 };
 
-// campos = saída de alteracoesPendentes; uma frase por campo para o histórico
-export const descreverAlteracoesVao = (vao, campos) =>
+// campos = saída de alteracoesPendentes; uma frase por campo para o histórico.
+// O rótulo da quantidade depende do tipo do serviço (sem serviço = espaçador).
+export const descreverAlteracoesVao = (vao, campos, servico) =>
   Object.keys(ROTULOS_VAO).filter(c => c in campos).map(c => {
     const antes = c.startsWith('coord_') ? coordenadaComVirgula(vao?.[c]) ?? vao?.[c] : vao?.[c];
-    return `${ROTULOS_VAO[c]}: ${mostrar(antes)} → ${mostrar(campos[c])}`;
+    const rotulo = c === 'qtd_espacadores' ? TIPOS_SERVICO[tipoServicoDe(servico)].rotuloHist : ROTULOS_VAO[c];
+    return `${rotulo}: ${mostrar(antes)} → ${mostrar(campos[c])}`;
   });
 
 // [campo, rótulo, mensagem quando apagam um valor que já existia]
@@ -225,14 +316,17 @@ const CAMPOS_SERVICO = [
   ['local', 'Localidade', 'Informe a localidade.'],
   ['numServ', 'NSMP', 'Informe o número da NSMP.'],
   ['nsmc', 'NSPR', 'Informe o número da NSPR.'],
-  ['apropriacao', 'Apropriação', null], // pode ficar vazia: é informada depois
+  ['apropriacao', 'Apropriação', 'Informe o número da apropriação.'],
+  ['data_lancamento_sf', 'Lançamento SF', 'Informe a data de lançamento no SalesForce.'],
+  ['valor_nota', 'Valor da nota', 'Informe o valor da nota.'],
 ];
 
 // Só os números que a etapa já alcançou podem ser corrigidos
 export const camposCorrigiveis = (etapa) => [
   'equip', 'local',
-  ...(['aguardando_nsmc', 'pago'].includes(etapa) ? ['numServ'] : []),
-  ...(etapa === 'pago' ? ['nsmc', 'apropriacao'] : []),
+  ...(['aguardando_nsmc', 'sf', 'pago'].includes(etapa) ? ['numServ'] : []),
+  ...(['sf', 'pago'].includes(etapa) ? ['nsmc'] : []),
+  ...(etapa === 'pago' ? ['apropriacao', 'data_lancamento_sf', 'valor_nota'] : []),
 ];
 
 export const alteracoesServico = (servico, digitado) => {
@@ -243,10 +337,26 @@ export const alteracoesServico = (servico, digitado) => {
     if (!(campo in digitado)) return;
     const novo = String(digitado[campo] ?? '').trim();
     const salvo = String(servico?.[campo] ?? '').trim();
+    if (campo === 'valor_nota') {
+      // Compara pelo número: "1.234,50" digitado é igual a 1234.5 salvo
+      const salvoNum = salvo === '' ? null : Number(salvo);
+      if (!novo) {
+        if (salvoNum !== null) erro = erro || msgVazio;
+        return;
+      }
+      const valor = lerValorNota(novo);
+      if (valor === null) { erro = erro || 'Informe um valor da nota válido.'; return; }
+      if (salvoNum !== null && Math.round(salvoNum * 100) === Math.round(valor * 100)) return;
+      campos.valor_nota = valor;
+      mensagens.push(`${rotulo}: ${mostrar(formatarMoeda(salvoNum))} → ${formatarMoeda(valor)}`);
+      return;
+    }
     if (novo === salvo) return;
-    if (!novo && msgVazio) { erro = erro || msgVazio; return; }
+    if (!novo && salvo && msgVazio) { erro = erro || msgVazio; return; }
+    if (campo === 'data_lancamento_sf' && novo && !dataDiaValida(novo)) { erro = erro || msgVazio; return; }
     campos[campo] = novo || null;
-    mensagens.push(`${rotulo}: ${mostrar(salvo)} → ${mostrar(novo)}`);
+    const texto = campo === 'data_lancamento_sf' ? formatarDataDia : (v) => v;
+    mensagens.push(`${rotulo}: ${mostrar(texto(salvo))} → ${mostrar(texto(novo))}`);
   });
   return { campos, mensagens, erro };
 };
@@ -312,7 +422,8 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'ID': s.id,
     'Localidade': s.local || '',
     'Trafo': s.equip || '',
-    'Espaçadores': vao?.qtd_espacadores ?? '',
+    'Tipo de serviço': TIPOS_SERVICO[tipoServicoDe(s)].label,
+    'Quantidade': vao?.qtd_espacadores ?? '',
     'Situação': ETAPAS[s.etapa_espacador]?.label || '',
     'Motivo da reprovação': s.motivo_reprovacao_fechamento || '',
     'NSMP': s.numServ || '',
@@ -320,6 +431,8 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'Equipe': vao?.equipe || '',
     'Desde': s.dt_etapa ? formatarData(s.dt_etapa) : '',
     'Apropriação': s.apropriacao || '',
+    'Lançamento SF': formatarDataDia(s.data_lancamento_sf),
+    'Valor da nota': s.valor_nota === null || s.valor_nota === undefined || s.valor_nota === '' ? '' : Number(s.valor_nota),
     'Coordenada do antes': coordenadaComVirgula(vao?.coord_antes) || vao?.coord_antes || '',
     'Coordenada do depois': coordenadaComVirgula(vao?.coord_depois) || vao?.coord_depois || '',
     'Foto do antes': vao?.fotos_antes?.[0] || '',
@@ -335,9 +448,12 @@ const trafoDoEquip = (equip) => {
   return raw ? raw.split('-')[0].trim() : null;
 };
 
+// Poda de árvore fica fora da conta de espaçadores, mesmo no fluxo (etapa_espacador preenchida)
+const contaComoEspacador = (s) => isEspacador(s) || (s.etapa_espacador && !isPoda(s));
+
 // Cada serviço de espaçador é 1 vão. Cancelados e reprovados ficam fora da conta.
 export const resumoEspacadoresPainel = (servicos) => {
-  const esp = servicos.filter(s => isEspacador(s) || s.etapa_espacador);
+  const esp = servicos.filter(contaComoEspacador);
   const aInstalar = esp.filter(s => !['cancelado', 'reprovado', 'concluido'].includes(s.status));
   const cadastrados = aInstalar.filter(s => s.status === 'cadastrado').length;
   const pendentes = aInstalar.filter(s => s.status === 'pendente').length;
@@ -354,7 +470,7 @@ export const resumoEspacadoresPainel = (servicos) => {
 // Mesmo resumo, separado por grupo (posto, localidade…). Grupos sem nenhum vão na conta ficam fora.
 export const resumoEspacadoresPorGrupo = (servicos, chaveDe) => {
   const grupos = {};
-  servicos.filter(s => isEspacador(s) || s.etapa_espacador).forEach(s => {
+  servicos.filter(contaComoEspacador).forEach(s => {
     const chave = chaveDe(s);
     (grupos[chave] = grupos[chave] || []).push(s);
   });

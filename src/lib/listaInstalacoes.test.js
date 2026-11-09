@@ -13,14 +13,27 @@ describe('colunasVisiveis', () => {
     expect(ids(colunasVisiveis('todas'))).toEqual(ids(COLUNAS_INSTALACOES));
   });
 
-  it('esconde NSMP, NSPR e Apropriação em instalação e revisão', () => {
+  it('esconde NSMP, NSPR, Apropriação e dados do SalesForce em instalação e revisão', () => {
     for (const etapa of ['instalacao', 'revisao']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'qtd', 'situacao', 'equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'equipe', 'desde']);
     }
   });
 
-  it('mostra NSMP e NSPR, mas não Apropriação, em aguardando NSPR', () => {
-    expect(ids(colunasVisiveis('aguardando_nsmc'))).toEqual(['id', 'local', 'equip', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde']);
+  it('mostra NSMP e NSPR, mas não Apropriação nem SalesForce, em aguardando NSPR e em SF', () => {
+    for (const etapa of ['aguardando_nsmc', 'sf']) {
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde']);
+    }
+  });
+
+  it('Apropriação, Lançamento SF e Valor da nota só aparecem em pago e em todas', () => {
+    for (const etapa of ['pago', 'todas']) {
+      expect(ids(colunasVisiveis(etapa))).toEqual(
+        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'equipe', 'desde', 'apropriacao', 'lancamento_sf', 'valor_nota'],
+      );
+    }
+    for (const etapa of ['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf']) {
+      expect(ids(colunasVisiveis(etapa))).not.toContain('valor_nota');
+    }
   });
 
   it('esconde NSMP e NSPR em aguardando NSMP e mostra tudo em pago', () => {
@@ -41,6 +54,20 @@ describe('valorColuna', () => {
     expect(valorColuna('situacao', serv('A', { etapa_espacador: 'x' }))).toBe('');
   });
 
+  it('coluna Serviço devolve o tipo: poda ou espaçador (padrão para descrição desconhecida)', () => {
+    expect(valorColuna('servico', serv('A', { desc: 'Poda de árvore' }))).toBe('Poda de árvore');
+    expect(valorColuna('servico', serv('B', { desc: 'Instalação de espaçador' }))).toBe('Espaçador');
+    expect(valorColuna('servico', serv('C', { desc: 'Outra coisa' }))).toBe('Espaçador');
+    expect(valorColuna('servico', serv('D'))).toBe('Espaçador');
+  });
+
+  it('rótulos novos: Serviço logo depois de Trafo e Quantidade no lugar de Espaçadores', () => {
+    const cols = Object.fromEntries(COLUNAS_INSTALACOES.map(c => [c.id, c]));
+    expect(cols.servico.rotulo).toBe('Serviço');
+    expect(cols.qtd).toMatchObject({ rotulo: 'Quantidade', numero: true });
+    expect(ids(COLUNAS_INSTALACOES).slice(0, 5)).toEqual(['id', 'local', 'equip', 'servico', 'qtd']);
+  });
+
   it('usa só o dia na coluna Desde', () => {
     const s = serv('A', { dt_etapa: '2026-03-05T12:30:00' });
     expect(valorColuna('desde', s)).toBe('05/03/2026');
@@ -59,6 +86,14 @@ describe('valorColuna', () => {
     expect(valorColuna('equipe', s, vao)).toBe('Equipe 1');
     expect(valorColuna('apropriacao', s, vao)).toBe('AP');
     expect(valorColuna('qtd', s, undefined)).toBe('');
+  });
+
+  it('Lançamento SF em DD/MM/AAAA sem desvio de fuso e Valor da nota em reais', () => {
+    const s = serv('A', { data_lancamento_sf: '2026-11-05', valor_nota: '1234.50' });
+    expect(valorColuna('lancamento_sf', s)).toBe('05/11/2026');
+    expect(valorColuna('valor_nota', s).replace(/\s/g, ' ')).toBe('R$ 1.234,50');
+    expect(valorColuna('lancamento_sf', serv('B'))).toBe('');
+    expect(valorColuna('valor_nota', serv('B', { valor_nota: null }))).toBe('');
   });
 });
 
@@ -125,6 +160,19 @@ describe('valoresDaColuna', () => {
     ]);
   });
 
+  it('ordena Lançamento SF em ordem cronológica e Valor da nota pelo número', () => {
+    const lista = [
+      serv('1', { data_lancamento_sf: '2026-12-01', valor_nota: 1000 }),
+      serv('2', { data_lancamento_sf: '2027-01-15', valor_nota: 99.9 }),
+      serv('3', { data_lancamento_sf: '2026-02-20', valor_nota: 12000.5 }),
+      serv('4'),
+    ];
+    expect(valoresDaColuna(lista, 'lancamento_sf', {}).map(v => v.valor)).toEqual(['20/02/2026', '01/12/2026', '15/01/2027', VAZIO]);
+    expect(valoresDaColuna(lista, 'valor_nota', {}).map(v => v.n)).toEqual([1, 1, 1, 1]);
+    expect(valoresDaColuna(lista, 'valor_nota', {}).map(v => v.valor.replace(/\s/g, ' ')))
+      .toEqual(['R$ 99,90', 'R$ 1.000,00', 'R$ 12.000,50', VAZIO]);
+  });
+
   it('ordena quantidades como números', () => {
     const lista = [serv('1'), serv('2'), serv('3')];
     const vaos = { 1: [{ qtd_espacadores: 10 }], 2: [{ qtd_espacadores: 2 }], 3: [{}] };
@@ -156,6 +204,23 @@ describe('ordenarPorColuna', () => {
   it('ordena texto com números embutidos de forma natural', () => {
     const itens = [serv('T10'), serv('T2'), serv('T1')];
     expect(ordenarPorColuna(itens, { coluna: 'id', dir: 'asc' }, {}).map(s => s.id)).toEqual(['T1', 'T2', 'T10']);
+  });
+
+  it('ordena Valor da nota pelo número (99 antes de 1.000) com vazios no fim', () => {
+    const itens = [
+      serv('a', { valor_nota: 1000 }), serv('b', { valor_nota: '99.90' }), serv('c'), serv('d', { valor_nota: 12000.5 }),
+    ];
+    expect(ordenarPorColuna(itens, { coluna: 'valor_nota', dir: 'asc' }, {}).map(s => s.id)).toEqual(['b', 'a', 'd', 'c']);
+    expect(ordenarPorColuna(itens, { coluna: 'valor_nota', dir: 'desc' }, {}).map(s => s.id)).toEqual(['d', 'a', 'b', 'c']);
+  });
+
+  it('ordena Lançamento SF cronologicamente com vazios no fim', () => {
+    const itens = [
+      serv('a', { data_lancamento_sf: '2026-12-01' }), serv('b', { data_lancamento_sf: '2026-02-20' }),
+      serv('c'), serv('d', { data_lancamento_sf: '2027-01-15' }),
+    ];
+    expect(ordenarPorColuna(itens, { coluna: 'lancamento_sf', dir: 'asc' }, {}).map(s => s.id)).toEqual(['b', 'a', 'd', 'c']);
+    expect(ordenarPorColuna(itens, { coluna: 'lancamento_sf', dir: 'desc' }, {}).map(s => s.id)).toEqual(['d', 'a', 'b', 'c']);
   });
 
   it('ordena Desde pelo instante completo', () => {

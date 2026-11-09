@@ -1,30 +1,34 @@
-import { ETAPAS } from './espacadores';
+import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarMoeda, formatarDataDia } from './espacadores';
 
 // Regras puras da grade de instalações (colunas, filtros estilo Excel e ordenação).
 // Sem React nem Supabase: tudo aqui é testável isoladamente.
 
 export const VAZIO = '(vazio)';
 
+// curto: título no cabeçalho, para a grade caber sem esconder o valor; menus, etiquetas e Excel usam o rótulo inteiro
 export const COLUNAS_INSTALACOES = [
   { id: 'id', rotulo: 'ID' },
   { id: 'local', rotulo: 'Localidade' },
   { id: 'equip', rotulo: 'Trafo' },
-  { id: 'qtd', rotulo: 'Espaçadores', numero: true },
+  { id: 'servico', rotulo: 'Serviço' },
+  { id: 'qtd', rotulo: 'Quantidade', curto: 'Qtd.', numero: true },
   { id: 'situacao', rotulo: 'Situação' },
   { id: 'nsmp', rotulo: 'NSMP' },
   { id: 'nspr', rotulo: 'NSPR' },
   { id: 'equipe', rotulo: 'Equipe' },
   { id: 'desde', rotulo: 'Desde' },
-  { id: 'apropriacao', rotulo: 'Apropriação' },
+  { id: 'apropriacao', rotulo: 'Apropriação', curto: 'Aprop.' },
+  { id: 'lancamento_sf', rotulo: 'Lançamento SF', curto: 'Lanç. SF' },
+  { id: 'valor_nota', rotulo: 'Valor da nota', curto: 'Valor', numero: true },
 ];
 
-const ETAPAS_COM_NUMEROS = ['aguardando_nsmc', 'pago', 'todas'];
-const ETAPAS_COM_APROPRIACAO = ['pago', 'todas'];
+const ETAPAS_COM_NUMEROS = ['aguardando_nsmc', 'sf', 'pago', 'todas'];
+const ETAPAS_COM_SALESFORCE = ['pago', 'todas'];
 
-// Colunas que aparecem para a etapa selecionada (mesma regra de antes: NSMP/NSPR e Apropriação só nas etapas finais)
+// Colunas que aparecem para a etapa selecionada: NSMP/NSPR nas etapas finais; apropriação e dados do SalesForce só no Pago
 export const colunasVisiveis = (filtroEtapa) => COLUNAS_INSTALACOES.filter(c => {
   if (c.id === 'nsmp' || c.id === 'nspr') return ETAPAS_COM_NUMEROS.includes(filtroEtapa);
-  if (c.id === 'apropriacao') return ETAPAS_COM_APROPRIACAO.includes(filtroEtapa);
+  if (['apropriacao', 'lancamento_sf', 'valor_nota'].includes(c.id)) return ETAPAS_COM_SALESFORCE.includes(filtroEtapa);
   return true;
 });
 
@@ -35,6 +39,7 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'id': v = s.id; break;
     case 'local': v = s.local; break;
     case 'equip': v = s.equip; break;
+    case 'servico': v = TIPOS_SERVICO[tipoServicoDe(s)].label; break;
     case 'qtd': v = vao?.qtd_espacadores; break;
     case 'situacao':
       v = s.etapa_espacador === 'instalacao' && s.motivo_reprovacao_fechamento
@@ -46,6 +51,8 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'equipe': v = vao?.equipe; break;
     case 'desde': v = s.dt_etapa ? new Date(s.dt_etapa).toLocaleDateString('pt-BR') : ''; break;
     case 'apropriacao': v = s.apropriacao; break;
+    case 'lancamento_sf': v = formatarDataDia(s.data_lancamento_sf); break;
+    case 'valor_nota': v = formatarMoeda(s.valor_nota); break;
     default: v = '';
   }
   return String(v ?? '').trim();
@@ -70,14 +77,15 @@ export const selecaoDoMenu = (todos, marcados) => {
   return todos.every(v => conjunto.has(v)) ? null : marcados;
 };
 
-// Chave de comparação de um valor: número (qtd), instante (desde) ou texto; null = vazio
+// Chave de comparação de um valor: número (qtd, valor da nota), data (desde, lançamento) ou texto; null = vazio
 const chaveDoValor = (colunaId, valor) => {
   if (!valor || valor === VAZIO) return null;
   if (colunaId === 'qtd') {
     const n = Number(valor.replace(',', '.'));
     return Number.isNaN(n) ? null : n;
   }
-  if (colunaId === 'desde') {
+  if (colunaId === 'valor_nota') return lerValorNota(valor);
+  if (colunaId === 'desde' || colunaId === 'lancamento_sf') {
     const [d, m, a] = valor.split('/').map(Number);
     return a * 10000 + m * 100 + d;
   }
@@ -88,6 +96,10 @@ const chaveDaLinha = (colunaId, s, vao) => {
   if (colunaId === 'desde') {
     const t = s.dt_etapa ? Date.parse(s.dt_etapa) : NaN;
     return Number.isNaN(t) ? null : t;
+  }
+  if (colunaId === 'valor_nota') {
+    const n = s.valor_nota === null || s.valor_nota === undefined || s.valor_nota === '' ? NaN : Number(s.valor_nota);
+    return Number.isFinite(n) ? n : null;
   }
   return chaveDoValor(colunaId, valorColuna(colunaId, s, vao));
 };

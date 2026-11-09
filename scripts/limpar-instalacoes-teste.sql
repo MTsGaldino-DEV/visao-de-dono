@@ -28,10 +28,10 @@ ORDER BY servico_id, numero;
 -- UPDATE servicos SET status = 'cadastrado', "numServ" = ''
 -- WHERE id IN ('VD0000', 'VD0000', 'VD0000') AND "desc" IS DISTINCT FROM 'Instalação de espaçador';
 --
--- -- Todos saem do fluxo de instalação
--- UPDATE servicos
+-- -- ATE servicos
 -- SET etapa_espacador = NULL, dt_etapa = NULL, motivo_reprovacao_fechamento = NULL,
 --     nsmc = NULL, status_antes_instalacao = NULL
 -- WHERE id IN ('VD0000', 'VD0000', 'VD0000');
 --
--- COMMIT;
+-- COMMIT;Todos saem do fluxo de instalação
+-- UPD
