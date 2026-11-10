@@ -328,3 +328,24 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
 - Situação mostra só a etiqueta (ex.: "Reprovado"), sem o motivo embaixo, para diminuir a grade; o motivo fica
   no `title` da etiqueta e no modal da instalação.
 - Verificação (09/11): 226 testes e `npm run build` passaram; visual não conferido no navegador.
+
+## Decisão: etapa Apropriação depois do SalesForce (10/11/2026)
+
+- Pedido de Matheus: no SalesForce **não se informa mais o nº da apropriação**; ele vem em outra etapa, depois.
+  Fluxo agora: … Aguardando NSPR → **SalesForce** (`sf`: data de lançamento + valor da nota) →
+  **Apropriação** (`etapa_espacador = 'apropriacao'`: só o nº da apropriação) → Pago (fim).
+  Isto substitui a parte da decisão de 06/11 que exigia a apropriação no formulário do SalesForce.
+- Ações em `TRANSICOES` (`espacadores.js`): `salesforce` sf → apropriacao (não grava `apropriacao`, mesmo que
+  venha no payload); nova `apropriacao` apropriacao → pago, número obrigatório. Formulário novo:
+  `InformarApropriacaoModal.jsx` (perfil `fechar`, botão "Informar apropriação"); `InformarSalesforceModal.jsx`
+  perdeu o campo. O modal vem pré-preenchido com `servicos.apropriacao` se já houver (serviços devolvidos ao
+  SalesForce pelo script de 09/11 guardaram o valor).
+- Grade: Lançamento SF, Valor da nota e Apropriação aparecem em Apropriação, Pago e Todas. `camposCorrigiveis`:
+  data e valor corrigíveis em `apropriacao` e `pago`; o campo apropriação só em `pago`.
+- Sem coluna nova. Script `supabase/migrations/instalacao_etapa_apropriacao.sql` só amplia a CHECK de etapas.
+  **Precisa rodar no SQL Editor antes de publicar**: sem ele, informar o SalesForce falha (banco recusa
+  `apropriacao`). Matheus ainda não confirmou que rodou.
+- Serviços que já estão em Pago ou em SalesForce não são migrados. Suposição minha, a confirmar: Pago continua
+  sendo o fim do fluxo depois da Apropriação, e a cor da etapa (índigo) é escolha minha.
+- Verificação (10/11): 227 testes e `npm run build` passaram. UI conferida só por revisão do diff; não houve teste
+  no navegador, login real, commit nem publicação.

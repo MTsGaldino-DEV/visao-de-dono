@@ -23,10 +23,10 @@ export const COLUNAS_INSTALACOES = [
   { id: 'lancamento_sf', rotulo: 'Lançamento SF', curto: 'Lanç. SF' },
 ];
 
-const ETAPAS_COM_NUMEROS = ['aguardando_nsmc', 'sf', 'pago', 'todas'];
-const ETAPAS_COM_SALESFORCE = ['pago', 'todas'];
+const ETAPAS_COM_NUMEROS = ['aguardando_nsmc', 'sf', 'apropriacao', 'pago', 'todas'];
+const ETAPAS_COM_SALESFORCE = ['apropriacao', 'pago', 'todas'];
 
-// Colunas que aparecem para a etapa selecionada: NSMP/NSPR nas etapas finais; apropriação e dados do SalesForce só no Pago
+// Colunas que aparecem para a etapa selecionada: NSMP/NSPR nas etapas finais; apropriação e dados do SalesForce a partir da etapa Apropriação
 export const colunasVisiveis = (filtroEtapa) => COLUNAS_INSTALACOES.filter(c => {
   if (c.id === 'nsmp' || c.id === 'nspr') return ETAPAS_COM_NUMEROS.includes(filtroEtapa);
   if (['apropriacao', 'lancamento_sf', 'valor_nota'].includes(c.id)) return ETAPAS_COM_SALESFORCE.includes(filtroEtapa);

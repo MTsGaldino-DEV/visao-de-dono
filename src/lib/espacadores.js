@@ -13,7 +13,8 @@ export const ETAPAS = {
   aguardando_nsmp: { label: 'Aguardando NSMP', cor: '#7c3aed', bg: '#faf5ff', borda: '#ddd6fe' },
   aguardando_nsmc: { label: 'Aguardando NSPR', cor: '#c2410c', bg: '#fff7ed', borda: '#fed7aa' },
   sf:              { label: 'SalesForce',             cor: '#0f766e', bg: '#f0fdfa', borda: '#99f6e4' },
-  pago:            { label: 'Pago',            cor: '#15803d', bg: '#f0fdf4', borda: '#bbf7d0' },
+  apropriacao:     { label: 'Apropriação',     cor: '#4338ca', bg: '#eef2ff', borda: '#c7d2fe' },
+  pago:           { label: 'Pago',            cor: '#15803d', bg: '#f0fdf4', borda: '#bbf7d0' },
 };
 
 const TRANSICOES = {
@@ -22,8 +23,10 @@ const TRANSICOES = {
   reprovar: { de: 'revisao',         para: 'instalacao' },
   nsmp:     { de: 'aguardando_nsmp', para: 'aguardando_nsmc' },
   nsmc:     { de: 'aguardando_nsmc', para: 'sf' },
-  // Depois da NSPR o fechamento informa data, valor da nota e apropriação no SalesForce; aí o serviço está Pago
-  salesforce: { de: 'sf', para: 'pago' },
+  // Depois da NSPR o fechamento informa data e valor da nota no SalesForce...
+  salesforce: { de: 'sf', para: 'apropriacao' },
+  // ...e, na etapa seguinte, o número da apropriação; aí o serviço está Pago
+  apropriacao: { de: 'apropriacao', para: 'pago' },
 };
 
 const normStr = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -288,8 +291,10 @@ export const montarPayloadTransicao = (servico, acao, {
     if (valor === null) throw new Error('Informe um valor da nota válido.');
     payload.data_lancamento_sf = data;
     payload.valor_nota = valor;
+    msg = `SalesForce informado: lançamento ${formatarDataDia(data)}, nota ${formatarMoeda(valor)}`;
+  } else if (acao === 'apropriacao') {
     payload.apropriacao = exigir(apropriacao, 'Informe o número da apropriação.');
-    msg = `SalesForce informado: lançamento ${formatarDataDia(data)}, nota ${formatarMoeda(valor)}, apropriação ${payload.apropriacao}`;
+    msg = `Apropriação informada: ${payload.apropriacao}`;
   }
   payload.hist = [...(servico.hist || []), entradaHist(user, msg, agora)];
   return payload;
@@ -348,9 +353,10 @@ const CAMPOS_SERVICO = [
 // Só os números que a etapa já alcançou podem ser corrigidos
 export const camposCorrigiveis = (etapa) => [
   'equip', 'local',
-  ...(['aguardando_nsmc', 'sf', 'pago'].includes(etapa) ? ['numServ'] : []),
-  ...(['sf', 'pago'].includes(etapa) ? ['nsmc'] : []),
-  ...(etapa === 'pago' ? ['apropriacao', 'data_lancamento_sf', 'valor_nota'] : []),
+  ...(['aguardando_nsmc', 'sf', 'apropriacao', 'pago'].includes(etapa) ? ['numServ'] : []),
+  ...(['sf', 'apropriacao', 'pago'].includes(etapa) ? ['nsmc'] : []),
+  ...(etapa === 'pago' ? ['apropriacao'] : []),
+  ...(['apropriacao', 'pago'].includes(etapa) ? ['data_lancamento_sf', 'valor_nota'] : []),
 ];
 
 export const alteracoesServico = (servico, digitado) => {

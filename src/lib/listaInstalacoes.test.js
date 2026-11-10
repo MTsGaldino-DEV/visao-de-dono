@@ -25,18 +25,20 @@ describe('colunasVisiveis', () => {
     }
   });
 
-  it('Apropriação, Lançamento SF e Valor da nota só aparecem em pago e em todas', () => {
-    for (const etapa of ['pago', 'todas']) {
+  it('Apropriação, Lançamento SF e Valor da nota só aparecem em apropriação, pago e em todas', () => {
+    for (const etapa of ['apropriacao', 'pago', 'todas']) {
       expect(ids(colunasVisiveis(etapa))).toEqual(
         ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'valor_nota', 'tipo_equipe', 'equipe', 'desde', 'apropriacao', 'lancamento_sf'],
       );
     }
     for (const etapa of ['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf']) {
       expect(ids(colunasVisiveis(etapa))).not.toContain('valor_nota');
+      expect(ids(colunasVisiveis(etapa))).not.toContain('apropriacao');
     }
   });
 
-  it('esconde NSMP e NSPR em aguardando NSMP e mostra tudo em pago', () => {
+  it('esconde NSMP e NSPR em aguardando NSMP e mostra tudo em apropriação e pago', () => {
+    expect(ids(colunasVisiveis('apropriacao'))).toEqual(ids(COLUNAS_INSTALACOES));
     expect(ids(colunasVisiveis('aguardando_nsmp'))).not.toContain('nsmp');
     expect(ids(colunasVisiveis('pago'))).toEqual(ids(COLUNAS_INSTALACOES));
   });

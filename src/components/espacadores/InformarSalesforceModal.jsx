@@ -7,12 +7,11 @@ const rotulo = { display: 'block', fontSize: '12px', color: '#64748b', marginBot
 const campo = { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fff' };
 const erroTexto = { fontSize: '12px', color: '#dc2626', marginTop: '4px', fontWeight: '600' };
 
-// Etapa SF: o fechamento informa data de lançamento, valor da nota e apropriação; o serviço vira Pago.
+// Etapa SF: o fechamento informa data de lançamento e valor da nota; o serviço vai para a etapa Apropriação.
 const InformarSalesforceModal = ({ servico, onClose }) => {
   const { user } = useAuth();
   const [data, setData] = useState('');
   const [valor, setValor] = useState('');
-  const [apropriacao, setApropriacao] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de salvar com falta ou erro
 
@@ -20,9 +19,8 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
   const erros = {
     data: data ? null : 'Informe a data de lançamento no SalesForce.',
     valor: !valor.trim() ? 'Informe o valor da nota.' : valorLido === null ? 'Informe um valor da nota válido (até 2 casas decimais).' : null,
-    apropriacao: apropriacao.trim() ? null : 'Informe o número da apropriação.',
   };
-  const temErro = !!(erros.data || erros.valor || erros.apropriacao);
+  const temErro = !!(erros.data || erros.valor);
 
   useEffect(() => {
     const aoTeclar = (e) => { if (e.key === 'Escape' && !salvando) onClose(); };
@@ -36,7 +34,7 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
     if (temErro) { setMostrarErros(true); return; }
     setSalvando(true);
     try {
-      await aplicarTransicao(servico, 'salesforce', { user, dataLancamento: data, valorNota: valor, apropriacao });
+      await aplicarTransicao(servico, 'salesforce', { user, dataLancamento: data, valorNota: valor });
       onClose();
     } catch (err) {
       alert(err.message);
@@ -63,7 +61,7 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
           {mensagem('data')}
         </div>
 
-        <div style={{ marginBottom: '14px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <label style={rotulo} htmlFor="sf-valor">Valor da nota</label>
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: '#64748b', pointerEvents: 'none' }}>R$</span>
@@ -74,12 +72,6 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
           {valorLido !== null && <div style={{ fontSize: '12px', color: '#15803d', marginTop: '4px', fontWeight: '600' }}>{formatarMoeda(valorLido)}</div>}
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={rotulo} htmlFor="sf-apropriacao">Nº da apropriação</label>
-          <input id="sf-apropriacao" type="text" value={apropriacao} onChange={e => setApropriacao(e.target.value)} style={estilo('apropriacao')} />
-          {mensagem('apropriacao')}
-        </div>
-
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button type="button" onClick={onClose} disabled={salvando}
             style={{ padding: '11px 18px', background: 'transparent', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: salvando ? 'not-allowed' : 'pointer' }}>
@@ -87,7 +79,7 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
           </button>
           <button type="submit" disabled={salvando}
             style={{ padding: '11px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: salvando ? 'wait' : 'pointer', opacity: salvando ? 0.7 : 1 }}>
-            {salvando ? 'Salvando…' : 'Salvar e marcar como Pago'}
+            {salvando ? 'Salvando…' : 'Salvar e enviar para Apropriação'}
           </button>
         </div>
       </form>

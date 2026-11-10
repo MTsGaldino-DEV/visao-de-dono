@@ -220,18 +220,21 @@ describe('transições', () => {
     expect(() => proximaEtapa('revisao', 'voar')).toThrow(/desconhecida/);
   });
 
-  it('nsmc vai para SF, salesforce vai para pago e pago não tem próxima ação', () => {
+  it('nsmc vai para SF, salesforce para Apropriação, apropriacao para pago e pago não tem próxima ação', () => {
     expect(proximaEtapa('aguardando_nsmc', 'nsmc')).toBe('sf');
-    expect(proximaEtapa('sf', 'salesforce')).toBe('pago');
+    expect(proximaEtapa('sf', 'salesforce')).toBe('apropriacao');
+    expect(proximaEtapa('apropriacao', 'apropriacao')).toBe('pago');
     expect(() => proximaEtapa('aguardando_nsmc', 'salesforce')).toThrow(/Aguardando NSPR/);
+    expect(() => proximaEtapa('apropriacao', 'salesforce')).toThrow(/Apropriação/);
     expect(() => proximaEtapa('pago', 'salesforce')).toThrow(/Pago/);
-    expect(() => proximaEtapa('pago', 'apropriacao')).toThrow(/desconhecida/);
-    expect(() => proximaEtapa('sf', 'apropriacao')).toThrow(/desconhecida/);
+    expect(() => proximaEtapa('sf', 'apropriacao')).toThrow(/SalesForce/);
+    expect(() => proximaEtapa('pago', 'apropriacao')).toThrow(/Pago/);
   });
 
-  it('as pílulas seguem a ordem do fluxo, com SF entre NSPR e Pago', () => {
-    expect(Object.keys(ETAPAS)).toEqual(['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf', 'pago']);
+  it('as pílulas seguem a ordem do fluxo: SalesForce e Apropriação entre NSPR e Pago', () => {
+    expect(Object.keys(ETAPAS)).toEqual(['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf', 'apropriacao', 'pago']);
     expect(ETAPAS.sf.label).toBe('SalesForce');
+    expect(ETAPAS.apropriacao.label).toBe('Apropriação');
   });
 
   it('início grava etapa, histórico e o status para onde voltar', () => {
@@ -269,9 +272,9 @@ describe('transições', () => {
       .toMatchObject({ etapa_espacador: 'sf', nsmc: '999', dt_etapa: agora });
   });
 
-  it('salesforce: só na etapa SF e exige data, valor e apropriação', () => {
+  it('salesforce: só na etapa SF e exige data e valor, sem pedir apropriação', () => {
     const sf = { etapa_espacador: 'sf', hist: [] };
-    const ok = { user, agora, dataLancamento: '2026-11-05', valorNota: '1.234,56', apropriacao: '9844' };
+    const ok = { user, agora, dataLancamento: '2026-11-05', valorNota: '1.234,56' };
     expect(() => montarPayloadTransicao({ etapa_espacador: 'aguardando_nsmc' }, 'salesforce', ok)).toThrow(/Aguardando NSPR/);
     expect(() => montarPayloadTransicao({ etapa_espacador: 'pago' }, 'salesforce', ok)).toThrow(/Pago/);
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '' })).toThrow('Informe a data de lançamento no SalesForce.');
@@ -279,20 +282,34 @@ describe('transições', () => {
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '2026-02-30' })).toThrow(/data de lançamento/);
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '' })).toThrow('Informe um valor da nota válido.');
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '1,234' })).toThrow('Informe um valor da nota válido.');
-    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: '  ' })).toThrow('Informe o número da apropriação.');
-    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: undefined })).toThrow('Informe o número da apropriação.');
+    // mesmo que alguém mande apropriação junto, o SalesForce não grava
+    expect(montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: '9844' })).not.toHaveProperty('apropriacao');
   });
 
-  it('salesforce grava data, valor, apropriação, dt_etapa e histórico e vai para pago', () => {
+  it('salesforce grava data, valor, dt_etapa e histórico e vai para Apropriação', () => {
     const p = montarPayloadTransicao({ etapa_espacador: 'sf', hist: [{ msg: 'x' }] }, 'salesforce', {
-      user, agora, dataLancamento: '2026-11-05', valorNota: 'R$ 1.234,56', apropriacao: ' 9844 ',
+      user, agora, dataLancamento: '2026-11-05', valorNota: 'R$ 1.234,56',
     });
     expect(p).toMatchObject({
-      etapa_espacador: 'pago', data_lancamento_sf: '2026-11-05', valor_nota: 1234.56, apropriacao: '9844', dt_etapa: agora,
+      etapa_espacador: 'apropriacao', data_lancamento_sf: '2026-11-05', valor_nota: 1234.56, dt_etapa: agora,
     });
+    expect(p).not.toHaveProperty('apropriacao');
     expect(p.hist).toHaveLength(2);
-    expect(p.hist[1].msg).toBe(`SalesForce informado: lançamento 05/11/2026, nota ${formatarMoeda(1234.56)}, apropriação 9844`);
+    expect(p.hist[1].msg).toBe(`SalesForce informado: lançamento 05/11/2026, nota ${formatarMoeda(1234.56)}`);
     expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora });
+  });
+
+  it('apropriacao: só na etapa Apropriação, exige o número, grava e vai para pago', () => {
+    const etapa = { etapa_espacador: 'apropriacao', hist: [{ msg: 'x' }] };
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'sf' }, 'apropriacao', { user, agora, apropriacao: '9844' })).toThrow(/SalesForce/);
+    expect(() => montarPayloadTransicao({ etapa_espacador: 'pago' }, 'apropriacao', { user, agora, apropriacao: '9844' })).toThrow(/Pago/);
+    expect(() => montarPayloadTransicao(etapa, 'apropriacao', { user, agora, apropriacao: '  ' })).toThrow('Informe o número da apropriação.');
+    expect(() => montarPayloadTransicao(etapa, 'apropriacao', { user, agora })).toThrow('Informe o número da apropriação.');
+    const p = montarPayloadTransicao(etapa, 'apropriacao', { user, agora, apropriacao: ' 9844 ' });
+    expect(p).toMatchObject({ etapa_espacador: 'pago', apropriacao: '9844', dt_etapa: agora });
+    expect(p).not.toHaveProperty('data_lancamento_sf');
+    expect(p.hist).toHaveLength(2);
+    expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora, msg: 'Apropriação informada: 9844' });
   });
 
   it('excluir devolve o serviço ao status anterior e tira do fluxo', () => {
@@ -387,6 +404,7 @@ describe('correção da instalação por quem fecha', () => {
     expect(camposCorrigiveis('revisao')).toEqual(['equip', 'local']);
     expect(camposCorrigiveis('aguardando_nsmc')).toEqual(['equip', 'local', 'numServ']);
     expect(camposCorrigiveis('sf')).toEqual(['equip', 'local', 'numServ', 'nsmc']);
+    expect(camposCorrigiveis('apropriacao')).toEqual(['equip', 'local', 'numServ', 'nsmc', 'data_lancamento_sf', 'valor_nota']);
     expect(camposCorrigiveis('pago')).toEqual(['equip', 'local', 'numServ', 'nsmc', 'apropriacao', 'data_lancamento_sf', 'valor_nota']);
   });
 
@@ -449,7 +467,7 @@ describe('filtro por etapa', () => {
     expect(filtrarPorEtapa(lista, 'todas')).toHaveLength(4);
   });
   it('conta por etapa, com zero nas vazias e o total em "todas"', () => {
-    expect(contarPorEtapa(lista)).toEqual({ instalacao: 1, revisao: 1, aguardando_nsmp: 2, aguardando_nsmc: 0, sf: 0, pago: 0, todas: 4 });
+    expect(contarPorEtapa(lista)).toEqual({ instalacao: 1, revisao: 1, aguardando_nsmp: 2, aguardando_nsmc: 0, sf: 0, apropriacao: 0, pago: 0, todas: 4 });
     expect(contarPorEtapa([{ etapa_espacador: 'sf' }, { etapa_espacador: 'sf' }, { etapa_espacador: 'pago' }]))
       .toMatchObject({ sf: 2, pago: 1, todas: 3 });
   });

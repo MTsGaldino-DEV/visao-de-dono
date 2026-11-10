@@ -13,10 +13,11 @@ import { useFluxoEspacadores } from './useFluxoEspacadores';
 import NovaInstalacaoModal from './NovaInstalacaoModal';
 import InstalacaoModal from './InstalacaoModal';
 import InformarSalesforceModal from './InformarSalesforceModal';
+import InformarApropriacaoModal from './InformarApropriacaoModal';
 import EtapaBadge from './EtapaBadge';
 import FiltroColunaInstalacoes from './FiltroColunaInstalacoes';
 
-// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR, SF (SalesForce) e pago.
+// Tela única do fluxo novo de espaçadores: instalação, revisão, NSMP, NSPR, SF (SalesForce), apropriação e pago.
 // As ações de cada linha dependem da etapa do serviço e do perfil (permissoesFluxo).
 // A lista é uma grade estilo Excel: cabeçalho fixo, filtro por coluna e ordenação.
 
@@ -47,13 +48,13 @@ const TEXTO_VAZIO = {
   todas: 'Nenhuma instalação no fluxo.',
 };
 
-// Número que o fechamento informa em cada etapa (na etapa SF ele informa data, valor e apropriação pelo modal)
+// Número que o fechamento informa em cada etapa (em SF ele informa data e valor da nota; em Apropriação, o nº da apropriação, ambos por modal)
 const NUMERO_DA_ETAPA = {
   aguardando_nsmp: { acao: 'nsmp', label: 'NSMP', placeholder: 'Nº NSMP' },
   aguardando_nsmc: { acao: 'nsmc', label: 'NSPR', placeholder: 'Nº NSPR' },
 };
 
-const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf'];
+const FILA_DO_FECHAMENTO = ['revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf', 'apropriacao'];
 
 // Baixa a lista da etapa que está na tela (com a busca aplicada)
 const baixarExcel = (lista, vaosPorServico, filtro) => {
@@ -84,6 +85,7 @@ const FluxoInstalacoes = () => {
   const [excluindoId, setExcluindoId] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [salesforceDe, setSalesforceDe] = useState(null); // serviço do modal "Informar SalesForce"
+  const [apropriacaoDe, setApropriacaoDe] = useState(null); // serviço do modal "Informar apropriação"
   const [numero, setNumero] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [filtrosColuna, setFiltrosColuna] = useState({}); // { colunaId: string[] }
@@ -189,6 +191,14 @@ const FluxoInstalacoes = () => {
         <>
           {verDetalhes}
           <button onClick={() => setSalesforceDe(s)} style={{ ...botao, background: '#1d4ed8', color: '#fff' }}>Informar SalesForce</button>
+        </>
+      );
+    }
+    if (etapa === 'apropriacao' && permissoes.fechar) {
+      return (
+        <>
+          {verDetalhes}
+          <button onClick={() => setApropriacaoDe(s)} style={{ ...botao, background: '#1d4ed8', color: '#fff' }}>Informar apropriação</button>
         </>
       );
     }
@@ -376,6 +386,9 @@ const FluxoInstalacoes = () => {
       )}
       {salesforceDe && (
         <InformarSalesforceModal servico={salesforceDe} onClose={() => setSalesforceDe(null)} />
+      )}
+      {apropriacaoDe && (
+        <InformarApropriacaoModal servico={apropriacaoDe} onClose={() => setApropriacaoDe(null)} />
       )}
     </div>
   );
