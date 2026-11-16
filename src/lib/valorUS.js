@@ -25,8 +25,9 @@ export const valorUSNaData = (data, tabela = VALORES_US) => {
 // US convertida em R$ pela vigência da data de execução; null se não houver valor
 export const usParaReais = (us, data, tabela = VALORES_US) => {
   const taxa = valorUSNaData(data, tabela);
+  if (taxa === null || us === null || us === undefined || String(us).trim() === '') return null;
   const n = Number(us);
-  return taxa === null || !Number.isFinite(n) ? null : Math.round(n * taxa * 100) / 100;
+  return Number.isFinite(n) ? Math.round(n * taxa * 100) / 100 : null;
 };
 
 export const formatarReais = (valor) => {

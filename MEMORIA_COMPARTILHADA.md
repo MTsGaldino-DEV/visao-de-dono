@@ -392,3 +392,13 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   instalações não guardam data de execução. Aparece no formulário do SalesForce (com a taxa e a data usadas), na grade, em
   "Ver detalhes" e no Excel (coluna "Valor da nota (R$)"). Sem data ou antes de 24/05/2025: sem R$. Trocar a data de referência =
   mudar `notaEmReais`. Build e ESLint ok; testes novos não rodaram (vitest quebrado), lógica conferida em Node.
+- 16/11/2026 (publicação): commit `48ba73e` na `main`, push feito e `npm run deploy` terminou com "Published" (inclui a etapa
+  Apropriação, que estava só no `origin/main`). Matheus informou que **rodou** `valor_nota_us_4_casas.sql`. Pendente: conferir o
+  site servido (Actions) e testar SalesForce → Apropriação → Pago com login real; vitest segue quebrado.
+- 16/11/2026 (vitest consertado): causa = Windows com a letra do drive **minúscula** no diretório atual (`c:\...`, como no
+  VS Code/Claude Code); o Vitest 5 carrega o próprio módulo duas vezes e todos os arquivos falham com
+  `Cannot read properties of undefined (reading 'config')`. Em `C:\...` (maiúsculo) passa. Correção: `npm test` agora roda
+  `scripts/test.mjs`, que chama o Vitest com o drive maiúsculo (o ajuste só de `root` no `vite.config.js` NÃO resolve; o
+  caminho do binário também precisa ser maiúsculo). Resultado: 8 arquivos, **238 testes passam**.
+- O teste achou bug meu em `usParaReais`: valor vazio (null) com data virava R$ 0,00; agora devolve null. Correção **sem
+  commit/deploy ainda** (o commit `48ba73e` publicado ainda tem o bug; só aparece em serviço com data de SalesForce e sem valor).
