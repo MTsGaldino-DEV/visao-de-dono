@@ -1,7 +1,13 @@
+// Conferência rápida da tabela `usuarios` (precisa da chave service_role, que NUNCA vai no código).
+// Uso (PowerShell):  $env:SUPABASE_SERVICE_ROLE_KEY = '<chave>'; node check_users.mjs
 import { createClient } from '@supabase/supabase-js';
 
-const url = 'https://dexysqibeaqkwinmcbeb.supabase.co';
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRleHlzcWliZWFxa3dpbm1jYmViIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTA5MDY1NSwiZXhwIjoyMDk2NjY2NjU1fQ.Bzf8nl_KwCRYKDPoNqb2k69CFE5rZYI3s2D8UolWddg';
+const url = process.env.VITE_SUPABASE_URL || 'https://dexysqibeaqkwinmcbeb.supabase.co';
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!key) {
+  console.error('❌ Defina a variável de ambiente SUPABASE_SERVICE_ROLE_KEY (não escreva a chave neste arquivo).');
+  process.exit(1);
+}
 const supabase = createClient(url, key);
 
 async function main() {

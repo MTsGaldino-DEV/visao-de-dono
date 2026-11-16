@@ -362,7 +362,7 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   Depois de publicar: conferir em Actions e no site servido.
 - **Teste no navegador:** abrir um serviço em SalesForce, informar data e valor, confirmar que vai para Apropriação,
   informar o nº e confirmar que vira Pago.
-- `check_users.mjs` tem chave `service_role` do Supabase escrita no código; tirar e gerar nova chave.
+- ~~`check_users.mjs` tem chave `service_role` escrita no código~~ → chave **tirada do código em 16/11/2026** (agora lê `SUPABASE_SERVICE_ROLE_KEY` do ambiente) e `src/lib/supabaseAdmin.js` (sem uso, lia `VITE_SUPABASE_SERVICE_KEY`) foi removido. **A chave antiga continua no histórico do git (commit `7ed3622`) e no `origin`: Matheus precisa GERAR UMA NOVA no Supabase e invalidar a antiga.** Nunca usar prefixo `VITE_` para chave secreta (vai para o navegador). O site publicado e o `gh-pages` não contêm a chave.
 
 ## Decisão: valor da nota em US (unidade interna), até 4 casas (16/11/2026)
 
