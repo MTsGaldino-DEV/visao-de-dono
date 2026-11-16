@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
+import { notaEmReais, formatarReais } from '../../lib/valorUS';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao, excluirInstalacao, apagarInstalacaoDefinitivo } from '../../lib/espacadoresApi';
 import {
   ETAPAS, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, formatarData, permissoesFluxo, podeApagarInstalacao,
-  linhasPlanilhaInstalacoes, formatarDataDia, formatarMoeda, TIPOS_SERVICO, tipoServicoDe, rotuloTipoEquipe,
+  linhasPlanilhaInstalacoes, formatarDataDia, formatarUS, TIPOS_SERVICO, tipoServicoDe, rotuloTipoEquipe,
 } from '../../lib/espacadores';
 import {
   colunasVisiveis, valorColuna, filtrarPorColunas, valoresDaColuna, ordenarPorColuna,
@@ -356,7 +357,7 @@ const FluxoInstalacoes = () => {
                     case 'desde': return <td key={id} title={formatarData(s.dt_etapa)} style={{ ...td, color: '#64748b' }}>{valorColuna('desde', s) || '—'}</td>;
                     case 'apropriacao': return <td key={id} style={{ ...td, fontWeight: '700', color: s.apropriacao ? '#1d4ed8' : '#94a3b8' }}>{s.apropriacao || '—'}</td>;
                     case 'lancamento_sf': return <td key={id} style={{ ...td, whiteSpace: 'nowrap', color: s.data_lancamento_sf ? '#334155' : '#94a3b8' }}>{formatarDataDia(s.data_lancamento_sf) || '—'}</td>;
-                    case 'valor_nota': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: formatarMoeda(s.valor_nota) ? '#15803d' : '#94a3b8' }}>{formatarMoeda(s.valor_nota) || '—'}</td>;
+                    case 'valor_nota': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: formatarUS(s.valor_nota) ? '#15803d' : '#94a3b8' }}>{formatarUS(s.valor_nota) || '—'}{notaEmReais(s) !== null && <span style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: '#64748b' }}>{formatarReais(notaEmReais(s))}</span>}</td>;
                     default: return null;
                   }
                 };

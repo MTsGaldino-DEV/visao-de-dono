@@ -4,6 +4,7 @@
 import {
   lerCoordenada, formatarCoordenada, distanciaMetros, validarCoordenadaVao, coordenadaComVirgula, MENSAGEM_COORDENADA,
 } from './coordenadas';
+import { notaEmReais } from './valorUS';
 
 export const LIMITE_VINCULO_M = 100;
 
@@ -187,31 +188,49 @@ export const proximoIdVD = (ultimoId) => {
 
 // ── Valor da nota e data do lançamento (SalesForce) ─────────────────────────
 
-// Aceita número ou texto ("1.234,56", "1234,56", "1234.56", "R$ 1.234,56"); null se inválido
+// O valor da nota é em US (unidade interna, não é moeda), com até 4 casas decimais (ex.: 0,119); coluna NUMERIC(14,4)
+export const CASAS_VALOR_NOTA = 4;
+const FATOR_NOTA = 10 ** CASAS_VALOR_NOTA;
+
+// Aceita número ou texto ("1.234,56", "1234,56", "1234.56", "0,119", "0,119 US"); null se inválido
 export const lerValorNota = (texto) => {
   let n;
   if (typeof texto === 'number') {
     n = texto;
   } else {
-    let s = String(texto ?? '').replace(/R\$/gi, '').replace(/\s/g, '');
+    let s = String(texto ?? '').replace(/US|R\$|\$/gi, '').replace(/\s/g, '');
     if (!/^[\d.,]+$/.test(s)) return null;
     if (s.includes(',')) {
-      // Com vírgula, o ponto só vale como milhar: "1.50,00" é erro de digitação, não R$ 150,00
+      // Com vírgula, o ponto só vale como milhar: "1.50,00" é erro de digitação, não 150 US
       if (!/^(\d+|\d{1,3}(\.\d{3})+),\d*$/.test(s)) return null;
       s = s.replace(/\./g, '').replace(',', '.');
+    } else if (/^0\.\d+$/.test(s)) {
+      // "0.119" é decimal (nenhum milhar começa com zero)
     } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
     n = Number(s);
   }
   if (!Number.isFinite(n) || n <= 0 || n >= 10000000000) return null;
-  // No máximo 2 casas decimais
-  if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) return null;
-  return Math.round(n * 100) / 100;
+  // No máximo 4 casas decimais
+  const arredondado = Number(n.toFixed(CASAS_VALOR_NOTA));
+  if (arredondado !== n) return null;
+  return arredondado;
 };
 
-export const formatarMoeda = (valor) => {
+// Valor da nota em US: "0,119 US", "1.234,50 US" (2 a 4 casas, sem zeros desnecessários)
+export const formatarUS = (valor) => {
   if (valor === null || valor === undefined || String(valor).trim() === '') return '';
   const n = Number(valor);
-  return Number.isFinite(n) ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+  return Number.isFinite(n)
+    ? `${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: CASAS_VALOR_NOTA })} US`
+    : '';
+};
+
+// Valor da nota no formato de digitação brasileiro ("0,119", "1234,50"); vazio se não houver
+export const valorNotaParaDigitar = (v) => {
+  if (v === null || v === undefined || String(v).trim() === '') return '';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString('pt-BR', { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: CASAS_VALOR_NOTA });
 };
 
 // 'AAAA-MM-DD' vira 'DD/MM/AAAA' cortando o texto (new Date voltaria um dia pelo fuso)
@@ -291,7 +310,7 @@ export const montarPayloadTransicao = (servico, acao, {
     if (valor === null) throw new Error('Informe um valor da nota válido.');
     payload.data_lancamento_sf = data;
     payload.valor_nota = valor;
-    msg = `SalesForce informado: lançamento ${formatarDataDia(data)}, nota ${formatarMoeda(valor)}`;
+    msg = `SalesForce informado: lançamento ${formatarDataDia(data)}, nota ${formatarUS(valor)}`;
   } else if (acao === 'apropriacao') {
     payload.apropriacao = exigir(apropriacao, 'Informe o número da apropriação.');
     msg = `Apropriação informada: ${payload.apropriacao}`;
@@ -376,9 +395,9 @@ export const alteracoesServico = (servico, digitado) => {
       }
       const valor = lerValorNota(novo);
       if (valor === null) { erro = erro || 'Informe um valor da nota válido.'; return; }
-      if (salvoNum !== null && Math.round(salvoNum * 100) === Math.round(valor * 100)) return;
+      if (salvoNum !== null && Math.round(salvoNum * FATOR_NOTA) === Math.round(valor * FATOR_NOTA)) return;
       campos.valor_nota = valor;
-      mensagens.push(`${rotulo}: ${mostrar(formatarMoeda(salvoNum))} → ${formatarMoeda(valor)}`);
+      mensagens.push(`${rotulo}: ${mostrar(formatarUS(salvoNum))} → ${formatarUS(valor)}`);
       return;
     }
     if (novo === salvo) return;
@@ -463,7 +482,8 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'Desde': s.dt_etapa ? formatarData(s.dt_etapa) : '',
     'Apropriação': s.apropriacao || '',
     'Lançamento SF': formatarDataDia(s.data_lancamento_sf),
-    'Valor da nota': s.valor_nota === null || s.valor_nota === undefined || s.valor_nota === '' ? '' : Number(s.valor_nota),
+    'Valor da nota (US)': s.valor_nota === null || s.valor_nota === undefined || s.valor_nota === '' ? '' : Number(s.valor_nota),
+    'Valor da nota (R$)': notaEmReais(s) ?? '',
     'Coordenada do antes': coordenadaComVirgula(vao?.coord_antes) || vao?.coord_antes || '',
     'Coordenada do depois': coordenadaComVirgula(vao?.coord_depois) || vao?.coord_depois || '',
     'Foto do antes': vao?.fotos_antes?.[0] || '',

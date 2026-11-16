@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, fetchAll } from '../lib/supabase';
 import * as XLSX from 'xlsx';
+import { usParaReais, VALORES_US } from '../lib/valorUS';
+import { formatarDataDia } from '../lib/espacadores';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes
 // ─────────────────────────────────────────────────────────────────────────────
-const US_PARA_REAL = 2880.23;
 const ROLES_PERMITIDAS = ['dono'];
 
 const fmtReal = (v) =>
@@ -533,7 +534,14 @@ const FaturamentoTab = () => {
     const totalUS = registrosFiltrados
         .filter(r => r.valorFinal > 0)
         .reduce((a, r) => a + r.valorFinal, 0);
-    const totalReais = totalUS * US_PARA_REAL;
+    // R$ de cada serviço = US × valor da US vigente na data de execução (sem valor antes da 1ª vigência)
+    const reaisDe = (r) => usParaReais(r.valorFinal, r.dtExecucao);
+    const totalReais = registrosFiltrados
+        .filter(r => r.valorFinal > 0)
+        .reduce((a, r) => a + (reaisDe(r) ?? 0), 0);
+    const totalUSSemReais = registrosFiltrados
+        .filter(r => r.valorFinal > 0 && reaisDe(r) === null)
+        .reduce((a, r) => a + r.valorFinal, 0);
     const totalComValor = registrosFiltrados.filter(r => r.valorFinal > 0).length;
     const totalSemValor = registrosFiltrados.filter(r => r.valorFinal <= 0).length;
 
@@ -731,7 +739,9 @@ const FaturamentoTab = () => {
                         {
                             label: 'Valor em reais',
                             value: fmtReal(totalReais),
-                            sub: `US × R$ ${US_PARA_REAL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            sub: totalUSSemReais > 0
+                                ? `US × valor vigente na execução · ${fmtUS(totalUSSemReais)} US sem valor em R$ (executados antes de ${formatarDataDia(VALORES_US[VALORES_US.length - 1].inicio)})`
+                                : 'US × valor da US vigente na data de execução',
                             color: '#15803d',
                             icon: (
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round">
@@ -1043,7 +1053,7 @@ const FaturamentoTab = () => {
                                                 {temVal ? fmtUS(r.valorFinal) : <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>Aguardando</span>}
                                             </td>
                                             <td style={{ ...td, textAlign: 'right', color: temVal ? '#15803d' : '#94a3b8', fontWeight: temVal ? '600' : '400' }}>
-                                                {temVal ? fmtReal(r.valorFinal * US_PARA_REAL) : '—'}
+                                                {temVal && reaisDe(r) !== null ? fmtReal(reaisDe(r)) : '—'}
                                             </td>
                                         </tr>
                                     );

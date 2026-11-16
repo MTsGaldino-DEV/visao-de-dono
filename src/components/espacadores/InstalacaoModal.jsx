@@ -1,9 +1,10 @@
+import { notaEmReais, formatarReais } from '../../lib/valorUS';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
   permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao, coordenadaComVirgula,
-  lerValorNota, formatarMoeda, formatarDataDia, TIPOS_SERVICO, tipoServicoDe,
+  lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, TIPOS_SERVICO, tipoServicoDe,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
@@ -20,14 +21,7 @@ const botaoSalvar = { padding: '12px 22px', background: '#0f2544', color: '#fff'
 
 const ROTULO_CAMPO = {
   equip: 'Trafo', local: 'Localidade', numServ: 'NSMP', nsmc: 'NSPR', apropriacao: 'Apropriação',
-  data_lancamento_sf: 'Lançamento SF', valor_nota: 'Valor da nota',
-};
-
-// Valor da nota no formato de digitação brasileiro ("1234,50"); vazio se não houver
-const valorNotaParaDigitar = (v) => {
-  if (v === null || v === undefined || String(v).trim() === '') return '';
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : String(v);
+  data_lancamento_sf: 'Lançamento SF', valor_nota: 'Valor da nota (US)',
 };
 
 const valorInicialServico = (servico, c) => (c === 'valor_nota' ? valorNotaParaDigitar(servico[c]) : (servico[c] ?? ''));
@@ -189,7 +183,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
               {servico.nsmc && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>NSPR:</span> <b>{servico.nsmc}</b></>}
               {servico.apropriacao && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Apropriação:</span> <b>{servico.apropriacao}</b></>}
               {servico.data_lancamento_sf && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Lançamento SF:</span> <b>{formatarDataDia(servico.data_lancamento_sf)}</b></>}
-              {formatarMoeda(servico.valor_nota) && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Valor da nota:</span> <b>{formatarMoeda(servico.valor_nota)}</b></>}
+              {formatarUS(servico.valor_nota) && <><span style={{ color: '#cbd5e1', margin: '0 8px' }}>·</span><span style={{ color: '#94a3b8' }}>Valor da nota:</span> <b>{formatarUS(servico.valor_nota)}</b>{notaEmReais(servico) !== null && <span style={{ color: '#64748b' }}> = {formatarReais(notaEmReais(servico))}</span>}</>}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
               <span style={{ color: '#94a3b8' }}>Levantamento:</span> {servico.coord || '—'}

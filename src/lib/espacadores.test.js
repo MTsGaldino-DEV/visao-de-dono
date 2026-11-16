@@ -5,9 +5,10 @@ import {
   ETAPAS, proximaEtapa, montarPayloadInicio, montarPayloadTransicao, montarPayloadExclusao, filtrarPorBusca, filtrarPorEtapa, contarPorEtapa, permissoesFluxo,
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
-  linhasPlanilhaInstalacoes, lerValorNota, formatarMoeda, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
+  linhasPlanilhaInstalacoes, lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
   TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe,
 } from './espacadores';
+import { usParaReais } from './valorUS';
 
 const user = { label: 'Ana', matricula: '123' };
 const agora = '2026-09-25T12:00:00.000Z';
@@ -281,7 +282,7 @@ describe('transições', () => {
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '05/11/2026' })).toThrow(/data de lançamento/);
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, dataLancamento: '2026-02-30' })).toThrow(/data de lançamento/);
     expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '' })).toThrow('Informe um valor da nota válido.');
-    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '1,234' })).toThrow('Informe um valor da nota válido.');
+    expect(() => montarPayloadTransicao(sf, 'salesforce', { ...ok, valorNota: '1,23456' })).toThrow('Informe um valor da nota válido.');
     // mesmo que alguém mande apropriação junto, o SalesForce não grava
     expect(montarPayloadTransicao(sf, 'salesforce', { ...ok, apropriacao: '9844' })).not.toHaveProperty('apropriacao');
   });
@@ -295,7 +296,7 @@ describe('transições', () => {
     });
     expect(p).not.toHaveProperty('apropriacao');
     expect(p.hist).toHaveLength(2);
-    expect(p.hist[1].msg).toBe(`SalesForce informado: lançamento 05/11/2026, nota ${formatarMoeda(1234.56)}`);
+    expect(p.hist[1].msg).toBe(`SalesForce informado: lançamento 05/11/2026, nota ${formatarUS(1234.56)}`);
     expect(p.hist[1]).toMatchObject({ who: 'Ana', when: agora });
   });
 
@@ -367,13 +368,13 @@ describe('correção da instalação por quem fecha', () => {
     expect(alteracoesServico({ valor_nota: '1234.50' }, { valor_nota: '1.234,50' }).campos).toEqual({});
     const r = alteracoesServico(servico, { valor_nota: '2.000,00' });
     expect(r.campos).toEqual({ valor_nota: 2000 });
-    expect(r.mensagens).toEqual([`Valor da nota: ${formatarMoeda(1234.5)} → ${formatarMoeda(2000)}`]);
+    expect(r.mensagens).toEqual([`Valor da nota: ${formatarUS(1234.5)} → ${formatarUS(2000)}`]);
     expect(r.erro).toBeNull();
   });
 
   it('valor da nota inválido ou apagado dá erro e não entra em campos', () => {
     const servico = { valor_nota: 1234.5, data_lancamento_sf: '2026-11-05' };
-    for (const digitado of ['abc', '0', '-5', '1,234']) {
+    for (const digitado of ['abc', '0', '-5', '1,23456']) {
       expect(alteracoesServico(servico, { valor_nota: digitado })).toEqual({ campos: {}, mensagens: [], erro: 'Informe um valor da nota válido.' });
     }
     expect(alteracoesServico(servico, { valor_nota: '  ' })).toEqual({ campos: {}, mensagens: [], erro: 'Informe o valor da nota.' });
@@ -387,7 +388,7 @@ describe('correção da instalação por quem fecha', () => {
     const r = alteracoesServico(antigo, { data_lancamento_sf: '2026-11-05', valor_nota: '10,5', apropriacao: '77' });
     expect(r.campos).toEqual({ data_lancamento_sf: '2026-11-05', valor_nota: 10.5, apropriacao: '77' });
     expect(r.mensagens).toEqual([
-      'Apropriação: — → 77', 'Lançamento SF: — → 05/11/2026', `Valor da nota: — → ${formatarMoeda(10.5)}`,
+      'Apropriação: — → 77', 'Lançamento SF: — → 05/11/2026', `Valor da nota: — → ${formatarUS(10.5)}`,
     ]);
   });
 
@@ -425,11 +426,11 @@ describe('linhasPlanilhaInstalacoes', () => {
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
       'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
       'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Tipo de equipe': 'DUPLA', 'Desde': '', 'Apropriação': '9844',
-      'Lançamento SF': '05/11/2026', 'Valor da nota': 1234.5,
+      'Lançamento SF': '05/11/2026', 'Valor da nota (US)': 1234.5, 'Valor da nota (R$)': usParaReais(1234.5, '2026-11-05'),
       'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
     }]);
     expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({
-      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Tipo de equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota': '',
+      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Tipo de equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota (US)': '', 'Valor da nota (R$)': '',
     });
   });
 
@@ -595,28 +596,35 @@ describe('resumoEspacadoresPorGrupo', () => {
 describe('lerValorNota', () => {
   it.each([
     ['1.234,56', 1234.56], ['1234,56', 1234.56], ['1234.56', 1234.56], ['1234', 1234], ['R$ 1.234,56', 1234.56],
-    ['  R$  1.234,56 ', 1234.56], ['1.234', 1234], ['1.234.567', 1234567], ['10,5', 10.5], ['0,01', 0.01], ['1234.5', 1234.5],
+    ['  R$  1.234,56 ', 1234.56], ['1.234,56 US', 1234.56], ['0,119', 0.119], ['0.119', 0.119], ['0,1234', 0.1234], ['1,234', 1.234], ['1.234', 1234], ['1.234.567', 1234567], ['10,5', 10.5], ['0,01', 0.01], ['1234.5', 1234.5],
     [1234.56, 1234.56], [1234.5, 1234.5], [7, 7],
   ])('lê %s', (entrada, esperado) => {
     expect(lerValorNota(entrada)).toBe(esperado);
   });
   it.each([
-    '0', '0,00', '-5', 'abc', '', '   ', null, undefined, '1,234', '1.234,567', '12,3,4', '1e3', 'R$', '10000000000', '9999999999,999',
-    0, -1, NaN, Infinity, 1.234,
+    '0', '0,00', '-5', 'abc', '', '   ', null, undefined, '1,23456', '0,00001', '12,3,4', '1e3', 'R$', '10000000000', '9999999999,99999',
+    0, -1, NaN, Infinity, 1.23456,
   ])('recusa %s', (entrada) => {
     expect(lerValorNota(entrada)).toBeNull();
   });
   it('aceita o maior valor abaixo do limite', () => {
     expect(lerValorNota('9999999999,99')).toBe(9999999999.99);
   });
+  it('devolve o valor para digitar sem perder casas', () => {
+    expect(valorNotaParaDigitar(0.119)).toBe('0,119');
+    expect(valorNotaParaDigitar('1234.5')).toBe('1234,50');
+    expect(valorNotaParaDigitar(null)).toBe('');
+  });
 });
 
-describe('formatarMoeda', () => {
-  it('formata em reais e devolve vazio sem valor', () => {
-    expect(formatarMoeda(1234.5).replace(/\s/g, ' ')).toBe('R$ 1.234,50');
-    expect(formatarMoeda('1234.50').replace(/\s/g, ' ')).toBe('R$ 1.234,50');
-    expect(formatarMoeda(0).replace(/\s/g, ' ')).toBe('R$ 0,00');
-    for (const v of [null, undefined, '', '  ', 'abc']) expect(formatarMoeda(v)).toBe('');
+describe('formatarUS', () => {
+  it('formata em US (até 4 casas) e devolve vazio sem valor', () => {
+    expect(formatarUS(1234.5).replace(/\s/g, ' ')).toBe('1.234,50 US');
+    expect(formatarUS('1234.50').replace(/\s/g, ' ')).toBe('1.234,50 US');
+    expect(formatarUS(0.119).replace(/\s/g, ' ')).toBe('0,119 US');
+    expect(formatarUS('0.1234').replace(/\s/g, ' ')).toBe('0,1234 US');
+    expect(formatarUS(0).replace(/\s/g, ' ')).toBe('0,00 US');
+    for (const v of [null, undefined, '', '  ', 'abc']) expect(formatarUS(v)).toBe('');
   });
 });
 

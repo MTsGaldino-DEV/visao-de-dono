@@ -114,7 +114,7 @@ describe('valorColuna', () => {
   it('Lançamento SF em DD/MM/AAAA sem desvio de fuso e Valor da nota em reais', () => {
     const s = serv('A', { data_lancamento_sf: '2026-11-05', valor_nota: '1234.50' });
     expect(valorColuna('lancamento_sf', s)).toBe('05/11/2026');
-    expect(valorColuna('valor_nota', s).replace(/\s/g, ' ')).toBe('R$ 1.234,50');
+    expect(valorColuna('valor_nota', s).replace(/\s/g, ' ')).toBe('1.234,50 US');
     expect(valorColuna('lancamento_sf', serv('B'))).toBe('');
     expect(valorColuna('valor_nota', serv('B', { valor_nota: null }))).toBe('');
   });
@@ -193,7 +193,7 @@ describe('valoresDaColuna', () => {
     expect(valoresDaColuna(lista, 'lancamento_sf', {}).map(v => v.valor)).toEqual(['20/02/2026', '01/12/2026', '15/01/2027', VAZIO]);
     expect(valoresDaColuna(lista, 'valor_nota', {}).map(v => v.n)).toEqual([1, 1, 1, 1]);
     expect(valoresDaColuna(lista, 'valor_nota', {}).map(v => v.valor.replace(/\s/g, ' ')))
-      .toEqual(['R$ 99,90', 'R$ 1.000,00', 'R$ 12.000,50', VAZIO]);
+      .toEqual(['99,90 US', '1.000,00 US', '12.000,50 US', VAZIO]);
   });
 
   it('ordena quantidades como números', () => {

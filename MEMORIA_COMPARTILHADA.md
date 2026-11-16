@@ -349,3 +349,46 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   sendo o fim do fluxo depois da Apropriação, e a cor da etapa (índigo) é escolha minha.
 - Verificação (10/11): 227 testes e `npm run build` passaram. UI conferida só por revisão do diff; não houve teste
   no navegador, login real, commit nem publicação.
+
+## Pendências abertas em 10/11/2026 (fim do dia) — LEMBRAR MATHEUS EM 11/11
+
+- **Testes quebrados:** `npm test` (vitest 5.0.2) falha nos 7 arquivos com
+  `TypeError: Cannot read properties of undefined (reading 'config')` antes de rodar qualquer teste.
+  Nada no código mudou desde que 227 testes passaram em 10/11; parece problema de ambiente. Causa não achada.
+  Resolver e rodar a suíte de novo.
+- **Publicação da etapa Apropriação:** commit `9522eec` enviado ao `origin/main`; Matheus rodou
+  `instalacao_etapa_apropriacao.sql` com sucesso. O deploy (`npm run build` + `npx gh-pages -d dist -m "<frase>"`)
+  foi bloqueado pelo classificador do modo automático e **não foi feito**; o site ainda não tem a etapa.
+  Depois de publicar: conferir em Actions e no site servido.
+- **Teste no navegador:** abrir um serviço em SalesForce, informar data e valor, confirmar que vai para Apropriação,
+  informar o nº e confirmar que vira Pago.
+- `check_users.mjs` tem chave `service_role` do Supabase escrita no código; tirar e gerar nova chave.
+
+## Decisão: valor da nota em US (unidade interna), até 4 casas (16/11/2026)
+
+- Pedido de Matheus: ao informar o SalesForce (e ao corrigir em "Ver detalhes"), o **valor da nota é em US** (unidade interna, NÃO é dólar nem moeda), não em reais;
+  exemplo `0,119`. `lerValorNota` aceita até **4 casas** (`CASAS_VALOR_NOTA`) e ignora `US`/`R$` digitados; "0.119" é decimal,
+  "1.234" sem vírgula continua sendo milhar (1234). `formatarMoeda` virou `formatarUS` ("0,119 US", como no Faturamento); o formulário mostra
+  sufixo `US`, placeholder `0,119`; o Excel tem a coluna "Valor da nota (US)".
+- **Banco:** `servicos.valor_nota` era NUMERIC(12,2) e arredondaria 0,119 para 0,12. Script novo
+  `supabase/migrations/valor_nota_us_4_casas.sql` (→ NUMERIC(14,4)): **rodar no SQL Editor antes de publicar.**
+- Valores já gravados foram digitados em reais e agora aparecem como US; Matheus precisa conferir/corrigir à mão.
+- Verificação: `npm run build` ok; ESLint sem erros; funções conferidas em script Node (vitest segue quebrado, ver pendências
+  de 10/11). Testes em `espacadores.test.js` e `listaInstalacoes.test.js` foram atualizados mas **não rodaram**. Sem commit.
+
+## Decisão: US → R$ pelo valor da US vigente na data de execução (16/11/2026)
+
+- Regra de Matheus (tela "Valor da US em reais (apostilamento)" do Central NEO, tabela `neo_valor_us`): **R$ = US × valor da US
+  vigente na data de execução**. Vigências: **a partir de 24/05/2026 = R$ 2.964,33**; 24/05/2025 a 23/05/2026 = R$ 2.880,23;
+  antes de 24/05/2025 **não há valor em R$**.
+- Novo `src/lib/valorUS.js` (`VALORES_US`, `valorUSNaData`, `usParaReais`) com teste `valorUS.test.js`. Novo apostilamento =
+  acrescentar linha na tabela do arquivo. O Central NEO usa outro projeto Supabase; por isso a tabela é cópia no código.
+- `Faturamentotab.jsx` deixou de usar a taxa fixa 2.880,23: o R$ de cada linha e o total usam a vigência de `dtExecucao`;
+  linhas sem data ou anteriores a 24/05/2025 ficam sem R$ (aviso no cartão "Valor em reais"). **Os totais em R$ mudam.**
+- Pendente: mostrar o equivalente em R$ do valor da nota nas Instalações; falta Matheus dizer qual data vale (execução do serviço
+  ou lançamento no SalesForce). Build ok; vitest segue quebrado (testes novos não rodaram, lógica conferida em Node).
+- 16/11/2026 (equivalente em R$ nas Instalações): o valor da nota continua **lançado em US**; o R$ é só exibição
+  (`notaEmReais` em `valorUS.js`), pela US vigente na **data de lançamento no SalesForce** (`data_lancamento_sf`), porque as
+  instalações não guardam data de execução. Aparece no formulário do SalesForce (com a taxa e a data usadas), na grade, em
+  "Ver detalhes" e no Excel (coluna "Valor da nota (R$)"). Sem data ou antes de 24/05/2025: sem R$. Trocar a data de referência =
+  mudar `notaEmReais`. Build e ESLint ok; testes novos não rodaram (vitest quebrado), lógica conferida em Node.

@@ -1,4 +1,4 @@
-import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarMoeda, formatarDataDia, rotuloTipoEquipe } from './espacadores';
+import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarUS, formatarDataDia, rotuloTipoEquipe } from './espacadores';
 
 // Regras puras da grade de instalações (colunas, filtros estilo Excel e ordenação).
 // Sem React nem Supabase: tudo aqui é testável isoladamente.
@@ -54,7 +54,7 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'desde': v = s.dt_etapa ? new Date(s.dt_etapa).toLocaleDateString('pt-BR') : ''; break;
     case 'apropriacao': v = s.apropriacao; break;
     case 'lancamento_sf': v = formatarDataDia(s.data_lancamento_sf); break;
-    case 'valor_nota': v = formatarMoeda(s.valor_nota); break;
+    case 'valor_nota': v = formatarUS(s.valor_nota); break;
     default: v = '';
   }
   return String(v ?? '').trim();

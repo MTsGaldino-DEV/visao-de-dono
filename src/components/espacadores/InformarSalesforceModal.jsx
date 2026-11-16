@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { aplicarTransicao } from '../../lib/espacadoresApi';
-import { lerValorNota, formatarMoeda } from '../../lib/espacadores';
+import { lerValorNota, formatarUS, formatarDataDia } from '../../lib/espacadores';
+import { usParaReais, valorUSNaData, formatarReais } from '../../lib/valorUS';
 
 const rotulo = { display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '6px', fontWeight: '600' };
 const campo = { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fff' };
@@ -16,9 +17,12 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
   const [mostrarErros, setMostrarErros] = useState(false); // true depois da 1ª tentativa de salvar com falta ou erro
 
   const valorLido = lerValorNota(valor);
+  // Equivalente em R$ pela US vigente na data de lançamento informada
+  const taxaUS = valorUSNaData(data);
+  const valorReais = valorLido !== null ? usParaReais(valorLido, data) : null;
   const erros = {
     data: data ? null : 'Informe a data de lançamento no SalesForce.',
-    valor: !valor.trim() ? 'Informe o valor da nota.' : valorLido === null ? 'Informe um valor da nota válido (até 2 casas decimais).' : null,
+    valor: !valor.trim() ? 'Informe o valor da nota.' : valorLido === null ? 'Informe um valor da nota válido em US (até 4 casas decimais, ex.: 0,119).' : null,
   };
   const temErro = !!(erros.data || erros.valor);
 
@@ -62,14 +66,21 @@ const InformarSalesforceModal = ({ servico, onClose }) => {
         </div>
 
         <div style={{ marginBottom: '20px' }}>
-          <label style={rotulo} htmlFor="sf-valor">Valor da nota</label>
+          <label style={rotulo} htmlFor="sf-valor">Valor da nota (em US)</label>
           <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: '#64748b', pointerEvents: 'none' }}>R$</span>
-            <input id="sf-valor" type="text" inputMode="decimal" placeholder="0,00" value={valor} onChange={e => setValor(e.target.value)}
-              style={{ ...estilo('valor'), paddingLeft: '38px' }} />
+            <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: '#64748b', pointerEvents: 'none' }}>US</span>
+            <input id="sf-valor" type="text" inputMode="decimal" placeholder="0,119" value={valor} onChange={e => setValor(e.target.value)}
+              style={{ ...estilo('valor'), paddingRight: '40px' }} />
           </div>
           {mensagem('valor')}
-          {valorLido !== null && <div style={{ fontSize: '12px', color: '#15803d', marginTop: '4px', fontWeight: '600' }}>{formatarMoeda(valorLido)}</div>}
+          {valorLido !== null && (
+            <div style={{ fontSize: '12px', color: '#15803d', marginTop: '4px', fontWeight: '600' }}>
+              {formatarUS(valorLido)}
+              {valorReais !== null
+                ? <> = {formatarReais(valorReais)} <span style={{ color: '#64748b', fontWeight: '500' }}>(1 US = {formatarReais(taxaUS)} em {formatarDataDia(data)})</span></>
+                : <span style={{ color: '#64748b', fontWeight: '500' }}> · {data ? 'sem valor da US cadastrado para essa data' : 'informe a data para ver em R$'}</span>}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
