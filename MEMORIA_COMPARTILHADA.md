@@ -402,3 +402,18 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   caminho do binário também precisa ser maiúsculo). Resultado: 8 arquivos, **238 testes passam**.
 - O teste achou bug meu em `usParaReais`: valor vazio (null) com data virava R$ 0,00; agora devolve null. Correção **sem
   commit/deploy ainda** (o commit `48ba73e` publicado ainda tem o bug; só aparece em serviço com data de SalesForce e sem valor).
+
+## Decisão: migração para as chaves novas do Supabase (16/11/2026)
+
+- Doc: supabase.com/docs/guides/getting-started/migrating-to-new-api-keys. Chaves antigas (`anon`/`service_role`, JWT) serão
+  desativadas **até o fim de 2026**. Novas: publishable `sb_publishable_...` (pública, vai no navegador) e secret `sb_secret_...`
+  (só backend; no navegador dá 401). As duas famílias convivem; desativar as antigas é reversível (Settings > API Keys).
+- Matheus criou as chaves novas e colocou no `.env.local`. Nomes: `VITE_SUPABASE_PUBLISHABLE_KEY` (site; `src/lib/supabase.js` já
+  usa) e `SUPABASE_SECRET_KEY` (sem `VITE_`; usada por `check_users.mjs` e `scripts/importar-supabase.js`). Removida a linha
+  `VITE_SUPABASE_SERVICE_KEY` do `.env.local`; `VITE_SUPABASE_ANON_KEY` ficou só como reserva até desativar as antigas.
+- Testado: publishable (REST e Auth, via supabase-js) e secret (leu 10 usuários). O build contém só a publishable.
+- Edge Function `gerenciar-usuarios`: código passou a ler `SUPABASE_SECRET_KEYS` (JSON, nome `default`) com a legada de reserva.
+  **Falta publicar a função** (`supabase functions deploy gerenciar-usuarios` ou pelo painel) e testar criar/editar usuário.
+- Ordem segura: (1) publicar o site com a publishable, (2) publicar a função, (3) app `visao-de-dono-app` (usa
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY`; apps instalados mantêm a chave antiga até atualizarem — NÃO tocado), (4) só então desativar as
+  chaves antigas no painel (isso invalida a `service_role` vazada). Sem commit/deploy até aqui.

@@ -1,19 +1,17 @@
-// Conferência rápida da tabela `usuarios` (precisa da chave service_role, que NUNCA vai no código).
-// Uso (PowerShell):  $env:SUPABASE_SERVICE_ROLE_KEY = '<chave>'; node check_users.mjs
+// Conferência rápida da tabela `usuarios`. Usa a chave secret (SUPABASE_SECRET_KEY) lida do .env.local,
+// que está no .gitignore. NUNCA escreva a chave neste arquivo. Uso: node check_users.mjs
+import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.VITE_SUPABASE_URL || 'https://dexysqibeaqkwinmcbeb.supabase.co';
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!key) {
-  console.error('❌ Defina a variável de ambiente SUPABASE_SERVICE_ROLE_KEY (não escreva a chave neste arquivo).');
+dotenv.config({ path: new URL('./.env.local', import.meta.url) });
+const url = process.env.VITE_SUPABASE_URL;
+const key = process.env.SUPABASE_SECRET_KEY;
+if (!url || !key) {
+  console.error('❌ Defina VITE_SUPABASE_URL e SUPABASE_SECRET_KEY no .env.local.');
   process.exit(1);
 }
 const supabase = createClient(url, key);
 
-async function main() {
-  const { data, error } = await supabase.from('usuarios').select('*');
-  if (error) { console.error('❌ Erro:', error.message); return; }
-  console.log('Usuários no Supabase:', data.length);
-  if (data.length > 0) console.log(data[0]);
-}
-main();
+const { data, error } = await supabase.from('usuarios').select('uid');
+if (error) { console.error('❌ Erro:', error.message); process.exit(1); }
+console.log('Usuários no Supabase:', data.length);

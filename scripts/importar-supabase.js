@@ -11,10 +11,10 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_SERVICE_KEY;
+const supabaseKey = process.env.SUPABASE_SECRET_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ VITE_SUPABASE_URL ou VITE_SUPABASE_SERVICE_KEY não definidos no .env.local");
+  console.error("❌ VITE_SUPABASE_URL ou SUPABASE_SECRET_KEY não definidos no .env.local");
   process.exit(1);
 }
 

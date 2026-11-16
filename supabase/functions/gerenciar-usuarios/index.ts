@@ -18,7 +18,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    // Chave secret nova (sb_secret_...) vem em SUPABASE_SECRET_KEYS (JSON por nome); a legada fica de reserva
+    let chaveAdmin = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    try { chaveAdmin = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}')['default'] ?? chaveAdmin; } catch { /* usa a legada */ }
+    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', chaveAdmin);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return resposta({ error: 'Missing Authorization header' }, 401);
