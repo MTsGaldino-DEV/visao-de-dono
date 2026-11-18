@@ -457,4 +457,5 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
   Excel ganha a coluna "Rural/Urbano" depois de "Tipo de serviço".
 - O app `visao-de-dono-app` não grava em `vaos`: sem impacto. A área ficou no vão (como o tipo de equipe), não em `servicos`.
 - Verificação (18/11): 241 testes, `npm run build` e ESLint dos arquivos de espaçadores passaram. Tela não conferida no
-  navegador; sem commit nem publicação.
+  navegador. Commit `90ab2bc` enviado; Matheus informou que rodou o SQL; `npm run build` + `gh-pages` publicados em 18/11 e o
+  bundle servido (`index-dfSWiZiA.js`) contém "Rural ou urbano". Sem teste com login real.
