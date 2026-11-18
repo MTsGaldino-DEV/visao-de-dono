@@ -417,3 +417,44 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
 - Ordem segura: (1) publicar o site com a publishable, (2) publicar a função, (3) app `visao-de-dono-app` (usa
   `EXPO_PUBLIC_SUPABASE_ANON_KEY`; apps instalados mantêm a chave antiga até atualizarem — NÃO tocado), (4) só então desativar as
   chaves antigas no painel (isso invalida a `service_role` vazada). Sem commit/deploy até aqui.
+- 16/11/2026: site publicado (commit `857dd9a`) com a chave publishable. App `visao-de-dono-app` preparado (lê
+  `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, anon de reserva), **sem build/commit**. Faltam: publicar a função `gerenciar-usuarios`,
+  distribuir o app novo e só então desativar as chaves antigas.
+
+## Investigação: autopreenchimento por nº de transformador (17/11/2026)
+
+- Contexto completo em `HANDOFF-autopreenchimento-trafo.md`. Uso principal no Visão de Dono (cadastro de espaçador); o
+  `central-nec` é o sistema ligado à VPN da CEMIG e deve alimentar uma tabela `transformadores` no Supabase.
+- API GDIS `WebConsultaGdis/ws/contratada/{servico|notaservico}/...` responde **403 para curl** da máquina na VPN, mas **200 no
+  Edge** (via Playwright). Cópias em `ws/contratada/*.json` — **têm dados pessoais; não commitar** (`/ws/` no .gitignore desde 17/11).
+- Decisões de Matheus (17/11): GDIS é fonte confiável; Visão de Dono e central-nec usam **Supabase diferentes** (tabela fica no
+  do Visão de Dono); **requisito: buscar QUALQUER trafo cadastrado**, não só os com serviço na fila → a API `servico` sozinha não
+  basta. Matheus: "trafos que já tiveram algum serviço" é suficiente.
+- Captura Fiddler (17/11, em `ws/portal/`, ignorada): portal exige **modo IE**; login em 2 POSTs (`login_form.jsp`: cnpj/insc_est;
+  `loginUser.jsp`: usuário/senha + **CAPTCHA jQuery realperson** `defaultReal`/`defaultRealHash`). Decisão do Claude: **não
+  automatizar o login contornando o CAPTCHA** (barreira anti-robô; só com autorização formal do dono do GDIS).
+- Menu do portal não tem cadastro de equipamentos. O histórico `servico_resultado.jsp?txtNumDisp=` do 327250 trouxe 30 serviços
+  de **2011 a 2026** (colunas: Local, Reg., Alimen., Nº Eqp.) → é a fonte boa para "trafos que já tiveram serviço". Candidato a
+  carga em massa feita por humano: Relatórios > **Serviços Executados** (`relatorios/filtro_servexec.jsp`) — a verificar.
+- `servico` (4.312 linhas em 17/11) é a **fila atual** (situação P=3.411), reclamações desde 02/2025; não é histórico completo.
+  2.952 dispositivos distintos. `notaservico` não tem campo de dispositivo: só dados do consumidor → **não é preciso** para o trafo.
+- Mapeamento verificado com 259028 e 327250: `numeroDispositivo` = nº do trafo exato (string, sem sufixo); `codigoDispositivo`
+  `01` = transformador (outros códigos são outros equipamentos); alimentador do portal = `subestacao.trim() + alimentador`
+  (`GVSU`+`112`, `MNN `+`006`); `faseTransformador`/`potenciaTransformador` batem com `327250-1-5`; `regiao` = polo (`GV`);
+  `local` = código da localidade (327250 → 4518 São João do Manteninha; "MNN - Mantena" do portal é o conjunto ANEEL, que a API não
+  traz); `bairro` é do consumidor (decisão Matheus) e fica fora do autopreenchimento.
+
+## Decisão: rural ou urbano no "Novo serviço" das Instalações (18/11/2026)
+
+- Pedido de Matheus: o "Novo serviço" (Espaçador e Poda) tem botões **RURAL / URBANO**, escolha obrigatória
+  (radiogroup `.ni-seg`, logo abaixo do tipo de serviço). Gravado em `vaos.area` ('rural' | 'urbano').
+- **Tudo o que já foi lançado conta como rural** (regra de Matheus): o script
+  `supabase/migrations/instalacao_area_rural_urbano.sql` cria a coluna `NOT NULL DEFAULT 'rural'` + CHECK, o que preenche
+  os vãos existentes. **Rodar no SQL Editor antes de publicar**: sem a coluna, o Novo serviço falha ao gravar o vão.
+- Domínio em `espacadores.js`: `AREAS`, `areaValida`, `areaDoVao` e `rotuloArea` (sem valor = rural). `registrarInstalacao`
+  recusa sem área. VaoCard/modal: `<select>` Rural/Urbano editável onde a Equipe é editável; troca vai para o histórico
+  ("Rural/Urbano: Rural → Urbano"). Grade: coluna "Rural/Urbano" (cabeçalho "Área") depois de Serviço, com filtro/ordem;
+  Excel ganha a coluna "Rural/Urbano" depois de "Tipo de serviço".
+- O app `visao-de-dono-app` não grava em `vaos`: sem impacto. A área ficou no vão (como o tipo de equipe), não em `servicos`.
+- Verificação (18/11): 241 testes, `npm run build` e ESLint dos arquivos de espaçadores passaram. Tela não conferida no
+  navegador; sem commit nem publicação.

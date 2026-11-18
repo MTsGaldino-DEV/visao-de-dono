@@ -1,4 +1,4 @@
-import { pendenciasInstalacao, qtdValida, TIPOS_SERVICO, tipoServicoDe, TIPOS_EQUIPE, rotuloTipoEquipe } from '../../lib/espacadores';
+import { pendenciasInstalacao, qtdValida, TIPOS_SERVICO, tipoServicoDe, TIPOS_EQUIPE, rotuloTipoEquipe, AREAS, areaDoVao, rotuloArea } from '../../lib/espacadores';
 import CampoFoto from './CampoFoto';
 
 const titulo = { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' };
@@ -12,7 +12,7 @@ const selo = (cor, bg, borda) => ({ background: bg, color: cor, border: `1px sol
 // O que está digitado (rascunho) fica no modal, que bloqueia enviar/aprovar enquanto houver alteração sem salvar.
 // onSalvarDados ausente: o modal salva tudo junto no rodapé.
 const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviando = {}, mostrarErros = false, onTrocarFoto, onSalvarDados, onAmpliar }) => {
-  const { coordAntes, coordDepois, qtd, equipe, tipoEquipe } = rascunho;
+  const { coordAntes, coordDepois, qtd, equipe, tipoEquipe, area } = rascunho;
 
   const edicao = modo === 'edicao';
   const pendencias = pendenciasInstalacao(vao);
@@ -67,6 +67,18 @@ const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviand
             </select>
           ) : (
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{rotuloTipoEquipe(vao?.tipo_equipe) || '—'}</div>
+          )}
+        </div>
+
+        <div>
+          <div style={titulo}>Rural/Urbano</div>
+          {edicao ? (
+            <select value={area || areaDoVao(vao)} aria-label="Rural ou urbano" onChange={e => onRascunho('area', e.target.value)}
+              style={{ ...inputEquipe, width: '130px', background: '#fff' }}>
+              {Object.entries(AREAS).map(([chave, a]) => <option key={chave} value={chave}>{a.label}</option>)}
+            </select>
+          ) : (
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao ? rotuloArea(vao.area) : '—'}</div>
           )}
         </div>
 

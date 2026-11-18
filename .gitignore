@@ -46,6 +46,9 @@ Thumbs.db
 # Exportações do Firebase (dados reais)
 exports/
 
+# Respostas da API do GDIS (dados pessoais de consumidores)
+/ws/
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
 

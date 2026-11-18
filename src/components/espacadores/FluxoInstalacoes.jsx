@@ -339,6 +339,7 @@ const FluxoInstalacoes = () => {
                     case 'local': return <td key={id} style={td}>{s.local || '—'}</td>;
                     case 'equip': return <td key={id} style={td}>{s.equip || '—'}</td>;
                     case 'servico': return <td key={id} style={td}>{TIPOS_SERVICO[tipoServicoDe(s)].label}</td>;
+                    case 'area': return <td key={id} style={td}>{valorColuna('area', s, vao) || '—'}</td>;
                     case 'qtd': return <td key={id} style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: '700', color: '#475569' }}>{vao?.qtd_espacadores ?? '—'}</td>;
                     case 'situacao':
                       return (

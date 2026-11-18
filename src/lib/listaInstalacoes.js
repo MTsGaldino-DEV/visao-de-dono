@@ -1,4 +1,4 @@
-import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarUS, formatarDataDia, rotuloTipoEquipe } from './espacadores';
+import { ETAPAS, TIPOS_SERVICO, tipoServicoDe, lerValorNota, formatarUS, formatarDataDia, rotuloTipoEquipe, rotuloArea } from './espacadores';
 
 // Regras puras da grade de instalações (colunas, filtros estilo Excel e ordenação).
 // Sem React nem Supabase: tudo aqui é testável isoladamente.
@@ -11,6 +11,7 @@ export const COLUNAS_INSTALACOES = [
   { id: 'local', rotulo: 'Localidade' },
   { id: 'equip', rotulo: 'Trafo' },
   { id: 'servico', rotulo: 'Serviço' },
+  { id: 'area', rotulo: 'Rural/Urbano', curto: 'Área' },
   { id: 'qtd', rotulo: 'Quantidade', curto: 'Qtd.', numero: true },
   { id: 'situacao', rotulo: 'Situação' },
   { id: 'nsmp', rotulo: 'NSMP' },
@@ -41,6 +42,7 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'local': v = s.local; break;
     case 'equip': v = s.equip; break;
     case 'servico': v = TIPOS_SERVICO[tipoServicoDe(s)].label; break;
+    case 'area': v = vao ? rotuloArea(vao.area) : ''; break;
     case 'qtd': v = vao?.qtd_espacadores; break;
     case 'situacao':
       v = s.etapa_espacador === 'instalacao' && s.motivo_reprovacao_fechamento

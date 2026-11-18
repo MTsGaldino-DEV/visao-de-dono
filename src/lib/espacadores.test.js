@@ -6,7 +6,7 @@ import {
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
   linhasPlanilhaInstalacoes, lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
-  TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe,
+  TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe, areaValida, areaDoVao, rotuloArea,
 } from './espacadores';
 import { usParaReais } from './valorUS';
 
@@ -424,13 +424,13 @@ describe('linhasPlanilhaInstalacoes', () => {
     }];
     const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', tipo_equipe: 'dupla', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
-      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
+      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Rural/Urbano': 'Rural', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
       'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Tipo de equipe': 'DUPLA', 'Desde': '', 'Apropriação': '9844',
       'Lançamento SF': '05/11/2026', 'Valor da nota (US)': 1234.5, 'Valor da nota (R$)': usParaReais(1234.5, '2026-11-05'),
       'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
     }]);
     expect(linhasPlanilhaInstalacoes([{ id: 'VD2', etapa_espacador: 'revisao' }], {})[0]).toMatchObject({
-      'Tipo de serviço': 'Espaçador', 'Quantidade': '', 'Equipe': '', 'Tipo de equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota (US)': '', 'Valor da nota (R$)': '',
+      'Tipo de serviço': 'Espaçador', 'Rural/Urbano': '', 'Quantidade': '', 'Equipe': '', 'Tipo de equipe': '', 'Situação': 'Em revisão', 'Lançamento SF': '', 'Valor da nota (US)': '', 'Valor da nota (R$)': '',
     });
   });
 
@@ -443,7 +443,7 @@ describe('linhasPlanilhaInstalacoes', () => {
     const linhas = linhasPlanilhaInstalacoes(lista, vaos);
     expect(linhas[0]).toMatchObject({ 'ID': 'VD3', 'Tipo de serviço': 'Poda de árvore', 'Quantidade': 6 });
     expect(linhas[1]).toMatchObject({ 'ID': 'VD4', 'Tipo de serviço': 'Espaçador', 'Quantidade': 2 });
-    expect(Object.keys(linhas[0]).slice(0, 5)).toEqual(['ID', 'Localidade', 'Trafo', 'Tipo de serviço', 'Quantidade']);
+    expect(Object.keys(linhas[0]).slice(0, 6)).toEqual(['ID', 'Localidade', 'Trafo', 'Tipo de serviço', 'Rural/Urbano', 'Quantidade']);
     expect(linhas[0]).not.toHaveProperty('Espaçadores');
   });
 });
@@ -651,5 +651,30 @@ describe('lerValorNota: ponto fora do lugar', () => {
     expect(lerValorNota('1.234,56')).toBe(1234.56);
     expect(lerValorNota('1.234.567,8')).toBe(1234567.8);
     expect(lerValorNota('150,00')).toBe(150);
+  });
+});
+
+describe('área rural/urbano do vão', () => {
+  it('aceita só rural e urbano; vão antigo sem valor conta como rural', () => {
+    expect(areaValida(' Urbano ')).toBe('urbano');
+    expect(areaValida('rural')).toBe('rural');
+    expect(areaValida('cidade')).toBeNull();
+    expect(areaValida('')).toBeNull();
+    expect(areaDoVao({})).toBe('rural');
+    expect(areaDoVao({ area: 'urbano' })).toBe('urbano');
+    expect(rotuloArea(null)).toBe('Rural');
+    expect(rotuloArea('urbano')).toBe('Urbano');
+  });
+
+  it('alteracoesPendentes grava a área só quando muda; antigo sem valor = rural', () => {
+    const base = { coordAntes: '', coordDepois: '', qtd: '' };
+    expect(alteracoesPendentes({}, { ...base, area: 'rural' }).pendente).toBe(false);
+    expect(alteracoesPendentes({}, { ...base, area: 'urbano' }).campos).toEqual({ area: 'urbano' });
+    expect(alteracoesPendentes({ area: 'urbano' }, { ...base, area: 'rural' }).campos).toEqual({ area: 'rural' });
+    expect(alteracoesPendentes({ area: 'urbano' }, { ...base, area: '' }).pendente).toBe(false);
+  });
+
+  it('histórico descreve a troca de área', () => {
+    expect(descreverAlteracoesVao({ area: 'rural' }, { area: 'urbano' })).toEqual(['Rural/Urbano: Rural → Urbano']);
   });
 });

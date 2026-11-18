@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
   permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao, coordenadaComVirgula,
-  lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, TIPOS_SERVICO, tipoServicoDe,
+  lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, TIPOS_SERVICO, tipoServicoDe, areaDoVao,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
@@ -68,7 +68,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
   const podeRevisar = modo === 'revisao' && servico.etapa_espacador === 'revisao';
   const vao = vaos[0] ?? null;
   // Quando o vão salvo muda (por mim ou por outra pessoa), o rascunho recomeça do banco
-  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}|${vao?.tipo_equipe}`;
+  const versaoVao = `${vao?.id}|${vao?.coord_antes}|${vao?.coord_depois}|${vao?.qtd_espacadores}|${vao?.equipe}|${vao?.tipo_equipe}|${vao?.area}`;
   const digitado = rascunho?.versao === versaoVao ? rascunho : {
     // Gravada como "lat lng"; na tela já aparece no formato com vírgula que o vão exige
     versao: versaoVao,
@@ -77,6 +77,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     qtd: vao?.qtd_espacadores ?? '',
     equipe: vao?.equipe || '',
     tipoEquipe: vao?.tipo_equipe || '',
+    area: areaDoVao(vao),
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];

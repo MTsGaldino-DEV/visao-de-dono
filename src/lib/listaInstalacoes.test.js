@@ -15,20 +15,20 @@ describe('colunasVisiveis', () => {
 
   it('esconde NSMP, NSPR, Apropriação e dados do SalesForce em instalação e revisão', () => {
     for (const etapa of ['instalacao', 'revisao']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'tipo_equipe', 'equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'area', 'qtd', 'situacao', 'tipo_equipe', 'equipe', 'desde']);
     }
   });
 
   it('mostra NSMP e NSPR, mas não Apropriação nem SalesForce, em aguardando NSPR e em SF', () => {
     for (const etapa of ['aguardando_nsmc', 'sf']) {
-      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'tipo_equipe', 'equipe', 'desde']);
+      expect(ids(colunasVisiveis(etapa))).toEqual(['id', 'local', 'equip', 'servico', 'area', 'qtd', 'situacao', 'nsmp', 'nspr', 'tipo_equipe', 'equipe', 'desde']);
     }
   });
 
   it('Apropriação, Lançamento SF e Valor da nota só aparecem em apropriação, pago e em todas', () => {
     for (const etapa of ['apropriacao', 'pago', 'todas']) {
       expect(ids(colunasVisiveis(etapa))).toEqual(
-        ['id', 'local', 'equip', 'servico', 'qtd', 'situacao', 'nsmp', 'nspr', 'valor_nota', 'tipo_equipe', 'equipe', 'desde', 'apropriacao', 'lancamento_sf'],
+        ['id', 'local', 'equip', 'servico', 'area', 'qtd', 'situacao', 'nsmp', 'nspr', 'valor_nota', 'tipo_equipe', 'equipe', 'desde', 'apropriacao', 'lancamento_sf'],
       );
     }
     for (const etapa of ['instalacao', 'revisao', 'aguardando_nsmp', 'aguardando_nsmc', 'sf']) {
@@ -67,7 +67,7 @@ describe('valorColuna', () => {
     const cols = Object.fromEntries(COLUNAS_INSTALACOES.map(c => [c.id, c]));
     expect(cols.servico.rotulo).toBe('Serviço');
     expect(cols.qtd).toMatchObject({ rotulo: 'Quantidade', numero: true });
-    expect(ids(COLUNAS_INSTALACOES).slice(0, 5)).toEqual(['id', 'local', 'equip', 'servico', 'qtd']);
+    expect(ids(COLUNAS_INSTALACOES).slice(0, 6)).toEqual(['id', 'local', 'equip', 'servico', 'area', 'qtd']);
   });
 
   it('coluna Tipo de equipe mostra o rótulo em maiúsculas e fica vazia em vão antigo', () => {

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { buscarServicosPorTrafo, registrarInstalacao } from '../../lib/espacadoresApi';
-import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida, TIPOS_SERVICO, TIPOS_EQUIPE } from '../../lib/espacadores';
+import { bloqueioNovaInstalacao, sugerirVinculo, validarCoordenadaVao, qtdValida, TIPOS_SERVICO, TIPOS_EQUIPE, AREAS } from '../../lib/espacadores';
 import { TODAS_LOCALIDADES } from '../ServicosTable';
 import CampoFoto from './CampoFoto';
 
@@ -12,6 +12,7 @@ const linkBotao = { background: 'none', border: 'none', color: '#1d4ed8', fontSi
 const metros = (d) => `${Math.round(d)} m`;
 
 const chavesTipoEquipe = Object.keys(TIPOS_EQUIPE);
+const chavesArea = Object.keys(AREAS);
 
 // Botões do seletor de tipo de serviço e do tipo de equipe. Em CSS (não em style inline) para ter :hover, :active e :focus-visible.
 // Destaque do projeto: azul #1d4ed8 / #eff6ff; selecionado = azul-marinho #0f2544 (distinto do hover).
@@ -59,6 +60,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   const [qtd, setQtd] = useState('');
   const [equipe, setEquipe] = useState('');
   const [tipoEquipe, setTipoEquipe] = useState(''); // 'umpla' | 'dupla' | 'moto'; obrigatório
+  const [area, setArea] = useState(''); // 'rural' | 'urbano'; obrigatório
   const [escolhaManual, setEscolhaManual] = useState(null); // { tipo: 'servico', servico } | { tipo: 'novo' }
   const [mostrarLista, setMostrarLista] = useState(false);
   const [local, setLocal] = useState('');
@@ -77,12 +79,12 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
   };
 
   // Radiogroup: setas movem e marcam a opção, como num radio nativo
-  const moverTipoEquipe = (e, i) => {
+  const moverRadio = (e, i, chaves, marcar) => {
     const passo = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
     if (!passo) return;
     e.preventDefault();
-    const proximo = chavesTipoEquipe[(i + passo + chavesTipoEquipe.length) % chavesTipoEquipe.length];
-    setTipoEquipe(proximo);
+    const proximo = chaves[(i + passo + chaves.length) % chaves.length];
+    marcar(proximo);
     e.currentTarget.parentElement.querySelector(`[data-chave="${proximo}"]`)?.focus();
   };
 
@@ -131,6 +133,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
     if (!qtdValida(qtd)) faltando.push('quantidade');
     if (!equipe.trim()) faltando.push('equipe');
     if (!tipoEquipe) faltando.push('tipo de equipe');
+    if (!area) faltando.push('rural ou urbano');
   }
   const pronto = faltando.length === 0 && !enviando;
 
@@ -145,7 +148,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
       const id = await registrarInstalacao({
         servico: escolha.tipo === 'servico' ? escolha.servico : null,
         novo: escolha.tipo === 'novo' ? { equip: texto.trim(), local } : null,
-        tipoServico, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe, tipoEquipe,
+        tipoServico, fotoAntes, fotoDepois, coordAntes, coordDepois, qtd, equipe, tipoEquipe, area,
       }, user);
       onConcluir(id);
     } catch (e) {
@@ -192,6 +195,24 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
 
           {tipo && (<>
           <div>
+            <div id="area-rotulo" style={rotulo}>Rural ou urbano</div>
+            <div role="radiogroup" aria-labelledby="area-rotulo" aria-required="true"
+              style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderRadius: '10px', outline: mostrarErros && !area ? '2px solid #dc2626' : 'none', outlineOffset: '3px' }}>
+              {chavesArea.map((chave, i) => {
+                const marcado = area === chave;
+                return (
+                  <button key={chave} type="button" role="radio" className="ni-seg" data-chave={chave} aria-checked={marcado} disabled={enviando}
+                    tabIndex={marcado || (!area && i === 0) ? 0 : -1}
+                    onClick={() => setArea(chave)}
+                    onKeyDown={e => moverRadio(e, i, chavesArea, setArea)}>
+                    {AREAS[chave].label.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
             <label style={rotulo}>Número do trafo</label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input autoFocus value={texto} placeholder="Ex.: 763-3-45" disabled={enviando}
@@ -230,7 +251,7 @@ const NovaInstalacaoModal = ({ onClose, onConcluir, onErroParcial }) => {
                     <button key={chave} type="button" role="radio" className="ni-seg" data-chave={chave} aria-checked={marcado} disabled={enviando}
                       tabIndex={marcado || (!tipoEquipe && i === 0) ? 0 : -1}
                       onClick={() => setTipoEquipe(chave)}
-                      onKeyDown={e => moverTipoEquipe(e, i)}>
+                      onKeyDown={e => moverRadio(e, i, chavesTipoEquipe, setTipoEquipe)}>
                       {TIPOS_EQUIPE[chave].label}
                     </button>
                   );
