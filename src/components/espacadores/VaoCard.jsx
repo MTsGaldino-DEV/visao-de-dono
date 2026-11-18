@@ -73,12 +73,12 @@ const VaoCard = ({ vao, servico, modo, rascunho, alteracoes, onRascunho, enviand
         <div>
           <div style={titulo}>Rural/Urbano</div>
           {edicao ? (
-            <select value={area || areaDoVao(vao)} aria-label="Rural ou urbano" onChange={e => onRascunho('area', e.target.value)}
+            <select value={area || areaDoVao(vao, servico)} aria-label="Rural ou urbano" onChange={e => onRascunho('area', e.target.value)}
               style={{ ...inputEquipe, width: '130px', background: '#fff' }}>
               {Object.entries(AREAS).map(([chave, a]) => <option key={chave} value={chave}>{a.label}</option>)}
             </select>
           ) : (
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao ? rotuloArea(vao.area) : '—'}</div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f2544' }}>{vao ? rotuloArea(vao.area, servico) : '—'}</div>
           )}
         </div>
 

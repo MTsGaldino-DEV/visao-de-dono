@@ -1,6 +1,7 @@
 -- Instalações: área do vão (rural ou urbano), escolhida no "Novo serviço"
 -- Rodar manualmente no SQL Editor do Supabase ANTES de publicar o site.
--- Pedido de Matheus (18/11/2026): tudo o que já foi lançado conta como RURAL.
+-- ATENÇÃO: este script pôs TODOS os vãos antigos como rural. Regra certa (Matheus, 18/11): poda = rural,
+-- espaçador = urbano. Depois dele, rodar instalacao_area_por_tipo.sql.
 -- O DEFAULT 'rural' preenche todos os vãos existentes ao criar a coluna.
 
 ALTER TABLE vaos

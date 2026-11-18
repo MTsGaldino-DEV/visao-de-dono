@@ -86,12 +86,14 @@ export const tipoEquipeValido = (valor) => {
 // Rótulo para a tela e o Excel; '' quando não há tipo
 export const rotuloTipoEquipe = (valor) => TIPOS_EQUIPE[tipoEquipeValido(valor)]?.label || '';
 
-// Área do vão (vaos.area). Obrigatória no Novo serviço; o que foi lançado antes de 18/11/2026 conta como rural.
+// Área do vão (vaos.area). Obrigatória no Novo serviço. Nos lançados antes de 18/11/2026: poda = rural, espaçador = urbano.
 export const AREAS = {
   rural:  { label: 'Rural' },
   urbano: { label: 'Urbano' },
 };
-export const AREA_PADRAO = 'rural';
+
+// Área assumida quando o vão não tem valor: poda é rural; espaçador (ou desconhecido) é urbano
+export const areaPadrao = (servico) => (tipoServicoDe(servico) === 'poda' ? 'rural' : 'urbano');
 
 // Valor gravado ('rural' | 'urbano') ou null quando vazio/desconhecido
 export const areaValida = (valor) => {
@@ -99,10 +101,10 @@ export const areaValida = (valor) => {
   return Object.prototype.hasOwnProperty.call(AREAS, v) ? v : null;
 };
 
-// Área de um vão salvo: sem valor = rural (registros antigos)
-export const areaDoVao = (vao) => areaValida(vao?.area) || AREA_PADRAO;
+// Área de um vão salvo; sem valor, a do tipo do serviço
+export const areaDoVao = (vao, servico) => areaValida(vao?.area) || areaPadrao(servico);
 
-export const rotuloArea = (valor) => AREAS[areaValida(valor) || AREA_PADRAO].label;
+export const rotuloArea = (valor, servico) => AREAS[areaValida(valor) || areaPadrao(servico)].label;
 
 export const normalizarTrafo = (texto) => (texto || '').trim().toLowerCase();
 
@@ -182,10 +184,10 @@ export const alteracoesPendentes = (vao, { coordAntes, coordDepois, qtd, equipe,
     const nova = tipoEquipeValido(tipoEquipe);
     if (nova !== tipoEquipeValido(vao?.tipo_equipe)) campos.tipo_equipe = nova;
   }
-  // Área nunca fica vazia: valor desconhecido mantém o salvo
+  // Área nunca fica vazia: valor desconhecido mantém o salvo. Vão ainda não criado grava a área mostrada na tela.
   if (area !== undefined) {
     const nova = areaValida(area);
-    if (nova && nova !== areaDoVao(vao)) campos.area = nova;
+    if (nova && nova !== areaValida(vao?.area)) campos.area = nova;
   }
   return { campos, pendente: invalido || Object.keys(campos).length > 0, invalido };
 };
@@ -378,7 +380,7 @@ export const descreverAlteracoesVao = (vao, campos, servico) =>
     let antes = c.startsWith('coord_') ? coordenadaComVirgula(vao?.[c]) ?? vao?.[c] : vao?.[c];
     let depois = campos[c];
     if (c === 'tipo_equipe') { antes = rotuloTipoEquipe(antes); depois = rotuloTipoEquipe(depois); }
-    if (c === 'area') { antes = rotuloArea(antes); depois = rotuloArea(depois); }
+    if (c === 'area') { antes = rotuloArea(antes, servico); depois = rotuloArea(depois, servico); }
     const rotulo = c === 'qtd_espacadores' ? TIPOS_SERVICO[tipoServicoDe(servico)].rotuloHist : ROTULOS_VAO[c];
     return `${rotulo}: ${mostrar(antes)} → ${mostrar(depois)}`;
   });
@@ -497,7 +499,7 @@ export const linhasPlanilhaInstalacoes = (lista, vaosPorServico) => lista.map(s 
     'Localidade': s.local || '',
     'Trafo': s.equip || '',
     'Tipo de serviço': TIPOS_SERVICO[tipoServicoDe(s)].label,
-    'Rural/Urbano': vao ? rotuloArea(vao.area) : '',
+    'Rural/Urbano': vao ? rotuloArea(vao.area, s) : '',
     'Quantidade': vao?.qtd_espacadores ?? '',
     'Situação': ETAPAS[s.etapa_espacador]?.label || '',
     'Motivo da reprovação': s.motivo_reprovacao_fechamento || '',

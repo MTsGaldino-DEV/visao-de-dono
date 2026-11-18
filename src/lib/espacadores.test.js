@@ -6,7 +6,7 @@ import {
   validarArquivo, caminhoArquivo, elegivelGerarOs, bloqueioNovaInstalacao, ativosNoFluxo, resumoEspacadoresPainel,
   resumoEspacadoresPorGrupo, descreverAlteracoesVao, alteracoesServico, camposCorrigiveis, montarPayloadCorrecao,
   linhasPlanilhaInstalacoes, lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, isPoda, tipoServicoDe, TIPOS_SERVICO,
-  TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe, areaValida, areaDoVao, rotuloArea,
+  TIPOS_EQUIPE, tipoEquipeValido, rotuloTipoEquipe, areaValida, areaDoVao, rotuloArea, areaPadrao,
 } from './espacadores';
 import { usParaReais } from './valorUS';
 
@@ -424,7 +424,7 @@ describe('linhasPlanilhaInstalacoes', () => {
     }];
     const vaos = { VD1: [{ qtd_espacadores: 4, equipe: '7812', tipo_equipe: 'dupla', coord_antes: '-18.8 -41.9', coord_depois: '-18.9 -41.9', fotos_antes: ['a.jpg'], fotos_depois: [] }] };
     expect(linhasPlanilhaInstalacoes(lista, vaos)).toEqual([{
-      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Rural/Urbano': 'Rural', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
+      'ID': 'VD1', 'Localidade': 'Itambacuri', 'Trafo': '763', 'Tipo de serviço': 'Espaçador', 'Rural/Urbano': 'Urbano', 'Quantidade': 4, 'Situação': 'Pago', 'Motivo da reprovação': '',
       'NSMP': '111', 'NSPR': '222', 'Equipe': '7812', 'Tipo de equipe': 'DUPLA', 'Desde': '', 'Apropriação': '9844',
       'Lançamento SF': '05/11/2026', 'Valor da nota (US)': 1234.5, 'Valor da nota (R$)': usParaReais(1234.5, '2026-11-05'),
       'Coordenada do antes': '-18,800000 -41,900000', 'Coordenada do depois': '-18,900000 -41,900000', 'Foto do antes': 'a.jpg', 'Foto do depois': '',
@@ -655,26 +655,39 @@ describe('lerValorNota: ponto fora do lugar', () => {
 });
 
 describe('área rural/urbano do vão', () => {
-  it('aceita só rural e urbano; vão antigo sem valor conta como rural', () => {
+  const poda = { desc: 'Poda de árvore' };
+  const esp = { desc: 'Instalação de espaçador' };
+
+  it('aceita só rural e urbano; sem valor, poda é rural e espaçador é urbano', () => {
     expect(areaValida(' Urbano ')).toBe('urbano');
     expect(areaValida('rural')).toBe('rural');
     expect(areaValida('cidade')).toBeNull();
     expect(areaValida('')).toBeNull();
-    expect(areaDoVao({})).toBe('rural');
-    expect(areaDoVao({ area: 'urbano' })).toBe('urbano');
-    expect(rotuloArea(null)).toBe('Rural');
-    expect(rotuloArea('urbano')).toBe('Urbano');
+    expect(areaPadrao(poda)).toBe('rural');
+    expect(areaPadrao(esp)).toBe('urbano');
+    expect(areaPadrao({ desc: 'outra coisa' })).toBe('urbano');
+    expect(areaDoVao({}, poda)).toBe('rural');
+    expect(areaDoVao({}, esp)).toBe('urbano');
+    expect(areaDoVao({ area: 'urbano' }, poda)).toBe('urbano');
+    expect(rotuloArea(null, poda)).toBe('Rural');
+    expect(rotuloArea(null, esp)).toBe('Urbano');
+    expect(rotuloArea('rural', esp)).toBe('Rural');
   });
 
-  it('alteracoesPendentes grava a área só quando muda; antigo sem valor = rural', () => {
+  it('alteracoesPendentes grava a área só quando muda; vão ainda sem área grava a da tela', () => {
     const base = { coordAntes: '', coordDepois: '', qtd: '' };
-    expect(alteracoesPendentes({}, { ...base, area: 'rural' }).pendente).toBe(false);
-    expect(alteracoesPendentes({}, { ...base, area: 'urbano' }).campos).toEqual({ area: 'urbano' });
-    expect(alteracoesPendentes({ area: 'urbano' }, { ...base, area: 'rural' }).campos).toEqual({ area: 'rural' });
+    expect(alteracoesPendentes({ area: 'rural' }, { ...base, area: 'rural' }).pendente).toBe(false);
+    expect(alteracoesPendentes({ area: 'rural' }, { ...base, area: 'urbano' }).campos).toEqual({ area: 'urbano' });
     expect(alteracoesPendentes({ area: 'urbano' }, { ...base, area: '' }).pendente).toBe(false);
+    expect(alteracoesPendentes(null, { ...base, area: 'urbano' }).campos).toEqual({ area: 'urbano' });
   });
 
   it('histórico descreve a troca de área', () => {
-    expect(descreverAlteracoesVao({ area: 'rural' }, { area: 'urbano' })).toEqual(['Rural/Urbano: Rural → Urbano']);
+    expect(descreverAlteracoesVao({ area: 'rural' }, { area: 'urbano' }, poda)).toEqual(['Rural/Urbano: Rural → Urbano']);
+  });
+
+  it('planilha mostra a área do vão', () => {
+    const linhas = linhasPlanilhaInstalacoes([{ id: 'VD9', desc: 'Poda de árvore' }, { id: 'VD8', desc: 'Espaçador' }], { VD9: [{ area: 'rural' }], VD8: [{ area: 'urbano' }] });
+    expect(linhas.map(l => l['Rural/Urbano'])).toEqual(['Rural', 'Urbano']);
   });
 });

@@ -448,10 +448,13 @@ NSPR → SF → Pago com login real. Continuam a confirmar: NSIS para poda e val
 
 - Pedido de Matheus: o "Novo serviço" (Espaçador e Poda) tem botões **RURAL / URBANO**, escolha obrigatória
   (radiogroup `.ni-seg`, logo abaixo do tipo de serviço). Gravado em `vaos.area` ('rural' | 'urbano').
-- **Tudo o que já foi lançado conta como rural** (regra de Matheus): o script
+- **Registros anteriores: poda = rural, espaçador = urbano** (correção de Matheus em 18/11; a 1ª versão pôs todos como
+  rural, engano meu). `instalacao_area_por_tipo.sql` corrige os vãos criados antes de 18/11 13:16 (Brasília) pela descrição
+  do serviço (mesma regra de `tipoServicoDe`) e tem prévia por tipo. Sem valor no vão, o código usa `areaPadrao(servico)`.
+  O script
   `supabase/migrations/instalacao_area_rural_urbano.sql` cria a coluna `NOT NULL DEFAULT 'rural'` + CHECK, o que preenche
   os vãos existentes. **Rodar no SQL Editor antes de publicar**: sem a coluna, o Novo serviço falha ao gravar o vão.
-- Domínio em `espacadores.js`: `AREAS`, `areaValida`, `areaDoVao` e `rotuloArea` (sem valor = rural). `registrarInstalacao`
+- Domínio em `espacadores.js`: `AREAS`, `areaValida`, `areaPadrao`, `areaDoVao` e `rotuloArea` (sem valor = padrão do tipo). `registrarInstalacao`
   recusa sem área. VaoCard/modal: `<select>` Rural/Urbano editável onde a Equipe é editável; troca vai para o histórico
   ("Rural/Urbano: Rural → Urbano"). Grade: coluna "Rural/Urbano" (cabeçalho "Área") depois de Serviço, com filtro/ordem;
   Excel ganha a coluna "Rural/Urbano" depois de "Tipo de serviço".

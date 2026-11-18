@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   podeEnviarInstalacao, pendenciasInstalacao, alteracoesPendentes, lerCoordenada, distanciaMetros, formatarData,
   permissoesFluxo, camposCorrigiveis, alteracoesServico, descreverAlteracoesVao, coordenadaComVirgula,
-  lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, TIPOS_SERVICO, tipoServicoDe, areaDoVao,
+  lerValorNota, formatarUS, valorNotaParaDigitar, formatarDataDia, TIPOS_SERVICO, tipoServicoDe, areaDoVao, areaValida, areaPadrao,
 } from '../../lib/espacadores';
 import {
   carregarServico, carregarVaos, salvarDadosVao, trocarFoto, corrigirInstalacao,
@@ -77,7 +77,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
     qtd: vao?.qtd_espacadores ?? '',
     equipe: vao?.equipe || '',
     tipoEquipe: vao?.tipo_equipe || '',
-    area: areaDoVao(vao),
+    area: areaDoVao(vao, servico),
   };
   const alteracoes = alteracoesPendentes(vao, digitado);
   const camposServico = corrigindo ? camposCorrigiveis(servico.etapa_espacador) : [];
@@ -132,7 +132,7 @@ const InstalacaoModal = ({ servicoId, modo = 'leitura', onClose }) => {
 
   // Se o envio caiu antes de criar o vão, a primeira foto cria a linha
   const handleTrocarFoto = (tipo, file) => comEnvio(tipo, async () => {
-    const alvo = vao || await salvarDadosVao(servico.id, null, {});
+    const alvo = vao || await salvarDadosVao(servico.id, null, { area: areaValida(digitado.area) || areaPadrao(servico) });
     await trocarFoto(alvo, tipo, file);
     if (corrigindo) await corrigirInstalacao(servico, alvo, { mensagens: [`Foto do ${tipo} trocada`] }, user);
   });

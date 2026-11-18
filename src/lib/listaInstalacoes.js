@@ -42,7 +42,7 @@ export const valorColuna = (colunaId, s, vao) => {
     case 'local': v = s.local; break;
     case 'equip': v = s.equip; break;
     case 'servico': v = TIPOS_SERVICO[tipoServicoDe(s)].label; break;
-    case 'area': v = vao ? rotuloArea(vao.area) : ''; break;
+    case 'area': v = vao ? rotuloArea(vao.area, s) : ''; break;
     case 'qtd': v = vao?.qtd_espacadores; break;
     case 'situacao':
       v = s.etapa_espacador === 'instalacao' && s.motivo_reprovacao_fechamento
